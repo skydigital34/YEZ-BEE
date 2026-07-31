@@ -50,6 +50,8 @@ export interface IUserDocument extends Document {
   isActive: boolean;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  emailVerificationToken?: string;
+  emailVerificationExpires?: Date;
   lastLoginAt?: Date;
   passwordChangedAt?: Date;
   refreshToken?: string;
@@ -58,7 +60,7 @@ export interface IUserDocument extends Document {
   generateAuthToken(): string;
   generateRefreshToken(): string;
   generatePasswordResetToken(): string;
-  toJSON(): Record<string, unknown>;
+  toJSON(): Record<string, unknown> & { _id: unknown };
 }
 
 export interface IUserModel extends Model<IUserDocument> {
@@ -159,13 +161,13 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
   {
     timestamps: true,
     toJSON: {
-      transform(_doc, ret) {
-        delete ret.password;
-        delete ret.refreshToken;
-        delete ret.resetPasswordToken;
-        delete ret.resetPasswordExpires;
-        delete ret.passwordChangedAt;
-        delete ret.__v;
+      transform(_doc: unknown, ret: Record<string, unknown>) {
+        ret.password = undefined;
+        ret.refreshToken = undefined;
+        ret.resetPasswordToken = undefined;
+        ret.resetPasswordExpires = undefined;
+        ret.passwordChangedAt = undefined;
+        ret.__v = undefined;
         return ret;
       },
     },
@@ -209,16 +211,16 @@ userSchema.methods.generateAuthToken = function (): string {
       role: this.role,
       email: this.email,
     },
-    process.env.JWT_SECRET!,
-    { expiresIn: JWT_EXPIRES_IN }
+    process.env.JWT_SECRET as string,
+    { expiresIn: JWT_EXPIRES_IN as string }
   );
 };
 
 userSchema.methods.generateRefreshToken = function (): string {
   return jwt.sign(
     { id: this._id },
-    process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET!,
-    { expiresIn: JWT_REFRESH_EXPIRES_IN }
+    (process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET) as string,
+    { expiresIn: JWT_REFRESH_EXPIRES_IN as string }
   );
 };
 

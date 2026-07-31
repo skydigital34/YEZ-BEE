@@ -313,7 +313,7 @@ export const cancelOrder = async (
       ORDER_STATUS.PROCESSING,
     ];
 
-    if (!cancellableStatuses.includes(order.status as string)) {
+    if (!cancellableStatuses.includes(order.status as 'pending' | 'confirmed' | 'processing')) {
       throw new AppError('Order cannot be cancelled at this stage', 400);
     }
 
@@ -455,8 +455,8 @@ export const updateOrderStatus = async (
       ORDER_STATUS.DELIVERED,
     ];
 
-    const currentIndex = statusFlow.indexOf(order.status as string);
-    const newIndex = statusFlow.indexOf(status);
+    const currentIndex = statusFlow.indexOf(order.status as 'pending' | 'confirmed' | 'processing' | 'shipped' | 'out_for_delivery' | 'delivered');
+    const newIndex = statusFlow.indexOf(status as 'pending' | 'confirmed' | 'processing' | 'shipped' | 'out_for_delivery' | 'delivered');
 
     if (newIndex < currentIndex && status !== ORDER_STATUS.CANCELLED && status !== ORDER_STATUS.REFUNDED) {
       throw new AppError('Cannot move order to a previous status', 400);

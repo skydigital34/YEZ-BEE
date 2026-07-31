@@ -1,6 +1,5 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../utils/helpers';
-import { EMAIL_TEMPLATES } from '../utils/constants';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -26,7 +25,7 @@ interface SendEmailOptions {
   subject: string;
   html: string;
   from?: string;
-  attachments?: nodemailer.Attachment[];
+  attachments?: nodemailer.SendMailOptions['attachments'];
 }
 
 export const sendEmail = async (options: SendEmailOptions): Promise<void> => {

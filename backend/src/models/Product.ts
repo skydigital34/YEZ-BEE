@@ -80,7 +80,7 @@ export interface IProductDocument extends Document {
   ratings: { average: number; count: number; distribution: IRatingDistribution };
   reviewCount: number;
   soldCount: number;
-  isNew: boolean;
+  isNewArrival: boolean;
   isTrending: boolean;
   isBestSeller: boolean;
   isActive: boolean;
@@ -221,7 +221,7 @@ const productSchema = new Schema<IProductDocument>(
     },
     reviewCount: { type: Number, default: 0, min: 0 },
     soldCount: { type: Number, default: 0, min: 0 },
-    isNew: { type: Boolean, default: false },
+    isNewArrival: { type: Boolean, default: false },
     isTrending: { type: Boolean, default: false },
     isBestSeller: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true, index: true },
@@ -276,7 +276,7 @@ productSchema.methods.isInStock = function (variantSku: string): boolean {
   return variant ? variant.stock > 0 : false;
 };
 
-productSchema.virtual('discountPercent').get(function () {
+productSchema.virtual('discountPercent').get(function (this: IProductDocument) {
   const minPrice = Math.min(...this.variants.map((v: IProductVariant) => v.price));
   const maxCompare = Math.max(
     ...this.variants.map((v: IProductVariant) => v.compareAtPrice || 0)
@@ -287,12 +287,12 @@ productSchema.virtual('discountPercent').get(function () {
   return 0;
 });
 
-productSchema.virtual('minPrice').get(function () {
+productSchema.virtual('minPrice').get(function (this: IProductDocument) {
   const activeVariants = this.variants.filter((v: IProductVariant) => v.isActive);
   return Math.min(...activeVariants.map((v: IProductVariant) => v.price));
 });
 
-productSchema.virtual('maxPrice').get(function () {
+productSchema.virtual('maxPrice').get(function (this: IProductDocument) {
   const activeVariants = this.variants.filter((v: IProductVariant) => v.isActive);
   return Math.max(...activeVariants.map((v: IProductVariant) => v.price));
 });

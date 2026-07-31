@@ -4,8 +4,8 @@ import Review from '../models/Review';
 import Category from '../models/Category';
 import { AppError } from '../middleware/errorHandler';
 import { logger, slugify, parsePagination, parseSort } from '../utils/helpers';
-import { getFromCache, setToCache, delFromCache } from '../config/redis';
-import { CACHE_KEYS, DEFAULT_TTL } from '../utils/constants';
+import { getFromCache, setToCache, delFromCache, DEFAULT_TTL } from '../config/redis';
+import { CACHE_KEYS } from '../utils/constants';
 import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary';
 
 export const getProducts = async (
