@@ -1,0 +1,122 @@
+import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
+import { logger } from '../utils/helpers';
+
+export class AppError extends Error {
+  public statusCode: number;
+  public isOperational: boolean;
+  public errors?: unknown;
+
+  constructor(message: string, statusCode: number = 500, errors?: unknown) {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = true;
+    this.errors = errors;
+
+    Object.setPrototypeOf(this, AppError.prototype);
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+export const notFoundHandler = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): void => {
+  next(new AppError(`Resource not found: ${req.originalUrl}`, 404));
+};
+
+const handleMongooseValidationError = (
+  err: mongoose.Error.ValidationError
+): AppError => {
+  const errors = Object.values(err.errors).map((e) => ({
+    field: e.path,
+    message: e.message,
+  }));
+
+  const message = 'Validation failed';
+  return new AppError(message, 400, errors);
+};
+
+const handleDuplicateKeyError = (err: { keyValue: Record<string, unknown> }): AppError => {
+  const fields = Object.keys(err.keyValue).join(', ');
+  const message = `Duplicate value for: ${fields}`;
+  return new AppError(message, 409);
+};
+
+const handleCastError = (err: mongoose.Error.CastError): AppError => {
+  const message = `Invalid ${err.path}: ${err.value}`;
+  return new AppError(message, 400);
+};
+
+const handleJwtError = (): AppError => {
+  return new AppError('Invalid token. Please log in again.', 401);
+};
+
+const handleJwtExpiredError = (): AppError => {
+  return new AppError('Your token has expired. Please log in again.', 401);
+};
+
+const sendErrorDev = (err: AppError, res: Response): void => {
+  res.status(err.statusCode).json({
+    success: false,
+    message: err.message,
+    statusCode: err.statusCode,
+    errors: err.errors,
+    stack: err.stack,
+  });
+};
+
+const sendErrorProd = (err: AppError, res: Response): void => {
+  if (err.isOperational) {
+    res.status(err.statusCode).json({
+      success: false,
+      message: err.message,
+      statusCode: err.statusCode,
+      ...(err.errors && { errors: err.errors }),
+    });
+  } else {
+    logger.error('Unexpected error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Something went wrong. Please try again later.',
+      statusCode: 500,
+    });
+  }
+};
+
+export const errorHandler = (
+  err: Error,
+  _req: Request,
+  res: Response,
+  _next: NextFunction
+): void => {
+  let error: AppError;
+
+  if (err instanceof AppError) {
+    error = err;
+  } else if (err instanceof mongoose.Error.ValidationError) {
+    error = handleMongooseValidationError(err);
+  } else if ((err as { code?: number }).code === 11000) {
+    error = handleDuplicateKeyError(err as { keyValue: Record<string, unknown> });
+  } else if (err instanceof mongoose.Error.CastError) {
+    error = handleCastError(err);
+  } else if (err instanceof jwt.JsonWebTokenError) {
+    error = handleJwtError();
+  } else if (err instanceof jwt.TokenExpiredError) {
+    error = handleJwtExpiredError();
+  } else {
+    error = new AppError(
+      err.message || 'Internal server error',
+      500
+    );
+    error.isOperational = false;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    sendErrorProd(error, res);
+  } else {
+    sendErrorDev(error, res);
+  }
+};
