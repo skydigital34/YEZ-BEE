@@ -6,6 +6,7 @@ import { USER_ROLES, JWT_EXPIRES_IN, JWT_REFRESH_EXPIRES_IN } from '../utils/con
 import { generateReferralCode } from '../utils/helpers';
 
 export interface IAddress {
+  _id?: mongoose.Types.ObjectId;
   label: string;
   fullName: string;
   phone: string;
@@ -20,6 +21,7 @@ export interface IAddress {
 }
 
 export interface ICartItem {
+  _id?: mongoose.Types.ObjectId;
   product: mongoose.Types.ObjectId;
   variantSku: string;
   quantity: number;

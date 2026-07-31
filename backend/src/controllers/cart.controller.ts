@@ -168,7 +168,7 @@ export const updateCartItem = async (
       throw new AppError('User not found', 404);
     }
 
-    const cartItem = user.cart.id(itemId);
+    const cartItem = (user.cart as any).id(itemId);
     if (!cartItem) {
       throw new AppError('Cart item not found', 404);
     }
@@ -210,7 +210,7 @@ export const removeFromCart = async (
       throw new AppError('User not found', 404);
     }
 
-    const item = user.cart.id(itemId);
+    const item = (user.cart as any).id(itemId);
     if (!item) {
       throw new AppError('Cart item not found', 404);
     }
