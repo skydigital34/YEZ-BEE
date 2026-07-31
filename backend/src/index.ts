@@ -5,6 +5,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import mongoSanitize from 'express-mongo-sanitize';
 import { connectDatabase } from './config/database';
 import { connectRedis } from './config/redis';
 import { verifyTransporter } from './config/email';
@@ -65,6 +66,8 @@ const configureMiddleware = (): void => {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(cookieParser());
+
+  app.use(mongoSanitize());
 
   if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('combined', {

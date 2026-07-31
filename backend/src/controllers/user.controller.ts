@@ -189,7 +189,7 @@ export const updateAddress = async (
       throw new AppError('User not found', 404);
     }
 
-    const address = (user.addresses as any).id(id);
+    const address = user.addresses.id(id);
     if (!address) {
       throw new AppError('Address not found', 404);
     }
@@ -227,7 +227,7 @@ export const deleteAddress = async (
       throw new AppError('User not found', 404);
     }
 
-    const address = (user.addresses as any).id(id);
+    const address = user.addresses.id(id);
     if (!address) {
       throw new AppError('Address not found', 404);
     }

@@ -28,7 +28,8 @@ export const createRazorpayOrder = async (options: CreateOrderOptions) => {
       currency: options.currency || 'INR',
       receipt: options.receipt,
       notes: options.notes,
-    }) as { id: string; amount: number; currency: string; receipt: string; status: string };
+      payment_capture: 1,
+    });
 
     logger.info(`Razorpay order created: ${order.id}`);
     return order;

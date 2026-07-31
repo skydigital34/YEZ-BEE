@@ -1,32 +1,37 @@
-import { createClient, RedisClientType } from 'redis';
+import Redis from 'ioredis';
 import { logger } from '../utils/helpers';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-let redisClient: RedisClientType | null = null;
-let redisStatus = 'disconnected';
+let redisClient: Redis | null = null;
 
-const getRedisClient = (): RedisClientType => {
+const getRedisClient = (): Redis => {
   if (!redisClient) {
-    redisClient = createClient({ url: REDIS_URL }) as RedisClientType;
+    redisClient = new Redis(REDIS_URL, {
+      maxRetriesPerRequest: 3,
+      retryStrategy(times) {
+        if (times > 5) {
+          logger.error('Redis max retries reached');
+          return null;
+        }
+        return Math.min(times * 200, 2000);
+      },
+      lazyConnect: true,
+    });
 
     redisClient.on('connect', () => {
-      redisStatus = 'connecting';
-      logger.info('Redis connecting');
+      logger.info('Redis connected');
     });
 
-    redisClient.on('ready', () => {
-      redisStatus = 'ready';
-      logger.info('Redis ready');
-    });
-
-    redisClient.on('error', (err: Error) => {
-      redisStatus = 'error';
+    redisClient.on('error', (err) => {
       logger.error('Redis error:', err);
     });
 
-    redisClient.on('end', () => {
-      redisStatus = 'disconnected';
+    redisClient.on('ready', () => {
+      logger.info('Redis ready');
+    });
+
+    redisClient.on('close', () => {
       logger.warn('Redis connection closed');
     });
   }
@@ -46,7 +51,7 @@ export const connectRedis = async (): Promise<void> => {
 export const getFromCache = async <T>(key: string): Promise<T | null> => {
   try {
     const client = getRedisClient();
-    if (redisStatus !== 'ready') return null;
+    if (client.status !== 'ready') return null;
 
     const data = await client.get(key);
     if (!data) return null;
@@ -65,10 +70,10 @@ export const setToCache = async (
 ): Promise<void> => {
   try {
     const client = getRedisClient();
-    if (redisStatus !== 'ready') return;
+    if (client.status !== 'ready') return;
 
     const serialized = JSON.stringify(value);
-    await client.setEx(key, ttlSeconds, serialized);
+    await client.setex(key, ttlSeconds, serialized);
   } catch (error) {
     logger.warn('Redis set error:', error);
   }
@@ -77,7 +82,7 @@ export const setToCache = async (
 export const delFromCache = async (key: string): Promise<void> => {
   try {
     const client = getRedisClient();
-    if (redisStatus !== 'ready') return;
+    if (client.status !== 'ready') return;
 
     await client.del(key);
   } catch (error) {
@@ -88,11 +93,11 @@ export const delFromCache = async (key: string): Promise<void> => {
 export const clearCache = async (pattern: string = '*'): Promise<void> => {
   try {
     const client = getRedisClient();
-    if (redisStatus !== 'ready') return;
+    if (client.status !== 'ready') return;
 
     const keys = await client.keys(pattern);
     if (keys.length > 0) {
-      await client.del(keys);
+      await client.del(...keys);
     }
   } catch (error) {
     logger.warn('Redis clear error:', error);
@@ -107,6 +112,9 @@ export const DEFAULT_TTL = {
   ORDER: 120,
 } as const;
 
-export const getRedisStatus = (): string => redisStatus;
+export const getRedisStatus = (): string => {
+  const client = getRedisClient();
+  return client.status;
+};
 
 export default { getRedisClient, connectRedis, getFromCache, setToCache, delFromCache, clearCache };

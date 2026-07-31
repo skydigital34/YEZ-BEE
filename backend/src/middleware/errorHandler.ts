@@ -70,15 +70,12 @@ const sendErrorDev = (err: AppError, res: Response): void => {
 
 const sendErrorProd = (err: AppError, res: Response): void => {
   if (err.isOperational) {
-    const body: Record<string, unknown> = {
+    res.status(err.statusCode).json({
       success: false,
       message: err.message,
       statusCode: err.statusCode,
-    };
-    if (err.errors !== undefined) {
-      body.errors = err.errors;
-    }
-    res.status(err.statusCode).json(body);
+      ...(err.errors && { errors: err.errors }),
+    });
   } else {
     logger.error('Unexpected error:', err);
     res.status(500).json({

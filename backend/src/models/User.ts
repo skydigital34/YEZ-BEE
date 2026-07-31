@@ -6,7 +6,6 @@ import { USER_ROLES, JWT_EXPIRES_IN, JWT_REFRESH_EXPIRES_IN } from '../utils/con
 import { generateReferralCode } from '../utils/helpers';
 
 export interface IAddress {
-  _id?: mongoose.Types.ObjectId;
   label: string;
   fullName: string;
   phone: string;
@@ -21,7 +20,6 @@ export interface IAddress {
 }
 
 export interface ICartItem {
-  _id?: mongoose.Types.ObjectId;
   product: mongoose.Types.ObjectId;
   variantSku: string;
   quantity: number;
@@ -52,8 +50,6 @@ export interface IUserDocument extends Document {
   isActive: boolean;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
-  emailVerificationToken?: string;
-  emailVerificationExpires?: Date;
   lastLoginAt?: Date;
   passwordChangedAt?: Date;
   refreshToken?: string;
@@ -62,7 +58,7 @@ export interface IUserDocument extends Document {
   generateAuthToken(): string;
   generateRefreshToken(): string;
   generatePasswordResetToken(): string;
-  toJSON(): Record<string, unknown> & { _id: unknown };
+  toJSON(): Record<string, unknown>;
 }
 
 export interface IUserModel extends Model<IUserDocument> {
@@ -163,13 +159,13 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
   {
     timestamps: true,
     toJSON: {
-      transform(_doc: unknown, ret: Record<string, unknown>) {
-        ret.password = undefined;
-        ret.refreshToken = undefined;
-        ret.resetPasswordToken = undefined;
-        ret.resetPasswordExpires = undefined;
-        ret.passwordChangedAt = undefined;
-        ret.__v = undefined;
+      transform(_doc, ret) {
+        delete ret.password;
+        delete ret.refreshToken;
+        delete ret.resetPasswordToken;
+        delete ret.resetPasswordExpires;
+        delete ret.passwordChangedAt;
+        delete ret.__v;
         return ret;
       },
     },
@@ -213,16 +209,16 @@ userSchema.methods.generateAuthToken = function (): string {
       role: this.role,
       email: this.email,
     },
-    process.env.JWT_SECRET as string,
-    { expiresIn: JWT_EXPIRES_IN as string }
+    process.env.JWT_SECRET!,
+    { expiresIn: JWT_EXPIRES_IN }
   );
 };
 
 userSchema.methods.generateRefreshToken = function (): string {
   return jwt.sign(
     { id: this._id },
-    (process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET) as string,
-    { expiresIn: JWT_REFRESH_EXPIRES_IN as string }
+    process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET!,
+    { expiresIn: JWT_REFRESH_EXPIRES_IN }
   );
 };
 

@@ -146,15 +146,12 @@ export const formatPaginatedResponse = (
 };
 
 export const formatError = (message: string, statusCode: number = 500, errors?: unknown) => {
-  const result: Record<string, unknown> = {
+  return {
     success: false,
     message,
     statusCode,
+    ...(errors && { errors }),
   };
-  if (errors !== undefined) {
-    result.errors = errors;
-  }
-  return result;
 };
 
 export const roundOff = (value: number): number => {

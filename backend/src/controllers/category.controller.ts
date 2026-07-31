@@ -3,8 +3,8 @@ import Category from '../models/Category';
 import Product from '../models/Product';
 import { AppError } from '../middleware/errorHandler';
 import { slugify } from '../utils/helpers';
-import { getFromCache, setToCache, delFromCache, DEFAULT_TTL } from '../config/redis';
-import { CACHE_KEYS } from '../utils/constants';
+import { getFromCache, setToCache, delFromCache } from '../config/redis';
+import { CACHE_KEYS, DEFAULT_TTL } from '../utils/constants';
 
 export const getCategories = async (
   _req: Request,

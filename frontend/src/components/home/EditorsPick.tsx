@@ -13,7 +13,7 @@ export default function EditorsPick() {
           {/* Main Runway Editorial Feature */}
           <div className="relative lg:col-span-8 overflow-hidden rounded-3xl min-h-[480px] lg:min-h-[540px] shadow-soft-lg group">
             <Image
-              src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1400&auto=format&fit=crop"
+              src="/images/flash_sale.jpg"
               alt="Editor's Runway Pick"
               fill
               sizes="(max-width: 1024px) 100vw, 66vw"
@@ -88,7 +88,7 @@ export default function EditorsPick() {
 
             <div className="group relative flex-1 overflow-hidden rounded-2xl min-h-[250px] shadow-soft-md">
               <Image
-                src="https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=800&auto=format&fit=crop"
+                src="/images/western_chic.jpg"
                 alt="Executive Power Tailoring"
                 fill
                 sizes="(max-width: 1024px) 100vw, 33vw"

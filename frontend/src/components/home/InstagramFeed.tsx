@@ -12,27 +12,27 @@ const INSTA_POSTS = [
   },
   {
     id: 2,
-    image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?q=80&w=600&auto=format&fit=crop',
+    image: '/images/flash_sale.jpg',
     tag: '#HauteCouture',
   },
   {
     id: 3,
-    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600&auto=format&fit=crop',
+    image: '/images/ethnic_luxe.jpg',
     tag: '#FestivalGlam',
   },
   {
     id: 4,
-    image: 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=600&auto=format&fit=crop',
+    image: '/images/western_chic.jpg',
     tag: '#PowerDressing',
   },
   {
     id: 5,
-    image: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop',
+    image: '/images/luxury_featured_collection.jpg',
     tag: '#SilkElegance',
   },
   {
     id: 6,
-    image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=600&auto=format&fit=crop',
+    image: '/images/haute_accessories.jpg',
     tag: '#FineJewellery',
   },
 ];

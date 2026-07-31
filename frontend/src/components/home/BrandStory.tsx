@@ -34,7 +34,7 @@ export default function BrandStory() {
             {/* Overlapping Secondary Card */}
             <div className="hidden sm:block absolute -bottom-8 -right-4 w-52 h-64 overflow-hidden rounded-xl shadow-gold-lg border-2 border-white">
               <Image
-                src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=600&auto=format&fit=crop"
+                src="/images/ethnic_luxe.jpg"
                 alt="Artisan Detail"
                 fill
                 sizes="200px"
