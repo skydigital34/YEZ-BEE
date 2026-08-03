@@ -247,6 +247,7 @@ productSchema.index({ soldCount: -1 });
 productSchema.index({ featuredOrder: 1 });
 productSchema.index({ isTrending: 1 });
 productSchema.index({ isBestSeller: 1 });
+productSchema.index({ 'variants.size': 1, isActive: 1 }); // Fast size-based filtering
 
 productSchema.pre<IProductDocument>('save', function (next) {
   if (this.isModified('name') && !this.slug) {

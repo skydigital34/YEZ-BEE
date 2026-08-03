@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, ArrowRight, HeartHandshake } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -10,44 +10,70 @@ import { cn } from '@/lib/utils';
 const slides = [
   {
     id: 1,
-    tagline: 'HAUTE COUTURE 2026',
-    headline: 'Redefining Modern Elegance',
-    subtext: 'Step into a world of timeless sophistication with our master-crafted silk sarees, designer gowns, and bespoke evening wear.',
-    cta: 'Explore Collection',
-    secondaryCta: 'View Lookbook',
-    href: '/category/new-arrivals',
-    image: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2000&auto=format&fit=crop',
+    eyebrow: 'MATERNITY COLLECTION',
+    heading: 'Comfort That Celebrates Every Curve',
+    description: 'Thoughtfully designed maternity dresses that keep you comfortable, confident and effortlessly stylish through every stage of motherhood.',
+    mobileDescription: 'Thoughtful maternity dresses designed for comfort and style.',
+    primaryCta: 'SHOP MATERNITY DRESSES',
+    primaryHref: '/category/maternity-kurtis',
+    secondaryCta: 'EXPLORE COLLECTION',
+    secondaryHref: '/category/all',
+    image: '/images/maternity/slide1.jpg',
+    alt: 'Pregnant Indian woman wearing an elegant YEZ BEE silk maternity dress',
+    align: 'left',
   },
   {
     id: 2,
-    tagline: 'ROYAL FESTIVAL EDIT',
-    headline: 'Opulence in Every Thread',
-    subtext: 'Handcrafted zardozi embroidery, rich royal velvets, and fluid silhouettes designed for grand celebrations.',
-    cta: 'Shop Festival Edit',
-    secondaryCta: 'Curated Outfits',
-    href: '/category/ethnic-wear',
-    image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?q=80&w=2000&auto=format&fit=crop',
+    eyebrow: 'EVERYDAY MATERNITY WEAR',
+    heading: 'Made For Your Everyday Comfort',
+    description: 'Soft silhouettes, relaxed fits and thoughtful details designed to move comfortably with you.',
+    mobileDescription: 'Soft silhouettes and relaxed fits made to move with you.',
+    primaryCta: 'SHOP FEEDING LOUNGEWEAR',
+    primaryHref: '/category/maternity-feeding-loungewears',
+    secondaryCta: null,
+    secondaryHref: null,
+    image: '/images/maternity/slide2.jpg',
+    alt: 'Pregnant Indian woman in a comfortable YEZ BEE everyday maternity dress',
+    align: 'right',
   },
   {
     id: 3,
-    tagline: 'CONTEMPORARY LUXURY',
-    headline: 'Statement Tailoring & Silk Gowns',
-    subtext: 'Uncompromising craftsmanship meets modern minimalism for the discerning fashion connoisseur.',
-    cta: 'Shop Trending',
-    secondaryCta: 'Exclusive Drops',
-    href: '/category/western-wear',
-    image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=2000&auto=format&fit=crop',
+    eyebrow: 'SPECIAL OCCASION',
+    heading: 'Beautiful Moments Deserve Beautiful Dresses',
+    description: 'Elegant maternity styles designed to make every celebration feel even more special.',
+    mobileDescription: 'Elegant maternity styles designed for baby showers & celebrations.',
+    primaryCta: 'SHOP MATERNITY KURTIS',
+    primaryHref: '/category/maternity-kurtis',
+    secondaryCta: null,
+    secondaryHref: null,
+    image: '/images/maternity/slide3.jpg',
+    alt: 'Pregnant Indian woman wearing an opulent emerald YEZ BEE occasion maternity gown',
+    align: 'left',
+  },
+  {
+    id: 4,
+    eyebrow: 'STYLE MEETS COMFORT',
+    heading: 'Designed For You. Made To Move With You.',
+    description: 'Discover flattering maternity silhouettes created for comfort without compromising on style.',
+    mobileDescription: 'Flattering maternity silhouettes created for style without compromise.',
+    primaryCta: 'EXPLORE LOUNGEWEAR',
+    primaryHref: '/category/loungewear',
+    secondaryCta: null,
+    secondaryHref: null,
+    image: '/images/maternity/slide4.jpg',
+    alt: 'Stylish pregnant Indian woman wearing a modern YEZ BEE maternity gown',
+    align: 'right',
   },
 ];
 
 const textVariants = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
     transition: {
       delay: i * 0.12,
-      duration: 0.7,
+      duration: 0.6,
       ease: [0.25, 0.1, 0.25, 1],
     },
   }),
@@ -55,6 +81,7 @@ const textVariants = {
 
 export default function Hero() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -65,100 +92,123 @@ export default function Hero() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(nextSlide, 7000);
+    if (isPaused) return;
+    const interval = setInterval(nextSlide, 5500);
     return () => clearInterval(interval);
-  }, [nextSlide]);
+  }, [nextSlide, isPaused]);
+
+  const slide = slides[currentSlide];
 
   return (
-    <section className="relative h-[90vh] min-h-[640px] max-h-[960px] w-full overflow-hidden bg-[var(--color-darker)]">
-      {/* Background Image Carousel with Smooth Fade */}
+    <section
+      className="relative h-[580px] sm:h-[650px] lg:h-[720px] w-full overflow-hidden bg-black text-white"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      aria-label="Maternity Dress Campaign"
+    >
       <AnimatePresence mode="wait">
         <motion.div
-          key={slides[currentSlide].id}
-          initial={{ opacity: 0, scale: 1.08 }}
+          key={slide.id}
+          initial={{ opacity: 0, scale: 1.05 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.96 }}
-          transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1] }}
-          className="absolute inset-0 h-full w-full"
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.9, ease: [0.25, 0.1, 0.25, 1] }}
+          className="absolute inset-0 z-0"
         >
           <Image
-            src={slides[currentSlide].image}
-            alt={slides[currentSlide].headline}
+            src={slide.image}
+            alt={slide.alt}
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center"
+            className="object-cover object-center sm:object-[center_20%]"
           />
-          {/* Multi-layered Vignette Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-darker)] via-transparent to-black/40" />
+
+          <div
+            className={cn(
+              'absolute inset-0 z-10',
+              slide.align === 'left'
+                ? 'bg-gradient-to-r from-black/90 via-black/60 to-transparent'
+                : 'bg-gradient-to-l from-black/90 via-black/60 to-transparent'
+            )}
+          />
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/80 via-transparent to-black/30 sm:hidden" />
         </motion.div>
       </AnimatePresence>
 
-      {/* Hero Content Container */}
-      <div className="absolute inset-0 z-10 flex items-center">
-        <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
-          <div className="max-w-2xl">
+      <div className="relative z-20 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="h-full flex items-center">
+          <div
+            className={cn(
+              'w-full max-w-2xl',
+              slide.align === 'right' ? 'ml-auto text-left' : 'text-left'
+            )}
+          >
             <AnimatePresence mode="wait">
               <motion.div
-                key={`hero-content-${slides[currentSlide].id}`}
+                key={slide.id}
                 initial="hidden"
                 animate="visible"
                 exit="hidden"
+                className="flex flex-col items-start"
               >
-                {/* Gold Tagline */}
-                <motion.div custom={0} variants={textVariants} className="mb-3 flex items-center gap-2">
+                <motion.div custom={0} variants={textVariants} className="inline-flex items-center gap-2 mb-3">
                   <Sparkles size={14} className="text-[var(--color-primary-gold)]" />
-                  <span className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--color-primary-gold)]">
-                    {slides[currentSlide].tagline}
+                  <span className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-gold-light)]">
+                    {slide.eyebrow}
                   </span>
                 </motion.div>
 
-                {/* Hero Headline (64px typography scale) */}
                 <motion.h1
                   custom={1}
                   variants={textVariants}
-                  className="mb-6 font-display text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[64px]"
+                  className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.15] mb-4"
                 >
-                  {slides[currentSlide].headline}
+                  {slide.heading}
                 </motion.h1>
 
-                {/* Subtext */}
                 <motion.p
                   custom={2}
                   variants={textVariants}
-                  className="mb-8 max-w-lg font-sans text-base leading-relaxed text-white/80 sm:text-lg"
+                  className="text-sm sm:text-base lg:text-lg text-white/80 font-sans leading-relaxed mb-8 max-w-xl"
                 >
-                  {slides[currentSlide].subtext}
+                  <span className="hidden sm:inline">{slide.description}</span>
+                  <span className="sm:hidden">{slide.mobileDescription}</span>
                 </motion.p>
 
-                {/* CTA Action Buttons */}
-                <motion.div custom={3} variants={textVariants} className="flex flex-wrap gap-4 items-center">
+                <motion.div custom={3} variants={textVariants} className="flex flex-wrap items-center gap-3 sm:gap-4">
                   <Link
-                    href={slides[currentSlide].href}
+                    href={slide.primaryHref}
                     className={cn(
-                      'group inline-flex items-center gap-3 rounded-full px-8 py-4 text-xs font-bold uppercase tracking-[0.15em] transition-all duration-300',
+                      'group inline-flex items-center gap-2.5 rounded-full px-7 sm:px-8 py-3.5 sm:py-4 text-xs font-bold uppercase tracking-[0.16em] transition-all duration-300 min-h-[44px]',
                       'bg-gradient-to-r from-[var(--color-primary-gold)] to-[var(--color-gold-light)] text-[var(--color-dark)]',
-                      'hover:shadow-gold-lg hover:scale-105 active:scale-95'
+                      'hover:shadow-gold-md hover:scale-105 active:scale-95'
                     )}
                   >
-                    {slides[currentSlide].cta}
-                    <ChevronRight
-                      size={16}
+                    {slide.primaryCta}
+                    <ArrowRight
+                      size={15}
                       className="transition-transform duration-300 group-hover:translate-x-1"
                     />
                   </Link>
 
-                  <Link
-                    href="/category/editors-pick"
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded-full px-7 py-4 text-xs font-bold uppercase tracking-[0.15em] transition-all duration-300',
-                      'border border-white/40 text-white backdrop-blur-sm',
-                      'hover:bg-white hover:text-[var(--color-dark)] hover:border-white'
-                    )}
-                  >
-                    {slides[currentSlide].secondaryCta}
-                  </Link>
+                  {slide.secondaryCta && (
+                    <Link
+                      href={slide.secondaryHref!}
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-full px-6 sm:px-7 py-3.5 sm:py-4 text-xs font-bold uppercase tracking-[0.16em] transition-all duration-300 min-h-[44px]',
+                        'border border-white/40 text-white backdrop-blur-sm',
+                        'hover:bg-white hover:text-[var(--color-dark)] hover:border-white'
+                      )}
+                    >
+                      {slide.secondaryCta}
+                    </Link>
+                  )}
+                </motion.div>
+
+                <motion.div custom={4} variants={textVariants} className="mt-8 pt-4 border-t border-white/15 flex items-center gap-2 text-[11px] text-white/60 font-medium">
+                  <HeartHandshake size={14} className="text-[var(--color-primary-gold)] shrink-0" />
+                  <span>Comfort-first silhouettes • Easy movement • Thoughtful fits</span>
                 </motion.div>
               </motion.div>
             </AnimatePresence>
@@ -166,38 +216,50 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* Slide Navigation Arrow Controls */}
+      {/* Prev / Next Slide Controls */}
       <button
+        type="button"
         onClick={prevSlide}
-        className="absolute left-6 top-1/2 z-20 hidden -translate-y-1/2 rounded-full p-3.5 text-white/70 backdrop-blur-md transition-all duration-300 sm:block hover:bg-white/20 hover:text-white"
-        aria-label="Previous slide"
+        suppressHydrationWarning
+        className="absolute left-4 sm:left-6 top-1/2 z-20 -translate-y-1/2 rounded-full p-3 text-white/70 backdrop-blur-md transition-all duration-300 hover:bg-white/20 hover:text-white cursor-pointer"
+        aria-label="Previous maternity slide"
       >
-        <ChevronLeft size={24} />
+        <ChevronLeft size={22} />
       </button>
 
       <button
+        type="button"
         onClick={nextSlide}
-        className="absolute right-6 top-1/2 z-20 hidden -translate-y-1/2 rounded-full p-3.5 text-white/70 backdrop-blur-md transition-all duration-300 sm:block hover:bg-white/20 hover:text-white"
-        aria-label="Next slide"
+        suppressHydrationWarning
+        className="absolute right-4 sm:right-6 top-1/2 z-20 -translate-y-1/2 rounded-full p-3 text-white/70 backdrop-blur-md transition-all duration-300 hover:bg-white/20 hover:text-white cursor-pointer"
+        aria-label="Next maternity slide"
       >
-        <ChevronRight size={24} />
+        <ChevronRight size={22} />
       </button>
 
-      {/* Slide Indicators */}
-      <div className="absolute bottom-8 left-1/2 z-20 flex -translate-x-1/2 gap-3 items-center">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrentSlide(i)}
-            className={cn(
-              'h-2 rounded-full transition-all duration-500',
-              i === currentSlide
-                ? 'w-10 bg-[var(--color-primary-gold)] shadow-gold-sm'
-                : 'w-2 bg-white/40 hover:bg-white/70'
-            )}
-            aria-label={`Go to slide ${i + 1}`}
-          />
-        ))}
+      {/* Slide Indicators & Counter */}
+      <div className="absolute bottom-6 left-4 sm:left-8 z-20 flex items-center gap-4">
+        <span className="font-mono text-xs font-bold text-white/80 tracking-wider">
+          0{currentSlide + 1} <span className="text-white/40">/</span> 0{slides.length}
+        </span>
+        <div className="flex items-center gap-2">
+          {slides.map((s, idx) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setCurrentSlide(idx)}
+              suppressHydrationWarning
+              className={cn(
+                'h-2 rounded-full transition-all duration-300 cursor-pointer',
+                currentSlide === idx
+                  ? 'w-6 bg-[var(--color-primary-gold)]'
+                  : 'w-2 bg-white/40 hover:bg-white/70'
+              )}
+              aria-label={`Go to slide ${idx + 1}`}
+              aria-pressed={currentSlide === idx}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );

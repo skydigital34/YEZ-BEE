@@ -149,14 +149,16 @@ export default function ProductCard({
 
         {/* Quick View & Size Hover Bar Overlay */}
         <div className="absolute inset-x-0 bottom-0 z-20 translate-y-full transition-transform duration-300 group-hover:translate-y-0 p-3 bg-gradient-to-t from-[var(--color-dark)]/90 via-[var(--color-dark)]/60 to-transparent flex flex-col gap-2">
+          {/* Desktop-only: premium size availability preview */}
           {sizes.length > 0 && (
-            <div className="flex justify-center items-center gap-1.5 text-white/90 text-[11px] font-medium">
-              <span className="text-white/60 mr-1">Quick Sizes:</span>
-              {sizes.slice(0, 5).map((size) => (
-                <span key={size} className="px-1.5 py-0.5 rounded bg-white/20 hover:bg-[var(--color-primary-gold)] hover:text-dark transition-colors">
-                  {size}
-                </span>
-              ))}
+            <div className="hidden sm:flex flex-col items-center gap-0.5">
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/50">
+                Available sizes
+              </span>
+              <span className="text-white/90 text-[11px] font-semibold tracking-wide">
+                {sizes.slice(0, 6).join(' · ')}
+                {sizes.length > 6 && <span className="text-white/50"> +{sizes.length - 6}</span>}
+              </span>
             </div>
           )}
           <div className="flex gap-2">

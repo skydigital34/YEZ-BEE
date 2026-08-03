@@ -1,193 +1,257 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useCallback, useEffect, useMemo, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  SlidersHorizontal,
   X,
   ChevronDown,
   ChevronUp,
   Grid3X3,
   List,
   Filter,
-  Search,
   Sparkles,
+  Ruler,
+  CheckCircle2,
 } from 'lucide-react';
 import ProductCard from '@/components/ui/ProductCard';
+import { YEZBEE_CATEGORIES, getCategoryBySlug, CategoryConfig } from '@/data/categories';
+import { CATALOG_PRODUCTS, CatalogProduct } from '@/data/products';
+
+// ─── Filter Constants ────────────────────────────────────────────────────────
+
+const WOMEN_SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL'] as const;
+const KIDS_SIZES = ['0-1Y', '1-2Y', '2-3Y', '3-4Y', '4-5Y', '5-6Y', '6-7Y', '7-8Y', '8-10Y', '10-12Y', '12-14Y'] as const;
 
 const COLORS = [
-  { name: 'Black', hex: '#0D0D0D' },
-  { name: 'White', hex: '#FAF7F2' },
-  { name: 'Gold', hex: '#C9A84C' },
-  { name: 'Champagne', hex: '#F5E6C8' },
-  { name: 'Navy', hex: '#1B2A4A' },
-  { name: 'Red', hex: '#E74C3C' },
-  { name: 'Blush', hex: '#FDE8E8' },
-  { name: 'Emerald', hex: '#2D6A4F' },
+  { name: 'Peach Floral', hex: '#FFDAB9' },
+  { name: 'Blush Pink', hex: '#FFB6C1' },
+  { name: 'Navy Blue', hex: '#1B2A4A' },
+  { name: 'Sage Green', hex: '#8FBC8F' },
+  { name: 'Maroon Gold', hex: '#800000' },
+  { name: 'Teal Blue', hex: '#008080' },
+  { name: 'Lavender', hex: '#E6E6FA' },
+  { name: 'Coral Pink', hex: '#FF6F61' },
 ];
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const FABRICS = ['Pure Silk', 'Banarasi Silk', 'Chiffon', 'Velvet', 'Italian Wool', 'Linen', 'Organza', 'Satin'];
-const OCCASIONS = ['Royal Wedding', 'Festival Edit', 'Cocktail & Party', 'Formal Office', 'Resort Vacation', 'Evening Gala'];
-
-const MOCK_PRODUCTS = Array.from({ length: 24 }, (_, i) => {
-  const images = [
-    '/images/ethnic_luxe.jpg',
-    '/images/western_chic.jpg',
-    '/images/luxury_featured_collection.jpg',
-    '/images/haute_accessories.jpg',
-    '/images/flash_sale.jpg',
-    '/images/ethnic_luxe.jpg',
-    '/images/western_chic.jpg',
-    '/images/luxury_featured_collection.jpg',
-  ];
-
-  return {
-    id: `cat-prod-${i + 1}`,
-    name: `Couture ${['Zardozi Lehenga', 'Silk Evening Gown', 'Structured Blazer Set', 'Banarasi Silk Saree', 'Chiffon Maxi Dress', 'Embellished Corset Top', 'Satin Co-ord Set', 'Quilted Leather Clutch'][i % 8]}`,
-    category: ['Haute Couture', 'Ethnic Luxe', 'Western Chic', 'Jewellery & Bags'][i % 4],
-    price: 3999 + i * 800,
-    comparePrice: i % 2 === 0 ? 5999 + i * 900 : null,
-    rating: (4.5 + (i % 5) * 0.1).toFixed(1),
-    reviews: Math.floor(Math.random() * 150) + 20,
-    image: images[i % images.length],
-    hoverImage: images[(i + 1) % images.length],
-    colors: COLORS.slice(0, (i % 4) + 2),
-    sizes: SIZES.slice(0, (i % 4) + 2),
-    fabric: FABRICS[i % FABRICS.length],
-    occasion: OCCASIONS[i % OCCASIONS.length],
-    isNew: i < 6,
-    isBestSeller: i >= 6 && i < 12,
-    discount: i % 2 === 0 ? 25 : 0,
-    stock: (i % 5) + 1,
-  };
-});
+const FABRICS = ['100% Pure Cotton', 'Soft Premium Rayon', 'Modal Cotton Knit', 'Microfiber Nylon', 'Combed Cotton'];
+const OCCASIONS = ['Everyday & Office Wear', 'Festive & Celebration', 'Home & Sleepwear', 'Party & Casual', 'Daily Intimate Essential'];
 
 const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest Couture Drops' },
+  { value: 'newest', label: 'Newest Arrivals' },
   { value: 'price-asc', label: 'Price: Low to High' },
   { value: 'price-desc', label: 'Price: High to Low' },
   { value: 'bestselling', label: 'Bestselling Patrons Choice' },
   { value: 'rating', label: 'Highest Rated' },
 ];
 
-export default function CategoryPage() {
-  const params = useParams();
-  const slug = (params.slug as string) || 'all';
+// ─── Inner Category Component ────────────────────────────────────────────────
 
+function CategoryPageContent() {
+  const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const slug = (params.slug as string) || 'all';
+  const categoryConfig = getCategoryBySlug(slug);
+
+  const isKidsCategory = slug === 'kids-clothing';
+  const availableSizeList = isKidsCategory ? KIDS_SIZES : WOMEN_SIZES;
+
+  // ── UI State ───────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
   const [showMobileFilter, setShowMobileFilter] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedFabrics, setSelectedFabrics] = useState<string[]>([]);
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 30000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
+  const [inStockOnly, setInStockOnly] = useState(false);
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     category: true,
-    price: true,
     color: true,
-    size: true,
     fabric: true,
     occasion: true,
   });
 
-  const toggleSection = (key: string) => setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  // ── URL-Aware Size Filter ───────────────────────────────────────────────
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(() => {
+    const sizeParam = searchParams.get('size');
+    if (!sizeParam) return [];
+    return sizeParam.split(',');
+  });
 
-  const activeFilterCount =
-    selectedColors.length + selectedSizes.length + selectedFabrics.length + selectedOccasions.length +
-    (priceRange[0] > 0 || priceRange[1] < 30000 ? 1 : 0);
+  useEffect(() => {
+    const sizeParam = searchParams.get('size');
+    if (!sizeParam) {
+      setSelectedSizes([]);
+    } else {
+      setSelectedSizes(sizeParam.split(','));
+    }
+  }, [searchParams]);
 
-  const clearAllFilters = () => {
-    setSelectedColors([]);
-    setSelectedSizes([]);
-    setSelectedFabrics([]);
-    setSelectedOccasions([]);
-    setPriceRange([0, 30000]);
-  };
+  const updateSizeUrl = useCallback(
+    (sizes: string[]) => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (sizes.length === 0) {
+        current.delete('size');
+      } else {
+        current.set('size', sizes.join(','));
+      }
+      const query = current.toString();
+      router.replace(`?${query}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
-  const loadMore = useCallback(() => setVisibleCount((prev) => prev + 12), []);
+  const toggleSize = useCallback(
+    (size: string) => {
+      setSelectedSizes((prev) => {
+        const next = prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size];
+        updateSizeUrl(next);
+        return next;
+      });
+    },
+    [updateSizeUrl]
+  );
 
   const toggleColor = (color: string) =>
-    setSelectedColors((prev) => (prev.includes(color) ? prev.filter((c) => c !== color) : [...prev, color]));
-
-  const toggleSize = (size: string) =>
-    setSelectedSizes((prev) => (prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]));
+    setSelectedColors((prev) =>
+      prev.includes(color) ? prev.filter((c) => c !== color) : [...prev, color]
+    );
 
   const toggleFabric = (fabric: string) =>
-    setSelectedFabrics((prev) => (prev.includes(fabric) ? prev.filter((f) => f !== fabric) : [...prev, fabric]));
+    setSelectedFabrics((prev) =>
+      prev.includes(fabric) ? prev.filter((f) => f !== fabric) : [...prev, fabric]
+    );
 
-  const toggleOccasion = (occasion: string) =>
-    setSelectedOccasions((prev) => (prev.includes(occasion) ? prev.filter((o) => o !== occasion) : [...prev, occasion]));
+  const clearAllFilters = useCallback(() => {
+    setSelectedColors([]);
+    setSelectedFabrics([]);
+    setSelectedOccasions([]);
+    setPriceRange([0, 10000]);
+    setInStockOnly(false);
+    setSelectedSizes([]);
+    updateSizeUrl([]);
+  }, [updateSizeUrl]);
 
-  const filteredProducts = MOCK_PRODUCTS.filter((p) => {
-    if (priceRange[0] > 0 && p.price < priceRange[0]) return false;
-    if (priceRange[1] < 30000 && p.price > priceRange[1]) return false;
-    if (selectedColors.length && !p.colors.some((c) => selectedColors.includes(c.name))) return false;
-    if (selectedSizes.length && !p.sizes.some((s) => selectedSizes.includes(s))) return false;
-    if (selectedFabrics.length && !selectedFabrics.includes(p.fabric)) return false;
-    if (selectedOccasions.length && !selectedOccasions.includes(p.occasion)) return false;
-    return true;
-  });
+  const activeFilterCount =
+    selectedColors.length +
+    selectedSizes.length +
+    selectedFabrics.length +
+    selectedOccasions.length +
+    (inStockOnly ? 1 : 0);
 
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case 'price-asc': return a.price - b.price;
-      case 'price-desc': return b.price - a.price;
-      case 'bestselling': return (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0);
-      case 'rating': return parseFloat(b.rating) - parseFloat(a.rating);
-      default: return b.id.localeCompare(a.id);
-    }
-  });
+  // ── Category Products Filtering ─────────────────────────────────────────
+  const filteredProducts = useMemo(() => {
+    return CATALOG_PRODUCTS.filter((p) => {
+      // 1. Strict Category Match (Unless 'all' is specified)
+      if (slug !== 'all' && p.category !== slug) {
+        return false;
+      }
+
+      // 2. Price filter
+      if (p.price > priceRange[1]) return false;
+
+      // 3. Color filter (OR within colors)
+      if (selectedColors.length && !p.colors.some((c) => selectedColors.includes(c.name))) {
+        return false;
+      }
+
+      // 4. Size filter (OR within sizes)
+      if (selectedSizes.length) {
+        const hasMatchingSize = selectedSizes.some((s) => p.sizes.includes(s));
+        if (!hasMatchingSize) return false;
+      }
+
+      // 5. Fabric filter
+      if (selectedFabrics.length && !selectedFabrics.includes(p.fabric)) return false;
+
+      // 6. Occasion filter
+      if (selectedOccasions.length && !selectedOccasions.includes(p.occasion)) return false;
+
+      // 7. In stock only
+      if (inStockOnly && p.stock <= 0) return false;
+
+      return true;
+    });
+  }, [slug, selectedColors, selectedSizes, selectedFabrics, selectedOccasions, priceRange, inStockOnly]);
+
+  // ── Sorting ─────────────────────────────────────────────────────────────
+  const sortedProducts = useMemo(() => {
+    return [...filteredProducts].sort((a, b) => {
+      switch (sortBy) {
+        case 'price-asc':
+          return a.price - b.price;
+        case 'price-desc':
+          return b.price - a.price;
+        case 'bestselling':
+          return (b.bestseller ? 1 : 0) - (a.bestseller ? 1 : 0);
+        case 'rating':
+          return b.rating - a.rating;
+        default:
+          return (b.newArrival ? 1 : 0) - (a.newArrival ? 1 : 0);
+      }
+    });
+  }, [filteredProducts, sortBy]);
 
   const displayedProducts = sortedProducts.slice(0, visibleCount);
 
-  const categoryName = slug
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-
+  // ── Category Sidebar Component ──────────────────────────────────────────
   const FilterSidebar = () => (
     <div className="space-y-6 bg-white p-6 rounded-2xl border border-[var(--color-champagne)]/60 shadow-soft-sm">
       <div className="flex items-center justify-between pb-4 border-b border-[var(--color-champagne)]">
         <h3 className="font-display font-bold text-sm uppercase tracking-wider text-[var(--color-dark)] flex items-center gap-2">
-          <Filter size={14} className="text-[var(--color-primary-gold)]" /> Filters
+          <Filter size={14} className="text-[var(--color-primary-gold)]" /> Catalog Filters
         </h3>
         {activeFilterCount > 0 && (
-          <button onClick={clearAllFilters} className="text-xs text-[var(--color-primary-gold)] hover:underline font-semibold">
+          <button
+            onClick={clearAllFilters}
+            className="text-xs text-[var(--color-primary-gold)] hover:underline font-semibold"
+          >
             Clear All ({activeFilterCount})
           </button>
         )}
       </div>
 
-      {/* Category Links */}
+      {/* Official 6 Categories Selection */}
       <div className="pb-4 border-b border-[var(--color-champagne)]">
-        <button onClick={() => toggleSection('category')} className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]">
-          <span>Categories</span>
+        <button
+          onClick={() => setExpandedSections((prev) => ({ ...prev, category: !prev.category }))}
+          className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]"
+        >
+          <span>Official Categories</span>
           {expandedSections.category ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         {expandedSections.category && (
           <div className="mt-3 space-y-2 text-xs">
-            {['Ethnic Luxe', 'Haute Couture', 'Western Chic', 'Jewellery & Bags', 'Festival Edit', 'Workwear'].map((cat) => (
+            {YEZBEE_CATEGORIES.map((cat) => (
               <Link
-                key={cat}
-                href={`/category/${cat.toLowerCase().replace(/\s+/g, '-')}`}
-                className={`block py-1 transition-colors ${
-                  slug === cat.toLowerCase().replace(/\s+/g, '-') ? 'text-[var(--color-primary-gold)] font-bold' : 'text-[var(--color-dark)]/70 hover:text-[var(--color-primary-gold)]'
+                key={cat.id}
+                href={cat.path}
+                className={`block py-1.5 px-2 rounded-lg transition-colors ${
+                  slug === cat.slug
+                    ? 'bg-[var(--color-dark)] text-white font-bold'
+                    : 'text-[var(--color-dark)]/75 hover:bg-[var(--color-champagne)]/40 hover:text-[var(--color-dark)]'
                 }`}
               >
-                {cat}
+                {cat.name}
               </Link>
             ))}
           </div>
         )}
       </div>
 
-      {/* Colors Filter */}
+      {/* Color Palette Filter */}
       <div className="pb-4 border-b border-[var(--color-champagne)]">
-        <button onClick={() => toggleSection('color')} className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]">
+        <button
+          onClick={() => setExpandedSections((prev) => ({ ...prev, color: !prev.color }))}
+          className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]"
+        >
           <span>Color Palette</span>
           {expandedSections.color ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
@@ -198,36 +262,14 @@ export default function CategoryPage() {
                 key={color.name}
                 onClick={() => toggleColor(color.name)}
                 className={`w-8 h-8 rounded-full border border-gray-300 transition-all ${
-                  selectedColors.includes(color.name) ? 'ring-2 ring-[var(--color-primary-gold)] ring-offset-2 scale-110' : 'hover:scale-105'
+                  selectedColors.includes(color.name)
+                    ? 'ring-2 ring-[var(--color-primary-gold)] ring-offset-2 scale-110'
+                    : 'hover:scale-105'
                 }`}
                 style={{ backgroundColor: color.hex }}
                 title={color.name}
+                aria-label={`Filter by color ${color.name}`}
               />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Sizes Filter */}
-      <div className="pb-4 border-b border-[var(--color-champagne)]">
-        <button onClick={() => toggleSection('size')} className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]">
-          <span>Couture Sizes</span>
-          {expandedSections.size ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-        {expandedSections.size && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {SIZES.map((size) => (
-              <button
-                key={size}
-                onClick={() => toggleSize(size)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                  selectedSizes.includes(size)
-                    ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)]'
-                    : 'border-gray-200 text-[var(--color-dark)]/70 hover:border-[var(--color-primary-gold)]'
-                }`}
-              >
-                {size}
-              </button>
             ))}
           </div>
         )}
@@ -235,14 +277,20 @@ export default function CategoryPage() {
 
       {/* Fabrics Filter */}
       <div className="pb-4 border-b border-[var(--color-champagne)]">
-        <button onClick={() => toggleSection('fabric')} className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]">
+        <button
+          onClick={() => setExpandedSections((prev) => ({ ...prev, fabric: !prev.fabric }))}
+          className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]"
+        >
           <span>Fabrics</span>
           {expandedSections.fabric ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         {expandedSections.fabric && (
           <div className="mt-3 space-y-2">
             {FABRICS.map((fabric) => (
-              <label key={fabric} className="flex items-center gap-2 text-xs text-[var(--color-dark)]/80 cursor-pointer hover:text-[var(--color-primary-gold)]">
+              <label
+                key={fabric}
+                className="flex items-center gap-2 text-xs text-[var(--color-dark)]/80 cursor-pointer hover:text-[var(--color-primary-gold)]"
+              >
                 <input
                   type="checkbox"
                   checked={selectedFabrics.includes(fabric)}
@@ -260,136 +308,239 @@ export default function CategoryPage() {
         onClick={clearAllFilters}
         className="w-full py-3 border border-[var(--color-primary-gold)] text-[var(--color-primary-gold)] text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[var(--color-primary-gold)] hover:text-[var(--color-dark)] transition-colors"
       >
-        Clear All Filters
+        Reset All Filters
       </button>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-[var(--color-warm-white)]">
+      {/* Contextual Breadcrumb */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+        <nav className="flex items-center gap-2 text-xs text-[var(--color-dark)]/50 font-medium" aria-label="Breadcrumb">
+          <Link href="/" className="hover:text-[var(--color-primary-gold)] transition-colors">Home</Link>
+          <span>/</span>
+          <Link href="/category/all" className="hover:text-[var(--color-primary-gold)] transition-colors">Categories</Link>
+          <span>/</span>
+          <span className="text-[var(--color-dark)] font-bold">{categoryConfig?.name || 'All Collections'}</span>
+        </nav>
+      </div>
+
       {/* Category Hero Banner */}
-      <div className="relative h-[260px] md:h-[360px] bg-[var(--color-darker)] overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1583391733956-6c78276477e2?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-40" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent z-10" />
-        
+      <div className="relative h-[220px] sm:h-[300px] bg-[var(--color-darker)] overflow-hidden">
+        <Image
+          src={categoryConfig?.image || '/images/categories/maternity-kurtis.jpg'}
+          alt={categoryConfig?.name || 'Category'}
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center opacity-40"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-transparent z-10" />
+
         <div className="relative z-20 h-full max-w-7xl mx-auto px-6 lg:px-8 flex flex-col justify-center text-white">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={14} className="text-[var(--color-gold-light)]" />
             <span className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--color-gold-light)]">
-              HAUTE COUTURE CATALOGUE
+              YEZ BEE OFFICIAL COLLECTION
             </span>
           </div>
-          <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-2">
-            {categoryName}
+          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white mb-2">
+            {categoryConfig?.name || 'All Collections'}
           </h1>
-          <p className="text-white/80 max-w-lg text-sm sm:text-base font-sans">
-            Discover our curated collection of luxury {categoryName.toLowerCase()} handcrafted by master artisans.
+          <p className="text-white/80 max-w-xl text-xs sm:text-sm font-sans leading-relaxed">
+            {categoryConfig?.description || 'Discover our luxury collection of comfort-first maternity wear, nursing loungewear, kids clothing, and everyday fashion.'}
           </p>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Top Control Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8 bg-white p-4 rounded-2xl border border-[var(--color-champagne)]/60 shadow-soft-sm">
-          <p className="text-xs text-[var(--color-dark)]/60 font-medium">
-            Showing <span className="text-[var(--color-dark)] font-bold">{displayedProducts.length}</span> of{' '}
-            <span className="text-[var(--color-dark)] font-bold">{filteredProducts.length}</span> luxury creations
-          </p>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-[var(--color-primary-gold)] text-[var(--color-dark)]' : 'text-gray-400 hover:text-[var(--color-dark)]'}`}
-                aria-label="Grid View"
-              >
-                <Grid3X3 size={16} />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[var(--color-primary-gold)] text-[var(--color-dark)]' : 'text-gray-400 hover:text-[var(--color-dark)]'}`}
-                aria-label="List View"
-              >
-                <List size={16} />
-              </button>
-            </div>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="text-xs font-semibold border border-gray-200 rounded-lg px-3 py-2 bg-transparent outline-none focus:border-[var(--color-primary-gold)] text-[var(--color-dark)]"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-
-            <button
-              onClick={() => setShowMobileFilter(true)}
-              className="lg:hidden flex items-center gap-2 px-4 py-2 border border-[var(--color-primary-gold)] rounded-lg text-xs font-bold uppercase tracking-wider text-[var(--color-dark)] hover:bg-[var(--color-primary-gold)] transition-colors"
-            >
-              <Filter size={14} />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-[var(--color-primary-gold)] text-[var(--color-dark)] text-[10px] flex items-center justify-center font-bold">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Layout Grid */}
-        <div className="flex gap-8">
+      {/* Main Content Layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex gap-8 items-start">
           {/* Desktop Filter Sidebar */}
-          <aside className="hidden lg:block w-[280px] flex-shrink-0">
+          <aside className="hidden lg:block w-[260px] flex-shrink-0" aria-label="Product filters">
             <div className="sticky top-28">
               <FilterSidebar />
             </div>
           </aside>
 
-          {/* Product Grid / Empty State */}
-          {filteredProducts.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[var(--color-champagne)]">
-              <Search size={48} className="text-gray-300 mb-4" />
-              <h3 className="font-display text-2xl font-bold text-[var(--color-dark)] mb-2">No Products Matched</h3>
-              <p className="text-gray-500 text-sm mb-6">Try adjusting your color, price, or category filter parameters.</p>
-              <button onClick={clearAllFilters} className="px-8 py-3 bg-[var(--color-primary-gold)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[var(--color-gold-light)] transition-colors shadow-gold-sm">
-                Reset All Filters
-              </button>
-            </div>
-          ) : (
-            <div className="flex-1">
-              <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-6'}>
-                {displayedProducts.map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05, duration: 0.4 }}
-                  >
-                    <ProductCard {...product} />
-                  </motion.div>
-                ))}
+          {/* Right Product Column */}
+          <div className="flex-1 min-w-0">
+
+            {/* 1. Size Filter Row (Centered 50px Circular Buttons at Top of Products Area) */}
+            <div className="mb-6 flex flex-col items-center justify-center">
+              <div
+                className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3"
+                role="group"
+                aria-label="Filter products by size"
+              >
+                {availableSizeList.map((size) => {
+                  const isActive = selectedSizes.includes(size);
+                  return (
+                    <button
+                      key={size}
+                      id={`size-filter-${size}`}
+                      onClick={() => toggleSize(size)}
+                      aria-pressed={isActive}
+                      aria-label={`Filter by size ${size}`}
+                      className={[
+                        'relative flex items-center justify-center',
+                        isKidsCategory ? 'px-3.5 h-[42px] rounded-xl' : 'w-[50px] h-[50px] rounded-full',
+                        'text-xs font-bold font-sans border transition-all duration-200 cursor-pointer select-none',
+                        isActive
+                          ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] ring-2 ring-[var(--color-primary-gold)] scale-105 shadow-gold-sm'
+                          : 'bg-white text-[var(--color-dark)] border-black/20 hover:border-[var(--color-primary-gold)] hover:scale-[1.06]',
+                      ].join(' ')}
+                    >
+                      {size}
+                      {isActive && (
+                        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[var(--color-primary-gold)] ring-2 ring-white" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              {visibleCount < filteredProducts.length && (
-                <div className="flex justify-center mt-12">
+              {selectedSizes.length > 0 && (
+                <div className="mt-3 flex items-center gap-2 text-xs">
+                  <span className="text-gray-500 font-medium">Selected Size: {selectedSizes.join(', ')}</span>
                   <button
-                    onClick={loadMore}
-                    className="px-10 py-3.5 border-2 border-[var(--color-dark)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-[0.15em] rounded-full hover:bg-[var(--color-dark)] hover:text-white transition-all shadow-sm"
+                    onClick={() => { setSelectedSizes([]); updateSizeUrl([]); }}
+                    className="text-[var(--color-primary-gold)] font-bold hover:underline"
                   >
-                    Load More Couture ({filteredProducts.length - visibleCount} remaining)
+                    Clear Filter
                   </button>
                 </div>
               )}
             </div>
-          )}
+
+            {/* 2. Controls & Count Header */}
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <p className="text-base font-semibold text-[var(--color-dark)]">
+                {filteredProducts.length} {filteredProducts.length === 1 ? 'style' : 'styles'} available
+              </p>
+
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center border border-gray-200 rounded-lg overflow-hidden bg-white">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-[var(--color-primary-gold)] text-[var(--color-dark)]' : 'text-gray-400 hover:text-[var(--color-dark)]'}`}
+                    aria-label="Grid View"
+                  >
+                    <Grid3X3 size={16} />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[var(--color-primary-gold)] text-[var(--color-dark)]' : 'text-gray-400 hover:text-[var(--color-dark)]'}`}
+                    aria-label="List View"
+                  >
+                    <List size={16} />
+                  </button>
+                </div>
+
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="text-xs font-semibold border border-gray-300 rounded-lg px-4 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)] text-[var(--color-dark)] cursor-pointer"
+                  aria-label="Sort products"
+                >
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={() => setShowMobileFilter(true)}
+                  className="lg:hidden flex items-center gap-2 px-4 py-2 border border-[var(--color-primary-gold)] rounded-lg text-xs font-bold uppercase tracking-wider text-[var(--color-dark)] hover:bg-[var(--color-primary-gold)] transition-colors"
+                  aria-label="Open filters"
+                >
+                  <Filter size={14} /> Filters
+                </button>
+              </div>
+            </div>
+
+            {/* 3. Product Grid */}
+            {filteredProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[var(--color-champagne)]">
+                <Ruler size={32} className="text-gray-300 mb-3" />
+                <h3 className="font-display text-xl font-bold text-[var(--color-dark)] mb-2">
+                  No products matched your active filters
+                </h3>
+                <p className="text-gray-500 text-xs mb-6 text-center max-w-xs">
+                  Try clearing your size or color filters to discover available styles.
+                </p>
+                <button
+                  onClick={clearAllFilters}
+                  className="px-8 py-3 bg-[var(--color-primary-gold)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[var(--color-gold-light)] transition-colors"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-6'}>
+                  <AnimatePresence mode="popLayout">
+                    {displayedProducts.map((product) => (
+                      <motion.div
+                        key={product.id}
+                        layout
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <ProductCard
+                          id={product.id}
+                          name={product.name}
+                          category={product.categoryName}
+                          price={product.price}
+                          comparePrice={product.compareAtPrice}
+                          rating={String(product.rating)}
+                          reviews={product.reviewCount}
+                          image={product.thumbnail}
+                          hoverImage={product.images[1] || product.thumbnail}
+                          colors={product.colors}
+                          sizes={product.sizes}
+                          discount={product.discountPercentage}
+                          stock={product.stock}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+
+                {visibleCount < filteredProducts.length && (
+                  <div className="flex justify-center mt-12">
+                    <button
+                      onClick={() => setVisibleCount((prev) => prev + 12)}
+                      className="px-10 py-3.5 border-2 border-[var(--color-dark)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-[0.15em] rounded-full hover:bg-[var(--color-dark)] hover:text-white transition-all"
+                    >
+                      Load More Styles ({filteredProducts.length - visibleCount} remaining)
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Category SEO Content Footnote */}
+            {categoryConfig && (
+              <div className="mt-16 bg-white p-8 rounded-3xl border border-[var(--color-champagne)]/60 text-xs leading-relaxed text-gray-600 space-y-3">
+                <h3 className="font-display font-bold text-base text-[var(--color-dark)]">
+                  About YEZ BEE {categoryConfig.name}
+                </h3>
+                <p>{categoryConfig.description}</p>
+                <p>
+                  Every garment in our {categoryConfig.name.toLowerCase()} catalog is engineered with premium fabrics, reinforced stitching, and tailored silhouettes for everyday comfort and lasting elegance.
+                </p>
+              </div>
+            )}
+
+          </div>
         </div>
       </div>
 
-      {/* Mobile Filter Drawer */}
+      {/* Mobile Drawer */}
       <AnimatePresence>
         {showMobileFilter && (
           <>
@@ -401,15 +552,18 @@ export default function CategoryPage() {
               onClick={() => setShowMobileFilter(false)}
             />
             <motion.div
+              role="dialog"
+              aria-modal="true"
               className="fixed top-0 right-0 h-full w-[320px] max-w-[85vw] bg-[var(--color-warm-white)] z-50 overflow-y-auto lg:hidden"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ type: 'tween', duration: 0.3 }}
             >
               <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-4 border-b border-[var(--color-champagne)]">
-                <span className="font-display font-bold text-sm uppercase tracking-wider">Couture Filters</span>
-                <button onClick={() => setShowMobileFilter(false)} className="p-1 text-gray-500 hover:text-black">
+                <span className="font-display font-bold text-sm uppercase tracking-wider">
+                  Category Filters
+                </span>
+                <button onClick={() => setShowMobileFilter(false)} className="p-1">
                   <X size={20} />
                 </button>
               </div>
@@ -421,5 +575,13 @@ export default function CategoryPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function CategoryPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-warm-white)] flex items-center justify-center">Loading Category...</div>}>
+      <CategoryPageContent />
+    </Suspense>
   );
 }

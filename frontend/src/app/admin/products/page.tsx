@@ -1,280 +1,680 @@
-'use client'
+'use client';
 
-import { useState, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import Link from 'next/link'
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
+import Image from 'next/image';
 import {
-  Plus, Search, Filter, MoreVertical, Edit, Copy, Trash2,
-  ChevronDown, Download, ToggleLeft, ToggleRight, Package,
-  Grid3X3, List, SlidersHorizontal, X
-} from 'lucide-react'
-import DataTable from '@/components/admin/DataTable'
+  Plus,
+  Search,
+  Filter,
+  MoreVertical,
+  Edit,
+  Copy,
+  Trash2,
+  ChevronDown,
+  Eye,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Package,
+  Layers,
+  Sparkles,
+  Archive,
+  ArrowUpDown,
+  Check,
+  RefreshCw,
+  SlidersHorizontal,
+  X,
+  Star,
+  Tag,
+} from 'lucide-react';
+import {
+  getAllProducts,
+  updateProductStatus,
+  duplicateProduct,
+  deleteOrArchiveProduct,
+  permanentDeleteProduct,
+  CatalogProduct,
+} from '@/data/products';
+import { YEZBEE_CATEGORIES } from '@/data/categories';
 
-interface Product {
-  id: string
-  name: string
-  sku: string
-  category: string
-  price: number
-  comparePrice: number | null
-  stock: number
-  lowStockThreshold: number
-  status: 'active' | 'draft' | 'out_of_stock' | 'discontinued'
-  image: string
-  createdAt: string
-}
+export default function AdminProductsPage() {
+  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedInventory, setSelectedInventory] = useState('all');
+  const [selectedType, setSelectedType] = useState('all');
+  const [selectedFeatured, setSelectedFeatured] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [deleteModalProduct, setDeleteModalProduct] = useState<CatalogProduct | null>(null);
 
-const allProducts: Product[] = [
-  { id: 'PRD-001', name: 'Silk Evening Gown', sku: 'YEB-SEG-001', category: 'Gowns', price: 42500, comparePrice: 52000, stock: 28, lowStockThreshold: 10, status: 'active', image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=400&auto=format&fit=crop', createdAt: '2026-07-01' },
-  { id: 'PRD-002', name: 'Velvet Blazer', sku: 'YEB-VB-002', category: 'Blazers', price: 28900, comparePrice: 35000, stock: 3, lowStockThreshold: 10, status: 'active', image: 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=400&auto=format&fit=crop', createdAt: '2026-07-05' },
-  { id: 'PRD-003', name: 'Handcrafted Saree', sku: 'YEB-HS-003', category: 'Sarees', price: 35000, comparePrice: null, stock: 15, lowStockThreshold: 8, status: 'active', image: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?q=80&w=400&auto=format&fit=crop', createdAt: '2026-06-28' },
-  { id: 'PRD-004', name: 'Designer Lehenga', sku: 'YEB-DL-004', category: 'Lehengas', price: 85000, comparePrice: 95000, stock: 5, lowStockThreshold: 5, status: 'active', image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?q=80&w=400&auto=format&fit=crop', createdAt: '2026-06-20' },
-  { id: 'PRD-005', name: 'Cashmere Shawl', sku: 'YEB-CS-005', category: 'Accessories', price: 15500, comparePrice: null, stock: 0, lowStockThreshold: 10, status: 'out_of_stock', image: 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?q=80&w=400&auto=format&fit=crop', createdAt: '2026-06-15' },
-  { id: 'PRD-006', name: 'Embroidered Kurta Set', sku: 'YEB-EKS-006', category: 'Kurtas', price: 12500, comparePrice: 16000, stock: 45, lowStockThreshold: 15, status: 'active', image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?q=80&w=400&auto=format&fit=crop', createdAt: '2026-06-10' },
-  { id: 'PRD-007', name: 'Sequined Crop Top', sku: 'YEB-SCT-007', category: 'Tops', price: 8900, comparePrice: null, stock: 22, lowStockThreshold: 10, status: 'draft', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop', createdAt: '2026-06-05' },
-  { id: 'PRD-008', name: 'Wide-Leg Silk Pants', sku: 'YEB-WSP-008', category: 'Bottoms', price: 18500, comparePrice: 22000, stock: 8, lowStockThreshold: 10, status: 'active', image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=400&auto=format&fit=crop', createdAt: '2026-05-30' },
-  { id: 'PRD-009', name: 'Floral Maxi Dress', sku: 'YEB-FMD-009', category: 'Dresses', price: 22000, comparePrice: 28000, stock: 0, lowStockThreshold: 10, status: 'discontinued', image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?q=80&w=400&auto=format&fit=crop', createdAt: '2026-05-25' },
-  { id: 'PRD-010', name: 'Statement Necklace', sku: 'YEB-SN-010', category: 'Jewelry', price: 12500, comparePrice: 15000, stock: 60, lowStockThreshold: 20, status: 'active', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=400&auto=format&fit=crop', createdAt: '2026-05-20' },
-  { id: 'PRD-011', name: 'Leather Tote Bag', sku: 'YEB-LTB-011', category: 'Accessories', price: 32500, comparePrice: 40000, stock: 12, lowStockThreshold: 8, status: 'active', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=400&auto=format&fit=crop', createdAt: '2026-05-15' },
-  { id: 'PRD-012', name: 'Embellished Heels', sku: 'YEB-EH-012', category: 'Footwear', price: 18500, comparePrice: null, stock: 2, lowStockThreshold: 5, status: 'active', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=400&auto=format&fit=crop', createdAt: '2026-05-10' },
-]
+  // Load products & listen for store updates
+  const loadProducts = useCallback(() => {
+    setProducts(getAllProducts());
+  }, []);
 
-const tabs = ['All', 'Active', 'Draft', 'Out of Stock', 'Discontinued']
+  useEffect(() => {
+    loadProducts();
+    window.addEventListener('yezbee_products_updated', loadProducts);
+    return () => window.removeEventListener('yezbee_products_updated', loadProducts);
+  }, [loadProducts]);
 
-export default function ProductsPage() {
-  const [activeTab, setActiveTab] = useState('All')
-  const [search, setSearch] = useState('')
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Compute Stats
+  const stats = useMemo(() => {
+    const total = products.length;
+    const published = products.filter((p) => p.status === 'published').length;
+    const draft = products.filter((p) => p.status === 'draft').length;
+    const archived = products.filter((p) => p.status === 'archived').length;
+    const lowStock = products.filter((p) => p.stock > 0 && p.stock <= (p.lowStockThreshold || 5)).length;
+    const outOfStock = products.filter((p) => p.stock === 0).length;
+    const featured = products.filter((p) => p.featured).length;
+
+    return { total, published, draft, archived, lowStock, outOfStock, featured };
+  }, [products]);
+
+  // Filter & Sort Logic
   const filteredProducts = useMemo(() => {
-    return allProducts.filter((p) => {
-      const matchesTab =
-        activeTab === 'All' ||
-        (activeTab === 'Active' && p.status === 'active') ||
-        (activeTab === 'Draft' && p.status === 'draft') ||
-        (activeTab === 'Out of Stock' && p.status === 'out_of_stock') ||
-        (activeTab === 'Discontinued' && p.status === 'discontinued')
-      const matchesSearch =
-        !search ||
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase()) ||
-        p.category.toLowerCase().includes(search.toLowerCase())
-      return matchesTab && matchesSearch
-    })
-  }, [activeTab, search])
+    return products.filter((p) => {
+      // 1. Search Query
+      if (debouncedSearch) {
+        const q = debouncedSearch.toLowerCase();
+        const matchesName = p.name.toLowerCase().includes(q);
+        const matchesSku = p.variants.some((v) => v.sku.toLowerCase().includes(q)) || p.id.toLowerCase().includes(q);
+        const matchesCat = p.categoryName.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+        const matchesTag = p.tags.some((t) => t.toLowerCase().includes(q));
+        if (!matchesName && !matchesSku && !matchesCat && !matchesTag) return false;
+      }
 
-  const renderStatusBadge = (status: string) => {
-    const colors: Record<string, string> = {
-      active: 'bg-green-100 text-green-700 border-green-200',
-      draft: 'bg-gray-100 text-gray-700 border-gray-200',
-      out_of_stock: 'bg-red-100 text-red-700 border-red-200',
-      discontinued: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+      // 2. Category Filter
+      if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+
+      // 3. Status Filter
+      if (selectedStatus !== 'all' && p.status !== selectedStatus) return false;
+
+      // 4. Inventory Status
+      if (selectedInventory === 'in_stock' && p.stock <= (p.lowStockThreshold || 5)) return false;
+      if (selectedInventory === 'low_stock' && (p.stock <= 0 || p.stock > (p.lowStockThreshold || 5))) return false;
+      if (selectedInventory === 'out_of_stock' && p.stock > 0) return false;
+
+      // 5. Product Type
+      if (selectedType === 'maternity' && !p.maternity) return false;
+      if (selectedType === 'non_maternity' && p.maternity) return false;
+      if (selectedType === 'kids' && p.category !== 'kids-clothing') return false;
+      if (selectedType === 'loungewear' && p.category !== 'loungewear') return false;
+
+      // 6. Featured
+      if (selectedFeatured === 'yes' && !p.featured) return false;
+      if (selectedFeatured === 'no' && p.featured) return false;
+
+      return true;
+    });
+  }, [products, debouncedSearch, selectedCategory, selectedStatus, selectedInventory, selectedType, selectedFeatured]);
+
+  // Sorted Products
+  const sortedProducts = useMemo(() => {
+    return [...filteredProducts].sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest':
+          return (a.createdAt || '').localeCompare(b.createdAt || '');
+        case 'price-asc':
+          return a.price - b.price;
+        case 'price-desc':
+          return b.price - a.price;
+        case 'stock-asc':
+          return a.stock - b.stock;
+        case 'stock-desc':
+          return b.stock - a.stock;
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'updated':
+          return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+        default: // newest
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+      }
+    });
+  }, [filteredProducts, sortBy]);
+
+  // Bulk Actions
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(sortedProducts.map((p) => p.id));
+    } else {
+      setSelectedIds([]);
     }
-    const labels: Record<string, string> = {
-      active: 'Active',
-      draft: 'Draft',
-      out_of_stock: 'Out of Stock',
-      discontinued: 'Discontinued',
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+  };
+
+  const handleBulkStatusChange = (status: 'published' | 'draft' | 'archived') => {
+    selectedIds.forEach((id) => updateProductStatus(id, status));
+    showToast(`Bulk updated ${selectedIds.length} products to ${status}`);
+    setSelectedIds([]);
+    loadProducts();
+  };
+
+  // Actions per item
+  const handleTogglePublish = (p: CatalogProduct) => {
+    const nextStatus = p.status === 'published' ? 'draft' : 'published';
+    updateProductStatus(p.id, nextStatus);
+    showToast(`Product "${p.name}" is now ${nextStatus}`);
+    loadProducts();
+  };
+
+  const handleDuplicate = (id: string) => {
+    const copy = duplicateProduct(id);
+    if (copy) {
+      showToast(`Duplicated as draft: "${copy.name}"`);
+      loadProducts();
     }
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${colors[status] || 'bg-gray-100 text-gray-700'}`}>
-        {labels[status] || status}
-      </span>
-    )
-  }
+  };
 
-  const columns = [
-    {
-      key: 'name',
-      header: 'Product',
-      sortable: true,
-      render: (row: Product) => (
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#F5E6C8]/50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-            {row.image ? (
-              <img src={row.image} alt={row.name} className="w-full h-full object-cover" />
-            ) : (
-              <Package size={18} className="text-[#C9A84C]" />
-            )}
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">{row.name}</p>
-            <p className="text-xs text-gray-400">{row.sku}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'category',
-      header: 'Category',
-      sortable: true,
-      render: (row: Product) => (
-        <span className="text-sm text-gray-600">{row.category}</span>
-      ),
-    },
-    {
-      key: 'price',
-      header: 'Price',
-      sortable: true,
-      render: (row: Product) => (
-        <div>
-          <span className="text-sm font-medium text-gray-900">₹{row.price.toLocaleString()}</span>
-          {row.comparePrice && (
-            <span className="text-xs text-gray-400 line-through ml-1.5">₹{row.comparePrice.toLocaleString()}</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'stock',
-      header: 'Stock',
-      sortable: true,
-      render: (row: Product) => {
-        const isLow = row.stock <= row.lowStockThreshold
-        return (
-          <div className="flex items-center gap-2">
-            <div className="w-16 bg-gray-100 rounded-full h-1.5">
-              <div
-                className={`h-1.5 rounded-full transition-all ${
-                  row.stock === 0 ? 'bg-red-500' : isLow ? 'bg-orange-400' : 'bg-green-400'
-                }`}
-                style={{ width: `${Math.min((row.stock / 100) * 100, 100)}%` }}
-              />
-            </div>
-            <span className={`text-sm font-medium ${row.stock === 0 ? 'text-red-600' : isLow ? 'text-orange-600' : 'text-gray-700'}`}>
-              {row.stock}
-            </span>
-            {isLow && (
-              <span className="text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">Low</span>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      sortable: true,
-      render: (row: Product) => (
-        <div className="flex items-center gap-2">
-          {renderStatusBadge(row.status)}
-          <button className="text-gray-400 hover:text-[#C9A84C] transition-colors">
-            {row.status === 'active' ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-          </button>
-        </div>
-      ),
-    },
-  ]
+  const handleConfirmArchive = (id: string) => {
+    deleteOrArchiveProduct(id);
+    showToast('Product archived successfully');
+    setDeleteModalProduct(null);
+    loadProducts();
+  };
 
-  const bulkActions = [
-    { label: 'Delete Selected', icon: Trash2, action: () => {} },
-    { label: 'Set Active', icon: ToggleRight, action: () => {} },
-    { label: 'Set Draft', icon: ToggleLeft, action: () => {} },
-  ]
+  const handleConfirmPermanentDelete = (id: string) => {
+    permanentDeleteProduct(id);
+    showToast('Product permanently deleted');
+    setDeleteModalProduct(null);
+    loadProducts();
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+
+      {/* Toast Feedback */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-6 right-6 z-50 bg-[var(--color-dark)] text-white px-5 py-3 rounded-2xl shadow-dark-lg text-xs font-bold flex items-center gap-2 border border-[var(--color-primary-gold)]"
+          >
+            <Sparkles size={16} className="text-[var(--color-primary-gold)]" />
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1A1A1A] tracking-tight">Products</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{filteredProducts.length} products found</p>
+          <h1 className="text-2xl font-bold text-gray-900 font-display tracking-tight">Product Catalog Management</h1>
+          <p className="text-xs text-gray-500 font-sans">
+            Manage YEZ BEE Fashion products, inventory variants, categories, and published visibility
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-white rounded-xl border border-gray-100 p-0.5 shadow-sm">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[#C9A84C] text-white shadow-md shadow-[#C9A84C]/20' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#C9A84C] text-white shadow-md shadow-[#C9A84C]/20' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <Grid3X3 size={16} />
-            </button>
-          </div>
-          <Link href="/admin/products/new">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#C9A84C] to-[#A8882E] text-white text-sm font-medium rounded-xl shadow-lg shadow-[#C9A84C]/20 hover:shadow-xl hover:shadow-[#C9A84C]/30 transition-all"
-            >
-              <Plus size={16} />
-              Add Product
-            </motion.button>
-          </Link>
+
+        <Link
+          href="/admin/products/create"
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[var(--color-dark)] text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[var(--color-primary-gold)] hover:text-[var(--color-dark)] transition-all shadow-md"
+        >
+          <Plus size={16} /> Add New Product
+        </Link>
+      </div>
+
+      {/* ── STATS DASHBOARD BAR ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Products</span>
+          <span className="text-xl font-bold text-gray-900 font-sans">{stats.total}</span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Published</span>
+          <span className="text-xl font-bold text-emerald-700 font-sans">{stats.published}</span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+          <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">Drafts</span>
+          <span className="text-xl font-bold text-amber-700 font-sans">{stats.draft}</span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+          <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Low Stock</span>
+          <span className="text-xl font-bold text-rose-700 font-sans">{stats.lowStock}</span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+          <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider block">Out of Stock</span>
+          <span className="text-xl font-bold text-red-700 font-sans">{stats.outOfStock}</span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Archived</span>
+          <span className="text-xl font-bold text-gray-600 font-sans">{stats.archived}</span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+          <span className="text-[10px] font-bold text-[var(--color-primary-gold)] uppercase tracking-wider block">Featured</span>
+          <span className="text-xl font-bold text-[var(--color-dark)] font-sans">{stats.featured}</span>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-gray-100 shadow-sm flex-wrap">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                activeTab === tab
-                  ? 'bg-[#C9A84C] text-white shadow-md shadow-[#C9A84C]/20'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab}
-              {tab !== 'All' && (
-                <span className="ml-1.5 opacity-60">
-                  ({allProducts.filter(p => {
-                    if (tab === 'Active') return p.status === 'active'
-                    if (tab === 'Draft') return p.status === 'draft'
-                    if (tab === 'Out of Stock') return p.status === 'out_of_stock'
-                    if (tab === 'Discontinued') return p.status === 'discontinued'
-                    return false
-                  }).length})
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 sm:ml-auto w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-initial">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* ── SEARCH & FILTER CONTROLS BAR ── */}
+      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+          {/* Debounced Search Input */}
+          <div className="relative w-full lg:w-96">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search products..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full sm:w-60 pl-9 pr-4 py-2 bg-white rounded-xl text-sm text-gray-700 placeholder-gray-400 border border-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/30 focus:border-transparent transition-all"
+              placeholder="Search product name, SKU, tag, category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 text-xs font-semibold rounded-xl border border-gray-300 outline-none focus:border-[var(--color-primary-gold)] bg-gray-50 focus:bg-white"
             />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black">
                 <X size={14} />
               </button>
             )}
           </div>
-          <button className="p-2.5 bg-white rounded-xl border border-gray-100 shadow-sm text-gray-500 hover:text-[#C9A84C] hover:border-[#C9A84C]/30 transition-all">
-            <SlidersHorizontal size={16} />
-          </button>
-          <button className="p-2.5 bg-white rounded-xl border border-gray-100 shadow-sm text-gray-500 hover:text-[#C9A84C] hover:border-[#C9A84C]/30 transition-all">
-            <Download size={16} />
-          </button>
+
+          {/* Quick Sorting & Refresh */}
+          <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="text-xs font-semibold border border-gray-300 rounded-xl px-3 py-2.5 bg-white outline-none focus:border-[var(--color-primary-gold)]"
+            >
+              <option value="newest">Sort: Newest First</option>
+              <option value="oldest">Sort: Oldest First</option>
+              <option value="price-asc">Sort: Price Low → High</option>
+              <option value="price-desc">Sort: Price High → Low</option>
+              <option value="stock-asc">Sort: Stock Low → High</option>
+              <option value="stock-desc">Sort: Stock High → Low</option>
+              <option value="name-asc">Sort: Name A → Z</option>
+              <option value="name-desc">Sort: Name Z → A</option>
+              <option value="updated">Sort: Recently Updated</option>
+            </select>
+
+            <button
+              onClick={loadProducts}
+              className="p-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 text-gray-600 hover:text-black transition-colors"
+              title="Refresh Catalog"
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Filters Dropdown Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-3 border-t border-gray-100">
+          {/* Category Filter (EXACT 6 Categories) */}
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Category</label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full text-xs font-semibold border border-gray-300 rounded-xl px-3 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)]"
+            >
+              <option value="all">All 6 Categories</option>
+              {YEZBEE_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.slug}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Status</label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="w-full text-xs font-semibold border border-gray-300 rounded-xl px-3 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)]"
+            >
+              <option value="all">All Statuses</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+
+          {/* Inventory Filter */}
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Stock</label>
+            <select
+              value={selectedInventory}
+              onChange={(e) => setSelectedInventory(e.target.value)}
+              className="w-full text-xs font-semibold border border-gray-300 rounded-xl px-3 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)]"
+            >
+              <option value="all">All Stock Levels</option>
+              <option value="in_stock">In Stock</option>
+              <option value="low_stock">Low Stock (1-5)</option>
+              <option value="out_of_stock">Out of Stock (0)</option>
+            </select>
+          </div>
+
+          {/* Product Type Filter */}
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Product Type</label>
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full text-xs font-semibold border border-gray-300 rounded-xl px-3 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)]"
+            >
+              <option value="all">All Types</option>
+              <option value="maternity">Maternity Wear</option>
+              <option value="non_maternity">Non-Maternity</option>
+              <option value="kids">Kids Clothing</option>
+              <option value="loungewear">Loungewear</option>
+            </select>
+          </div>
+
+          {/* Featured Filter */}
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Featured</label>
+            <select
+              value={selectedFeatured}
+              onChange={(e) => setSelectedFeatured(e.target.value)}
+              className="w-full text-xs font-semibold border border-gray-300 rounded-xl px-3 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)]"
+            >
+              <option value="all">Featured & Regular</option>
+              <option value="yes">Featured Only</option>
+              <option value="no">Non-Featured</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filteredProducts}
-        keyExtractor={(row) => row.id}
-        selectable
-        selectedIds={selectedIds}
-        onSelectionChange={setSelectedIds}
-        bulkActions={bulkActions}
-        onRowClick={(row) => window.location.href = `/admin/products/new?id=${row.id}`}
-        pageSize={10}
-      />
-    </motion.div>
-  )
+      {/* ── BULK ACTIONS BAR ── */}
+      {selectedIds.length > 0 && (
+        <div className="bg-[var(--color-dark)] text-white p-4 rounded-2xl flex items-center justify-between shadow-dark-md border border-[var(--color-primary-gold)]">
+          <span className="text-xs font-bold">
+            Selected {selectedIds.length} {selectedIds.length === 1 ? 'product' : 'products'}
+          </span>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleBulkStatusChange('published')}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors"
+            >
+              Publish Selected
+            </button>
+            <button
+              onClick={() => handleBulkStatusChange('draft')}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors"
+            >
+              Move to Draft
+            </button>
+            <button
+              onClick={() => handleBulkStatusChange('archived')}
+              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-colors"
+            >
+              Archive Selected
+            </button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="text-xs text-gray-400 hover:text-white underline ml-2"
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PRODUCT TABLE ── */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-gray-50/80 border-b border-gray-200 font-bold text-gray-600 uppercase tracking-wider text-[10px]">
+                <th className="p-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length > 0 && selectedIds.length === sortedProducts.length}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="rounded border-gray-300 text-[var(--color-primary-gold)] focus:ring-[var(--color-primary-gold)]"
+                  />
+                </th>
+                <th className="p-4">Image</th>
+                <th className="p-4">Product Name & SKU</th>
+                <th className="p-4">Category</th>
+                <th className="p-4">Price</th>
+                <th className="p-4">Discount</th>
+                <th className="p-4">Stock</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">Featured</th>
+                <th className="p-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 font-sans">
+              {sortedProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="p-12 text-center text-gray-400">
+                    <Package size={32} className="mx-auto mb-2 opacity-50" />
+                    <p className="font-bold text-sm text-gray-600">No products found</p>
+                    <p className="text-xs text-gray-400">Try adjusting search or active filters.</p>
+                  </td>
+                </tr>
+              ) : (
+                sortedProducts.map((p) => {
+                  const isSelected = selectedIds.includes(p.id);
+                  const isOut = p.stock === 0;
+                  const isLow = p.stock > 0 && p.stock <= (p.lowStockThreshold || 5);
+
+                  return (
+                    <tr
+                      key={p.id}
+                      className={`hover:bg-gray-50/80 transition-colors ${
+                        isSelected ? 'bg-amber-50/40' : ''
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="p-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(p.id)}
+                          className="rounded border-gray-300 text-[var(--color-primary-gold)] focus:ring-[var(--color-primary-gold)]"
+                        />
+                      </td>
+
+                      {/* Thumbnail */}
+                      <td className="p-4">
+                        <div className="relative w-12 h-14 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                          <Image src={p.thumbnail} alt={p.name} fill className="object-cover" sizes="48px" />
+                        </div>
+                      </td>
+
+                      {/* Name & SKU */}
+                      <td className="p-4 max-w-xs">
+                        <Link
+                          href={`/admin/products/${p.id}`}
+                          className="font-bold text-gray-900 hover:text-[var(--color-primary-gold)] transition-colors block text-xs line-clamp-1"
+                        >
+                          {p.name}
+                        </Link>
+                        <span className="text-[10px] font-mono text-gray-400 block mt-0.5">
+                          SKU: {p.variants[0]?.sku || p.id} · {p.variants.length} Variants
+                        </span>
+                      </td>
+
+                      {/* Category */}
+                      <td className="p-4">
+                        <span className="inline-block px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 text-[11px] font-semibold">
+                          {p.categoryName}
+                        </span>
+                      </td>
+
+                      {/* Price */}
+                      <td className="p-4 font-bold text-gray-900">
+                        ₹{p.price.toLocaleString('en-IN')}
+                        {p.compareAtPrice && (
+                          <span className="text-[10px] text-gray-400 line-through block font-normal">
+                            ₹{p.compareAtPrice.toLocaleString('en-IN')}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Discount */}
+                      <td className="p-4">
+                        {p.discountPercentage > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 font-bold text-[10px]">
+                            {p.discountPercentage}% OFF
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-[10px]">—</span>
+                        )}
+                      </td>
+
+                      {/* Stock */}
+                      <td className="p-4">
+                        {isOut ? (
+                          <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-800 text-[10px] font-bold">
+                            Out of Stock (0)
+                          </span>
+                        ) : isLow ? (
+                          <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                            Low Stock ({p.stock})
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                            In Stock ({p.stock})
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-4">
+                        <button
+                          onClick={() => handleTogglePublish(p)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold border cursor-pointer transition-colors ${
+                            p.status === 'published'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              : p.status === 'draft'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                              : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                          }`}
+                          title="Click to toggle status"
+                        >
+                          {p.status.toUpperCase()}
+                        </button>
+                      </td>
+
+                      {/* Featured */}
+                      <td className="p-4">
+                        {p.featured ? (
+                          <span className="text-[var(--color-primary-gold)] font-bold flex items-center gap-1">
+                            <Star size={13} className="fill-[var(--color-primary-gold)]" /> Yes
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/admin/products/${p.id}`}
+                            className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Edit Product"
+                          >
+                            <Edit size={15} />
+                          </Link>
+
+                          <Link
+                            href={`/admin/products/${p.id}/preview`}
+                            className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Preview Customer Page"
+                          >
+                            <Eye size={15} />
+                          </Link>
+
+                          <button
+                            onClick={() => handleDuplicate(p.id)}
+                            className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Duplicate Product"
+                          >
+                            <Copy size={15} />
+                          </button>
+
+                          <button
+                            onClick={() => setDeleteModalProduct(p)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete / Archive Product"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Delete / Archive Confirmation Modal */}
+      <AnimatePresence>
+        {deleteModalProduct && (
+          <>
+            <motion.div
+              className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteModalProduct(null)}
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md bg-white rounded-3xl z-50 p-6 shadow-dark-lg"
+            >
+              <h3 className="font-display font-bold text-lg text-gray-900 mb-2">
+                Delete or Archive Product?
+              </h3>
+              <p className="text-xs text-gray-600 mb-6 leading-relaxed">
+                You are modifying <strong className="text-black">&quot;{deleteModalProduct.name}&quot;</strong>.
+                Archiving removes it from customer views while preserving order history. Permanent deletion removes all records.
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => handleConfirmArchive(deleteModalProduct.id)}
+                  className="w-full py-3 bg-[var(--color-dark)] text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-black"
+                >
+                  Archive Product (Recommended)
+                </button>
+                <button
+                  onClick={() => handleConfirmPermanentDelete(deleteModalProduct.id)}
+                  className="w-full py-3 bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-rose-100"
+                >
+                  Permanently Delete
+                </button>
+                <button
+                  onClick={() => setDeleteModalProduct(null)}
+                  className="w-full py-2.5 text-gray-500 text-xs font-bold uppercase tracking-wider hover:text-black"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }

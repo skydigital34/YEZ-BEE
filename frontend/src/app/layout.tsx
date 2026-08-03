@@ -60,8 +60,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
-      <body className="font-inter bg-warmWhite text-dark antialiased">
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth" className={`${playfair.variable} ${inter.variable}`}>
+      <body className="font-inter bg-warmWhite text-dark antialiased" suppressHydrationWarning>
         <LoadingScreen />
         <LenisProvider>
           <CartProvider>

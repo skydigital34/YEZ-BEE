@@ -13,67 +13,67 @@ import { cn } from '@/lib/utils';
 
 const footerColumns = [
   {
-    title: 'Shop',
+    title: 'SHOP',
     links: [
-      { label: 'New Arrivals', href: '/category/new-arrivals' },
-      { label: 'Western Wear', href: '/category/western-wear' },
-      { label: 'Ethnic Wear', href: '/category/ethnic-wear' },
-      { label: 'Active Wear', href: '/category/active-wear' },
-      { label: 'Accessories', href: '/category/accessories' },
-      { label: 'Sale', href: '/category/sale' },
+      { label: 'Maternity Kurtis', href: '/category/maternity-kurtis' },
+      { label: 'Maternity Feeding Loungewears', href: '/category/maternity-feeding-loungewears' },
+      { label: 'Maternity Intimatewears', href: '/category/maternity-intimatewears' },
+      { label: 'Non-Maternity Kurtis & Dresses', href: '/category/non-maternity-kurtis-dresses' },
+      { label: 'Kids Clothing', href: '/category/kids-clothing' },
+      { label: 'Loungewear', href: '/category/loungewear' },
     ],
   },
   {
-    title: 'Company',
+    title: 'CUSTOMER CARE',
     links: [
-      { label: 'About Us', href: '/about' },
-      { label: 'Careers', href: '/careers' },
-      { label: 'Press', href: '/press' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Sustainability', href: '/sustainability' },
-    ],
-  },
-  {
-    title: 'Support',
-    links: [
-      { label: 'Contact Us', href: '/contact' },
-      { label: 'FAQ', href: '/faq' },
-      { label: 'Shipping Info', href: '/shipping' },
-      { label: 'Returns & Exchanges', href: '/returns' },
-      { label: 'Size Guide', href: '/size-guide' },
       { label: 'Track Order', href: '/track-order' },
+      { label: 'Contact Us', href: '/contact' },
+      { label: 'Shipping Info', href: '/shipping' },
+      { label: 'Returns & Exchange', href: '/returns' },
+      { label: 'Size Guide', href: '/size-guide' },
+      { label: 'FAQ', href: '/faq' },
     ],
   },
   {
-    title: 'Legal',
+    title: 'COMPANY',
+    links: [
+      { label: 'About YEZ BEE', href: '/about' },
+      { label: 'Our Story', href: '/about' },
+      { label: 'Retail Outlets', href: '/contact' },
+      { label: 'Franchise Enquiry', href: '/contact' },
+      { label: 'Careers', href: '/careers' },
+    ],
+  },
+  {
+    title: 'LEGAL',
     links: [
       { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Terms of Service', href: '/terms' },
-      { label: 'Cookie Policy', href: '/cookies' },
+      { label: 'Terms & Conditions', href: '/terms' },
       { label: 'Refund Policy', href: '/refund' },
+      { label: 'Shipping Policy', href: '/shipping' },
     ],
   },
 ];
 
 const socialLinks = [
-  { icon: Instagram, href: '#', label: 'Instagram' },
-  { icon: Youtube, href: '#', label: 'YouTube' },
-  { icon: Facebook, href: '#', label: 'Facebook' },
-  { icon: Pinterest, href: '#', label: 'Pinterest' },
-  { icon: MessageCircle, href: '#', label: 'WhatsApp' },
+  { icon: Instagram, href: 'https://instagram.com', label: 'Instagram' },
+  { icon: Youtube, href: 'https://youtube.com', label: 'YouTube' },
+  { icon: Facebook, href: 'https://facebook.com', label: 'Facebook' },
+  { icon: Pinterest, href: 'https://pinterest.com', label: 'Pinterest' },
+  { icon: MessageCircle, href: 'https://wa.me/919876543210', label: 'WhatsApp' },
 ];
 
 const paymentMethods = [
   { name: 'Visa', gradient: 'from-blue-700 to-blue-500' },
   { name: 'Mastercard', gradient: 'from-orange-600 to-red-500' },
   { name: 'UPI', gradient: 'from-green-700 to-green-500' },
-  { name: 'COD', gradient: 'from-purple-700 to-purple-500' },
-  { name: 'Razorpay', gradient: 'from-blue-600 to-cyan-500' },
+  { name: 'COD Available', gradient: 'from-purple-700 to-purple-500' },
+  { name: '256-Bit SSL', gradient: 'from-blue-600 to-cyan-500' },
 ];
 
 export default function Footer() {
   return (
-    <footer className="bg-[var(--color-dark)]">
+    <footer className="bg-[var(--color-dark)] text-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="py-16">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
@@ -89,25 +89,24 @@ export default function Footer() {
                   />
                 </Link>
               </div>
-              <p className="mb-6 text-sm leading-relaxed text-white/60">
+              <p className="mb-6 text-xs leading-relaxed text-white/60 font-sans">
                 India&apos;s premier luxury fashion destination. Curating
-                elegance, celebrating individuality — because you deserve
-                nothing less than extraordinary.
+                elegance, celebrating individuality — handcrafted with passion.
               </p>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 {socialLinks.map((social) => (
                   <a
                     key={social.label}
                     href={social.href}
                     className={cn(
-                      'flex h-9 w-9 items-center justify-center rounded-full transition-all duration-200',
-                      'border border-white/10 text-white/50 hover:border-[var(--color-primary-gold)] hover:text-[var(--color-primary-gold)]'
+                      'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200',
+                      'border border-white/15 text-white/60 hover:border-[var(--color-primary-gold)] hover:text-[var(--color-primary-gold)] hover:scale-105'
                     )}
                     aria-label={social.label}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <social.icon size={16} />
+                    <social.icon size={15} />
                   </a>
                 ))}
               </div>
@@ -115,20 +114,20 @@ export default function Footer() {
 
             {footerColumns.map((col) => (
               <div key={col.title}>
-                <h4 className="mb-5 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary-gold)]">
+                <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-primary-gold)]">
                   {col.title}
                 </h4>
-                <ul className="space-y-3">
+                <ul className="space-y-2.5">
                   {col.links.map((link) => (
                     <li key={link.label}>
                       <Link
                         href={link.href}
-                        className="group inline-flex items-center gap-1 text-sm text-white/50 transition-colors hover:text-white"
+                        className="group inline-flex items-center gap-1 text-xs text-white/60 transition-colors hover:text-white"
                       >
                         {link.label}
                         <ChevronRight
-                          size={12}
-                          className="opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0"
+                          size={11}
+                          className="opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 text-[var(--color-primary-gold)]"
                         />
                       </Link>
                     </li>
@@ -139,74 +138,80 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-white/10 py-10">
-          <div className="mb-6">
-            <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary-gold)]">
-              Join the Community
-            </h4>
-            <div className="flex max-w-md gap-3">
-              <div className="relative flex-1">
-                <Mail
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
-                />
-                <input
-                  type="email"
-                  placeholder="Enter your email"
+        {/* Newsletter & Payment Badges */}
+        <div className="border-t border-white/10 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div>
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-primary-gold)]">
+                JOIN THE YEZ BEE CLUB
+              </h4>
+              <p className="text-xs text-white/50 mb-3">
+                Subscribe for private preview access to new couture drops and exclusive offers.
+              </p>
+              <div className="flex max-w-md gap-2">
+                <div className="relative flex-1">
+                  <Mail
+                    size={15}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className={cn(
+                      'w-full rounded-full border border-white/15 bg-white/5 py-2.5 pl-10 pr-4 text-xs text-white',
+                      'placeholder:text-white/30 outline-none transition-colors focus:border-[var(--color-primary-gold)]'
+                    )}
+                    aria-label="Email for newsletter"
+                  />
+                </div>
+                <button
                   className={cn(
-                    'w-full rounded-full border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white',
-                    'placeholder:text-white/30 outline-none transition-colors focus:border-[var(--color-primary-gold)]'
-                  )}
-                  aria-label="Email for newsletter"
-                />
-              </div>
-              <button
-                className={cn(
-                  'rounded-full px-6 py-3 text-xs font-semibold uppercase tracking-wider transition-all duration-200',
-                  'bg-[var(--color-primary-gold)] text-[var(--color-dark)]',
-                  'hover:bg-[var(--color-gold-light)]'
-                )}
-              >
-                Subscribe
-              </button>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary-gold)]">
-              We Accept
-            </h4>
-            <div className="flex flex-wrap gap-3">
-              {paymentMethods.map((method) => (
-                <span
-                  key={method.name}
-                  className={cn(
-                    'rounded-lg px-4 py-2 text-xs font-medium text-white',
-                    `bg-gradient-to-r ${method.gradient}`
+                    'rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200',
+                    'bg-[var(--color-primary-gold)] text-[var(--color-dark)]',
+                    'hover:bg-[var(--color-gold-light)]'
                   )}
                 >
-                  {method.name}
-                </span>
-              ))}
+                  Subscribe
+                </button>
+              </div>
+            </div>
+
+            <div className="md:text-right">
+              <h4 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-primary-gold)]">
+                100% SECURE CHECKOUT
+              </h4>
+              <div className="flex flex-wrap md:justify-end gap-2">
+                {paymentMethods.map((method) => (
+                  <span
+                    key={method.name}
+                    className={cn(
+                      'rounded-md px-3 py-1.5 text-[11px] font-semibold text-white',
+                      `bg-gradient-to-r ${method.gradient}`
+                    )}
+                  >
+                    {method.name}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Copyright */}
         <div className="border-t border-white/10 py-6">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <p className="text-xs text-white/40">
-              &copy; {new Date().getFullYear()} YEZ BEE Fashion. All rights
-              reserved.
+            <p className="text-[11px] text-white/40">
+              &copy; {new Date().getFullYear()} YEZ BEE Fashion. All rights reserved.
             </p>
-            <div className="flex items-center gap-4 text-xs text-white/40">
-              <Link href="/privacy" className="hover:text-white/60">
-                Privacy
+            <div className="flex items-center gap-4 text-[11px] text-white/40">
+              <Link href="/privacy" className="hover:text-white/70">
+                Privacy Policy
               </Link>
-              <Link href="/terms" className="hover:text-white/60">
-                Terms
+              <Link href="/terms" className="hover:text-white/70">
+                Terms of Service
               </Link>
-              <Link href="/cookies" className="hover:text-white/60">
-                Cookies
+              <Link href="/refund" className="hover:text-white/70">
+                Refund Policy
               </Link>
             </div>
           </div>
