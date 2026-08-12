@@ -1,8 +1,14 @@
 {
+  "framework": "nextjs",
+  "services": {
+    "web": {
+      "root": "frontend",
+      "framework": "nextjs"
+    }
+  },
   "functions": {
     "api/index.ts": {
-      "memory": 1024,
-      "maxDuration": 15
+      "memory": 1024
     }
   },
   "rewrites": [
