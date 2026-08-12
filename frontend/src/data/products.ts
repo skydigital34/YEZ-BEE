@@ -911,6 +911,7 @@ export function saveOrUpdateProduct(productData: Partial<CatalogProduct>): Catal
     compareAtPrice: productData.compareAtPrice || null,
     costPrice: productData.costPrice || 0,
     discountPercentage,
+    currency: productData.currency || 'INR',
     images: (productData.images && productData.images.length > 0)
       ? productData.images.map((img: any) => safeImg(img)).filter(Boolean)
       : ['/images/categories/maternity-kurtis.jpg'],
