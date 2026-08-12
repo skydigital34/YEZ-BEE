@@ -35,8 +35,20 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.startsWith('/')) {
       return [];
+    }
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      return [
+        {
+          source: '/api/v1/:path*',
+          destination: '/api',
+        },
+        {
+          source: '/api/health',
+          destination: '/api',
+        },
+      ];
     }
     return [
       {
