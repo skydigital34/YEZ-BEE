@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose, { Schema } from 'mongoose';
 
 // MongoDB Atlas connection string
 const MONGODB_URI =
@@ -8,8 +7,22 @@ const MONGODB_URI =
 
 let isConnected = false;
 
+function getMongoose(): any {
+  try {
+    return require('mongoose');
+  } catch (err) {
+    console.error('Mongoose require failed at runtime:', err);
+    return null;
+  }
+}
+
 async function connectDB() {
-  if (isConnected || mongoose.connection.readyState === 1) return;
+  const mongoose = getMongoose();
+  if (!mongoose) return;
+  if (isConnected || mongoose.connection?.readyState === 1) {
+    isConnected = true;
+    return;
+  }
   try {
     await mongoose.connect(MONGODB_URI, {
       dbName: 'yezbee',
@@ -21,39 +34,45 @@ async function connectDB() {
   }
 }
 
-// Reuse or register Product Schema
-const ProductSchema = new Schema(
-  {
-    name: { type: String, required: true },
-    slug: { type: String, required: true },
-    description: { type: String, default: '' },
-    shortDescription: { type: String, default: '' },
-    category: { type: Schema.Types.Mixed },
-    subcategory: { type: String, default: 'General' },
-    productType: { type: String, default: null },
-    brand: { type: String, default: 'YEZ BEE' },
-    price: { type: Number, default: 0 },
-    compareAtPrice: { type: Number, default: 0 },
-    discount: { type: Number, default: 0 },
-    status: { type: String, enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'], default: 'PUBLISHED' },
-    featured: { type: Boolean, default: false },
-    bestSeller: { type: Boolean, default: false },
-    newArrival: { type: Boolean, default: false },
-    tags: [{ type: String }],
-    images: [{ type: Schema.Types.Mixed }],
-    variants: [{ type: Schema.Types.Mixed }],
-    fabric: { type: String, default: 'Pure Cotton' },
-    fit: { type: String, default: 'Regular' },
-    pattern: { type: String, default: 'Printed' },
-    occasion: { type: String, default: 'Casual' },
-    careInstructions: [{ type: String }],
-    seo: { type: Schema.Types.Mixed },
-    isActive: { type: Boolean, default: true },
-  },
-  { timestamps: true, strict: false }
-);
-
-const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
+function getProductModel(): any {
+  const mongoose = getMongoose();
+  if (!mongoose) return null;
+  if (mongoose.models && mongoose.models.Product) {
+    return mongoose.models.Product;
+  }
+  const Schema = mongoose.Schema;
+  const ProductSchema = new Schema(
+    {
+      name: { type: String, required: true },
+      slug: { type: String, required: true },
+      description: { type: String, default: '' },
+      shortDescription: { type: String, default: '' },
+      category: { type: Schema.Types.Mixed },
+      subcategory: { type: String, default: 'General' },
+      productType: { type: String, default: null },
+      brand: { type: String, default: 'YEZ BEE' },
+      price: { type: Number, default: 0 },
+      compareAtPrice: { type: Number, default: 0 },
+      discount: { type: Number, default: 0 },
+      status: { type: String, enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'], default: 'PUBLISHED' },
+      featured: { type: Boolean, default: false },
+      bestSeller: { type: Boolean, default: false },
+      newArrival: { type: Boolean, default: false },
+      tags: [{ type: String }],
+      images: [{ type: Schema.Types.Mixed }],
+      variants: [{ type: Schema.Types.Mixed }],
+      fabric: { type: String, default: 'Pure Cotton' },
+      fit: { type: String, default: 'Regular' },
+      pattern: { type: String, default: 'Printed' },
+      occasion: { type: String, default: 'Casual' },
+      careInstructions: [{ type: String }],
+      seo: { type: Schema.Types.Mixed },
+      isActive: { type: Boolean, default: true },
+    },
+    { timestamps: true, strict: false }
+  );
+  return mongoose.model('Product', ProductSchema);
+}
 
 // CORS Headers helper
 function corsResponse(data: any, status = 200) {
@@ -75,11 +94,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
+  const Product = getProductModel();
 
   try {
     // 1. GET /api/v1/products/admin/all
     if (path === 'products/admin/all') {
-      const items = await Product.find({}).sort({ createdAt: -1 }).lean();
+      const items = Product ? await Product.find({}).sort({ createdAt: -1 }).lean() : [];
       return corsResponse({
         success: true,
         data: items,
@@ -89,7 +109,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // 2. GET /api/v1/products/admin/stats
     if (path === 'products/admin/stats') {
-      const items = await Product.find({}).lean();
+      const items = Product ? await Product.find({}).lean() : [];
       const total = items.length;
       const published = items.filter((p: any) => p.status === 'PUBLISHED').length;
       const draft = items.filter((p: any) => p.status === 'DRAFT').length;
@@ -127,7 +147,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // 4. GET /api/v1/products
     if (path === 'products' || path === 'products/featured') {
-      const items = await Product.find({ status: 'PUBLISHED' }).sort({ createdAt: -1 }).lean();
+      const items = Product ? await Product.find({ status: 'PUBLISHED' }).sort({ createdAt: -1 }).lean() : [];
       return corsResponse({
         success: true,
         data: items,
@@ -138,9 +158,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // 5. GET /api/v1/products/:slugOrId
     if (path.startsWith('products/')) {
       const idOrSlug = path.replace('products/', '');
-      const item =
-        (await Product.findOne({ slug: idOrSlug }).lean()) ||
-        (mongoose.Types.ObjectId.isValid(idOrSlug) ? await Product.findById(idOrSlug).lean() : null);
+      const mongoose = getMongoose();
+      const item = Product
+        ? (await Product.findOne({ slug: idOrSlug }).lean()) ||
+          (mongoose && mongoose.Types.ObjectId.isValid(idOrSlug) ? await Product.findById(idOrSlug).lean() : null)
+        : null;
       if (!item) {
         return corsResponse({ success: false, message: 'Product not found' }, 404);
       }
@@ -157,13 +179,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
+  const Product = getProductModel();
 
   try {
     // 1. POST /api/v1/products/upload-image
     if (path === 'products/upload-image' || path === 'products/upload-images') {
       try {
         const formData = await request.formData();
-        const file = formData.get('image') as File || formData.get('images') as File;
+        const file = (formData.get('image') as File) || (formData.get('images') as File);
         if (file) {
           const bytes = await file.arrayBuffer();
           const buffer = Buffer.from(bytes);
@@ -194,16 +217,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // 2. POST /api/v1/products (Create Product)
     if (path === 'products') {
       const body = await request.json();
+      if (!Product) {
+        return corsResponse({ success: false, message: 'Database model not initialized' }, 500);
+      }
       const newProduct = new Product({
         ...body,
         status: body.status || 'PUBLISHED',
       });
       const saved = await newProduct.save();
-      return corsResponse({
-        success: true,
-        data: saved,
-        message: 'Product created successfully in MongoDB Atlas!',
-      }, 201);
+      return corsResponse(
+        {
+          success: true,
+          data: saved,
+          message: 'Product created successfully in MongoDB Atlas!',
+        },
+        201
+      );
     }
 
     return corsResponse({ success: false, message: 'Route not found' }, 404);
@@ -217,12 +246,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
+  const Product = getProductModel();
 
   try {
     if (path.startsWith('products/')) {
       const productId = path.replace('products/', '');
       const body = await request.json();
-      const updated = await Product.findByIdAndUpdate(productId, body, { new: true }).lean();
+      const updated = Product ? await Product.findByIdAndUpdate(productId, body, { new: true }).lean() : null;
       return corsResponse({
         success: true,
         data: updated,
@@ -239,18 +269,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
+  const Product = getProductModel();
 
   try {
     if (path.includes('/status')) {
       const productId = path.split('/')[1];
       const { status } = await request.json();
-      const updated = await Product.findByIdAndUpdate(productId, { status }, { new: true }).lean();
+      const updated = Product ? await Product.findByIdAndUpdate(productId, { status }, { new: true }).lean() : null;
       return corsResponse({ success: true, data: updated });
     }
 
     if (path.includes('/archive')) {
       const productId = path.split('/')[1];
-      const updated = await Product.findByIdAndUpdate(productId, { status: 'ARCHIVED' }, { new: true }).lean();
+      const updated = Product ? await Product.findByIdAndUpdate(productId, { status: 'ARCHIVED' }, { new: true }).lean() : null;
       return corsResponse({ success: true, data: updated });
     }
 
@@ -264,11 +295,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
+  const Product = getProductModel();
 
   try {
     if (path.startsWith('products/')) {
       const productId = path.replace('products/', '');
-      await Product.findByIdAndDelete(productId);
+      if (Product) await Product.findByIdAndDelete(productId);
       return corsResponse({ success: true, message: 'Product deleted' });
     }
     return corsResponse({ success: true });
