@@ -11,6 +11,9 @@ if (!process.env.VERCEL) {
   }
 }
 
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 3000;
+
 const connectionOptions: mongoose.ConnectOptions = {
   maxPoolSize: 10,
   minPoolSize: 1,
