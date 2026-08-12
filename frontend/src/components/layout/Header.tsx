@@ -74,6 +74,7 @@ export default function Header() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setSearchOpen(true)}
+              suppressHydrationWarning
               className={cn(
                 'rounded-full p-2.5 transition-all duration-200 hover:scale-105',
                 isSolidHeader
@@ -141,6 +142,7 @@ export default function Header() {
             {/* Mobile Hamburger Toggle */}
             <button
               onClick={() => setMobileMenuOpen(true)}
+              suppressHydrationWarning
               className={cn(
                 'rounded-full p-2.5 transition-all duration-200 lg:hidden',
                 isSolidHeader

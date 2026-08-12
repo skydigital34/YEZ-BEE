@@ -6,7 +6,7 @@ import { AppError } from '../middleware/errorHandler';
 import { logger, slugify, parsePagination, parseSort } from '../utils/helpers';
 import { getFromCache, setToCache, delFromCache } from '../config/redis';
 import { CACHE_KEYS, DEFAULT_TTL } from '../utils/constants';
-import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary';
+import { uploadToCloudinary, deleteFromCloudinary, getCategoryFolderPath } from '../config/cloudinary';
 
 export const getProducts = async (
   req: Request,
@@ -17,17 +17,37 @@ export const getProducts = async (
     const { page, limit, skip } = parsePagination(req.query);
     const sort = parseSort(req.query.sort as string);
 
-    const filter: Record<string, unknown> = { isActive: true };
+    // Customer website must only show PUBLISHED products
+    const filter: Record<string, unknown> = {
+      $or: [{ status: 'PUBLISHED' }, { status: { $exists: false }, isActive: true }],
+    };
 
     if (req.query.category) {
-      const category = await Category.findOne({ slug: req.query.category });
-      if (category) {
-        filter.category = category._id;
+      const categoryQuery = req.query.category as string;
+      const categoryDoc = await Category.findOne({
+        $or: [{ slug: categoryQuery }, { name: new RegExp(`^${categoryQuery}$`, 'i') }],
+      });
+      if (categoryDoc) {
+        // Match product's category or parentCategory
+        filter.$and = [
+          {
+            $or: [
+              { category: categoryDoc._id },
+              { parentCategory: categoryDoc._id },
+            ],
+          },
+        ];
+      } else {
+        filter.subcategory = new RegExp(categoryQuery, 'i');
       }
     }
 
+    if (req.query.productType) {
+      filter.productType = (req.query.productType as string).toUpperCase();
+    }
+
     if (req.query.subcategory) {
-      filter.subcategory = req.query.subcategory;
+      filter.subcategory = new RegExp(req.query.subcategory as string, 'i');
     }
 
     if (req.query.brand) {
@@ -46,7 +66,7 @@ export const getProducts = async (
 
     if (req.query.tags) {
       const tags = (req.query.tags as string).split(',');
-      filter.tags = { $in: tags };
+      filter.tags = { $in: tags.map((t) => t.trim().toLowerCase()) };
     }
 
     if (req.query.colors) {
@@ -60,20 +80,21 @@ export const getProducts = async (
     }
 
     if (req.query.fabric) {
-      filter.fabric = req.query.fabric;
+      filter.fabric = new RegExp(req.query.fabric as string, 'i');
     }
 
     if (req.query.fit) {
-      filter.fit = req.query.fit;
+      filter.fit = new RegExp(req.query.fit as string, 'i');
     }
 
     if (req.query.occasion) {
-      filter.occasion = req.query.occasion;
+      filter.occasion = new RegExp(req.query.occasion as string, 'i');
     }
 
-    if (req.query.isNew === 'true') filter.isNew = true;
+    if (req.query.isNew === 'true' || req.query.newArrival === 'true') filter.newArrival = true;
     if (req.query.isTrending === 'true') filter.isTrending = true;
-    if (req.query.isBestSeller === 'true') filter.isBestSeller = true;
+    if (req.query.isBestSeller === 'true' || req.query.bestSeller === 'true') filter.bestSeller = true;
+    if (req.query.featured === 'true') filter.featured = true;
 
     if (req.query.search) {
       const searchRegex = new RegExp(req.query.search as string, 'i');
@@ -148,49 +169,125 @@ export const createProduct = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const newlyUploadedPublicIds: string[] = [];
   try {
-    const { name, variants, ...productData } = req.body;
+    const { name, variants, categoryName, categorySlug, images: bodyImages, ...productData } = req.body;
 
-    const slug = slugify(name);
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      throw new AppError('Product name is required', 400);
+    }
+
+    let slug = slugify(name);
     const existingSlug = await Product.findOne({ slug });
     if (existingSlug) {
-      throw new AppError('A product with this name already exists', 409);
+      slug = `${slug}-${Date.now().toString().slice(-4)}`;
     }
 
-    if (variants) {
-      const skus = variants.map((v: { sku: string }) => v.sku);
+    if (variants && Array.isArray(variants)) {
+      const skus = variants.map((v: { sku: string }) => v?.sku).filter(Boolean);
       const uniqueSkus = new Set(skus);
       if (uniqueSkus.size !== skus.length) {
-        throw new AppError('Duplicate variant SKUs found', 400);
+        logger.warn('Duplicate SKUs found in variant payload, proceeding with normalization');
       }
     }
+
+    let categoryId = productData.category;
+    let resolvedCategoryName = categoryName || categorySlug || 'general';
+
+    if (categoryId && typeof categoryId === 'string' && !categoryId.match(/^[0-9a-fA-F]{24}$/)) {
+      let categoryDoc = await Category.findOne({
+        $or: [{ slug: categoryId }, { name: new RegExp(`^${categoryId}$`, 'i') }],
+      });
+      if (!categoryDoc) {
+        try {
+          categoryDoc = await Category.create({
+            name: categoryId.toUpperCase(),
+            slug: categoryId.toLowerCase(),
+            description: `${categoryId} Collection`,
+          });
+        } catch (e) {
+          logger.warn('Failed to auto-create category in DB, using fallback category');
+        }
+      }
+      if (categoryDoc) {
+        categoryId = categoryDoc._id;
+        resolvedCategoryName = categoryDoc.name || categoryDoc.slug;
+      } else {
+        const anyCat = await Category.findOne();
+        if (anyCat) {
+          categoryId = anyCat._id;
+          resolvedCategoryName = anyCat.name || anyCat.slug;
+        }
+      }
+    }
+
+    const folderPath = getCategoryFolderPath(resolvedCategoryName);
+
+    const uploadedImages: { url: string; publicId: string; alt: string; isPrimary: boolean; color?: string; sortOrder?: number }[] = [];
+
+    // Process pre-uploaded images from JSON body if present
+    if (Array.isArray(bodyImages)) {
+      bodyImages.forEach((img: any, idx: number) => {
+        if (typeof img === 'string') {
+          uploadedImages.push({
+            url: img,
+            publicId: '',
+            alt: name,
+            isPrimary: idx === 0,
+            sortOrder: idx + 1,
+          });
+        } else if (img && (img.url || img.secure_url)) {
+          uploadedImages.push({
+            url: img.secure_url || img.url,
+            publicId: img.publicId || img.public_id || '',
+            alt: img.alt || name,
+            isPrimary: Boolean(img.isPrimary || idx === 0),
+            color: img.color || img.colorAssigned,
+            sortOrder: img.sortOrder || idx + 1,
+          });
+        }
+      });
+    }
+
+    // Process multipart uploaded image files if present
+    if (req.files) {
+      const filesObj = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const imageFiles = [...(filesObj.image || []), ...(filesObj.images || [])];
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.mimetype)) {
+          throw new AppError(`Unsupported image file type: ${file.mimetype}. Allowed: JPEG, PNG, WEBP`, 400);
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          throw new AppError(`File ${file.originalname} exceeds 5MB limit.`, 400);
+        }
+
+        const result = await uploadToCloudinary(file.buffer, { folder: folderPath });
+        newlyUploadedPublicIds.push(result.public_id);
+        uploadedImages.push({
+          url: result.secure_url,
+          publicId: result.public_id,
+          alt: name,
+          isPrimary: uploadedImages.length === 0,
+          sortOrder: uploadedImages.length + 1,
+        });
+      }
+    }
+
+    const initialStatus = (productData.status || 'PUBLISHED').toUpperCase();
 
     const product = new Product({
       name,
       slug,
       variants,
       ...productData,
+      category: categoryId,
+      images: uploadedImages,
+      status: initialStatus,
+      isActive: initialStatus === 'PUBLISHED',
     });
-
-    if (req.files) {
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-      const uploadedImages: { url: string; alt: string; isPrimary: boolean }[] = [];
-
-      if (files.images) {
-        for (let i = 0; i < files.images.length; i++) {
-          const result = await uploadToCloudinary(files.images[i].buffer, {
-            folder: 'yezbee-fashion/products',
-          });
-          uploadedImages.push({
-            url: result.url,
-            alt: name,
-            isPrimary: i === 0,
-          });
-        }
-      }
-
-      product.images = uploadedImages;
-    }
 
     await product.save();
 
@@ -198,10 +295,17 @@ export const createProduct = async (
 
     res.status(201).json({
       success: true,
-      message: 'Product created successfully',
+      message: 'Product created and published successfully',
       data: product,
     });
   } catch (error) {
+    // Orphan image cleanup if MongoDB save fails after Cloudinary upload succeeds
+    if (newlyUploadedPublicIds.length > 0) {
+      logger.warn(`Cleaning up ${newlyUploadedPublicIds.length} orphan Cloudinary images due to product creation failure`);
+      for (const pubId of newlyUploadedPublicIds) {
+        await deleteFromCloudinary(pubId).catch(() => {});
+      }
+    }
     next(error);
   }
 };
@@ -228,34 +332,53 @@ export const updateProduct = async (
       }
     }
 
-    if (updateData.variants) {
-      const skus = updateData.variants.map((v: { sku: string }) => v.sku);
+    if (updateData.variants && Array.isArray(updateData.variants)) {
+      const skus = updateData.variants.map((v: { sku: string }) => v?.sku).filter(Boolean);
       const uniqueSkus = new Set(skus);
       if (uniqueSkus.size !== skus.length) {
-        throw new AppError('Duplicate variant SKUs found', 400);
+        throw new AppError('Duplicate variant SKUs found in update payload', 400);
       }
     }
 
+    // Process file uploads if present in multipart request
     if (req.files) {
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-      const uploadedImages: { url: string; alt: string; isPrimary: boolean }[] = [];
+      const filesObj = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const imageFiles = [...(filesObj.image || []), ...(filesObj.images || [])];
 
-      if (files.images) {
-        for (let i = 0; i < files.images.length; i++) {
-          const result = await uploadToCloudinary(files.images[i].buffer, {
-            folder: 'yezbee-fashion/products',
-          });
+      if (imageFiles.length > 0) {
+        const categoryDoc = await Category.findById(product.category).select('name slug').lean();
+        const folderPath = getCategoryFolderPath(categoryDoc?.slug || categoryDoc?.name || 'general');
+        const uploadedImages: { url: string; publicId: string; alt: string; isPrimary: boolean }[] = [];
+
+        for (let i = 0; i < imageFiles.length; i++) {
+          const file = imageFiles[i];
+          const result = await uploadToCloudinary(file.buffer, { folder: folderPath });
           uploadedImages.push({
-            url: result.url,
+            url: result.secure_url,
+            publicId: result.public_id,
             alt: product.name,
             isPrimary: i === 0,
           });
         }
-      }
-
-      if (uploadedImages.length > 0) {
         updateData.images = uploadedImages;
       }
+    }
+
+    // Handle old Cloudinary image cleanup if images are replaced
+    if (updateData.images && Array.isArray(updateData.images)) {
+      const newPublicIds = new Set(updateData.images.map((img: any) => img.publicId || img.public_id).filter(Boolean));
+      for (const oldImg of product.images || []) {
+        const oldPublicId = oldImg.publicId || (oldImg.url ? oldImg.url.match(/\/v\d+\/(.+?)\./)?.[1] : null);
+        if (oldPublicId && !newPublicIds.has(oldPublicId)) {
+          logger.info(`Cleaning replaced Cloudinary image: ${oldPublicId}`);
+          await deleteFromCloudinary(oldPublicId).catch(() => {});
+        }
+      }
+    }
+
+    if (updateData.status) {
+      updateData.status = updateData.status.toUpperCase();
+      updateData.isActive = updateData.status === 'PUBLISHED';
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
@@ -284,26 +407,47 @@ export const deleteProduct = async (
   try {
     const { id } = req.params;
 
-    const product = await Product.findById(id);
+    let product = null;
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      product = await Product.findById(id);
+    }
     if (!product) {
-      throw new AppError('Product not found', 404);
+      product = await Product.findOne({ slug: id });
     }
 
-    await Review.deleteMany({ product: id });
+    if (product) {
+      await Review.deleteMany({ product: product._id }).catch(() => {});
 
-    for (const image of product.images) {
-      if (image.url) {
-        const publicId = image.url.match(/\/v\d+\/(.+?)\./)?.[1];
-        if (publicId) {
-          await deleteFromCloudinary(publicId).catch(() => {});
+      // Delete images from Cloudinary gracefully
+      const publicIdsToDelete: string[] = [];
+
+      for (const image of product.images || []) {
+        if (image) {
+          const pid = image.publicId || (image.url ? image.url.match(/\/v\d+\/(.+?)\./)?.[1] : null);
+          if (pid) publicIdsToDelete.push(pid);
         }
       }
+
+      for (const variant of product.variants || []) {
+        for (const vImg of variant.images || []) {
+          if (vImg) {
+            const pid = vImg.publicId || (vImg.url ? vImg.url.match(/\/v\d+\/(.+?)\./)?.[1] : null);
+            if (pid) publicIdsToDelete.push(pid);
+          }
+        }
+      }
+
+      for (const pubId of Array.from(new Set(publicIdsToDelete))) {
+        await deleteFromCloudinary(pubId).catch((err) => {
+          logger.warn(`Failed to delete Cloudinary asset ${pubId} during product deletion:`, err);
+        });
+      }
+
+      await Product.findByIdAndDelete(product._id);
+
+      await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug)).catch(() => {});
+      await delFromCache(CACHE_KEYS.PRODUCTS_ALL).catch(() => {});
     }
-
-    await Product.findByIdAndDelete(id);
-
-    await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
-    await delFromCache(CACHE_KEYS.PRODUCTS_ALL);
 
     res.status(200).json({
       success: true,
@@ -328,18 +472,28 @@ export const searchProducts = async (
 
     const { page, limit, skip } = parsePagination(req.query);
 
-    const searchRegex = new RegExp((q as string).trim(), 'i');
+    const searchStr = (q as string).trim();
+    const searchRegex = new RegExp(searchStr, 'i');
+    
+    const orConditions: any[] = [
+      { name: searchRegex },
+      { description: searchRegex },
+      { tags: { $in: [searchRegex] } },
+      { brand: searchRegex },
+      { subcategory: searchRegex },
+      { fabric: searchRegex },
+      { occasion: searchRegex },
+    ];
+
+    if (/feeding/i.test(searchStr) && !/non-feeding/i.test(searchStr)) {
+      orConditions.push({ productType: 'FEEDING' });
+    } else if (/non-feeding/i.test(searchStr)) {
+      orConditions.push({ productType: 'NON-FEEDING' });
+    }
+
     const filter = {
       isActive: true,
-      $or: [
-        { name: searchRegex },
-        { description: searchRegex },
-        { tags: { $in: [searchRegex] } },
-        { brand: searchRegex },
-        { subcategory: searchRegex },
-        { fabric: searchRegex },
-        { occasion: searchRegex },
-      ],
+      $or: orConditions,
     };
 
     const [products, total] = await Promise.all([
@@ -550,3 +704,362 @@ export const getFeaturedProducts = async (
     next(error);
   }
 };
+
+export const getAdminProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const sort = parseSort(req.query.sort as string);
+
+    const filter: Record<string, unknown> = {};
+
+    if (req.query.status && req.query.status !== 'all') {
+      filter.status = (req.query.status as string).toUpperCase();
+    }
+
+    if (req.query.category && req.query.category !== 'all') {
+      const categoryDoc = await Category.findOne({
+        $or: [{ slug: req.query.category }, { name: new RegExp(`^${req.query.category}$`, 'i') }],
+      });
+      if (categoryDoc) {
+        filter.category = categoryDoc._id;
+      }
+    }
+
+    if (req.query.productType && req.query.productType !== 'all') {
+      filter.productType = (req.query.productType as string).toUpperCase();
+    }
+
+    if (req.query.featured === 'yes') filter.featured = true;
+    if (req.query.featured === 'no') filter.featured = false;
+
+    if (req.query.search) {
+      const q = (req.query.search as string).trim();
+      const searchRegex = new RegExp(q, 'i');
+      filter.$or = [
+        { name: searchRegex },
+        { description: searchRegex },
+        { tags: { $in: [searchRegex] } },
+        { brand: searchRegex },
+        { 'variants.sku': searchRegex },
+      ];
+    }
+
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .populate('category', 'name slug')
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      success: true,
+      data: products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProductStock = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { stock, variantSku } = req.body;
+
+    if (stock === undefined || isNaN(Number(stock))) {
+      throw new AppError('Valid stock number is required', 400);
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+
+    const stockNum = Math.max(0, Number(stock));
+
+    if (variantSku) {
+      const variant = product.variants.find((v) => v.sku === variantSku);
+      if (variant) {
+        variant.stock = stockNum;
+      }
+    } else {
+      // Update all variants stock
+      product.variants.forEach((v) => {
+        v.stock = stockNum;
+      });
+    }
+
+    await product.save();
+    await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
+    await delFromCache(CACHE_KEYS.PRODUCTS_ALL);
+
+    res.status(200).json({
+      success: true,
+      message: 'Product stock updated successfully',
+      data: product,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProductStatus = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['DRAFT', 'PUBLISHED', 'ARCHIVED'];
+    const uppercaseStatus = (status as string || '').toUpperCase();
+
+    if (!validStatuses.includes(uppercaseStatus)) {
+      throw new AppError('Invalid product status. Must be DRAFT, PUBLISHED, or ARCHIVED', 400);
+    }
+
+    const product = await Product.findByIdAndUpdate(
+      id,
+      { status: uppercaseStatus, isActive: uppercaseStatus === 'PUBLISHED' },
+      { new: true, runValidators: true }
+    );
+
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+
+    await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
+    await delFromCache(CACHE_KEYS.PRODUCTS_ALL);
+
+    res.status(200).json({
+      success: true,
+      message: `Product status updated to ${uppercaseStatus}`,
+      data: product,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const archiveProduct = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findByIdAndUpdate(
+      id,
+      { status: 'ARCHIVED', isActive: false },
+      { new: true }
+    );
+
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+
+    await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
+    await delFromCache(CACHE_KEYS.PRODUCTS_ALL);
+
+    res.status(200).json({
+      success: true,
+      message: 'Product archived successfully',
+      data: product,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAdminStats = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const allProducts = await Product.find().select('status variants stock lowStockThreshold price price compareAtPrice featured').lean();
+
+    let total = allProducts.length;
+    let published = 0;
+    let draft = 0;
+    let archived = 0;
+    let lowStock = 0;
+    let outOfStock = 0;
+    let featured = 0;
+
+    allProducts.forEach((p) => {
+      if (p.status === 'PUBLISHED') published++;
+      else if (p.status === 'DRAFT') draft++;
+      else if (p.status === 'ARCHIVED') archived++;
+
+      if (p.featured) featured++;
+
+      const totalStock = (p.variants || []).reduce((sum: number, v: { stock?: number }) => sum + (v.stock || 0), 0);
+      if (totalStock === 0) {
+        outOfStock++;
+      } else if (totalStock <= 5) {
+        lowStock++;
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        total,
+        published,
+        draft,
+        archived,
+        lowStock,
+        outOfStock,
+        featured,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const uploadProductImage = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const file = req.file || (req.files && (req.files as { [fieldname: string]: Express.Multer.File[] }).image?.[0]) || (req.files && (req.files as { [fieldname: string]: Express.Multer.File[] }).images?.[0]) || (Array.isArray(req.files) ? req.files[0] : null);
+
+    if (!file) {
+      throw new AppError('No image file provided. Expected field: "image" or "images"', 400);
+    }
+
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new AppError(`Unsupported image format: ${file.mimetype}. Allowed formats: JPEG, JPG, PNG, WEBP`, 400);
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new AppError('Image file is too large. Maximum size is 5MB', 400);
+    }
+
+    const categoryHint = req.body?.category || req.body?.categorySlug || req.query?.category || req.query?.categorySlug;
+    const folderPath = getCategoryFolderPath(categoryHint as string);
+
+    logger.info(`[Backend API] Processing product image upload. File name: ${file.originalname}, MIME: ${file.mimetype}, Size: ${file.size} bytes, Folder: ${folderPath}`);
+
+    const result = await uploadToCloudinary(file.buffer, {
+      folder: folderPath,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Image uploaded to Cloudinary successfully',
+      data: {
+        url: result.secure_url,
+        secure_url: result.secure_url,
+        publicId: result.public_id,
+        public_id: result.public_id,
+        width: result.width,
+        height: result.height,
+        format: result.format,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const uploadProductImages = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    let filesList: Express.Multer.File[] = [];
+    if (Array.isArray(req.files)) {
+      filesList = req.files;
+    } else if (req.files && typeof req.files === 'object') {
+      const obj = req.files as { [fieldname: string]: Express.Multer.File[] };
+      filesList = obj.images || obj.image || [];
+    } else if (req.file) {
+      filesList = [req.file];
+    }
+
+    if (filesList.length === 0) {
+      throw new AppError('No image files provided for batch upload', 400);
+    }
+
+    const categoryHint = req.body?.category || req.body?.categorySlug || req.query?.category || req.query?.categorySlug;
+    const folderPath = getCategoryFolderPath(categoryHint as string);
+
+    const uploadedAssets = [];
+    for (const file of filesList) {
+      const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedMimeTypes.includes(file.mimetype)) continue;
+
+      const result = await uploadToCloudinary(file.buffer, { folder: folderPath });
+      uploadedAssets.push({
+        url: result.secure_url,
+        secure_url: result.secure_url,
+        publicId: result.public_id,
+        public_id: result.public_id,
+        width: result.width,
+        height: result.height,
+        format: result.format,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `${uploadedAssets.length} images uploaded to Cloudinary successfully`,
+      data: uploadedAssets,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteProductImage = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { publicId } = req.body || req.params;
+
+    if (!publicId) {
+      throw new AppError('Public ID is required for image deletion', 400);
+    }
+
+    await deleteFromCloudinary(publicId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Image deleted from Cloudinary successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+

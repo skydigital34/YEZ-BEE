@@ -67,17 +67,19 @@ export default function SearchPage() {
     <div className="min-h-screen bg-[var(--color-warm-white)] py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Search Header Form */}
-        <form onSubmit={handleSearch} className="relative mb-8 max-w-2xl mx-auto">
+        <form onSubmit={handleSearch} suppressHydrationWarning className="relative mb-8 max-w-2xl mx-auto">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-primary-gold)]" />
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search for gowns, sarees, blazers, accessories..."
+            suppressHydrationWarning
             className="w-full pl-12 pr-28 py-4 bg-white border border-[var(--color-champagne)] rounded-2xl text-xs sm:text-sm font-semibold outline-none focus:border-[var(--color-primary-gold)] shadow-soft-sm text-[var(--color-dark)]"
           />
           <button
             type="submit"
+            suppressHydrationWarning
             className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-gradient-to-r from-[var(--color-primary-gold)] to-[var(--color-gold-light)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-wider rounded-xl hover:shadow-gold-sm transition-all"
           >
             Search

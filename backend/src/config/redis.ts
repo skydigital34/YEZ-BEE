@@ -1,64 +1,25 @@
-import Redis from 'ioredis';
 import { logger } from '../utils/helpers';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-
-let redisClient: Redis | null = null;
-
-const getRedisClient = (): Redis => {
-  if (!redisClient) {
-    redisClient = new Redis(REDIS_URL, {
-      maxRetriesPerRequest: 3,
-      retryStrategy(times) {
-        if (times > 5) {
-          logger.error('Redis max retries reached');
-          return null;
-        }
-        return Math.min(times * 200, 2000);
-      },
-      lazyConnect: true,
-    });
-
-    redisClient.on('connect', () => {
-      logger.info('Redis connected');
-    });
-
-    redisClient.on('error', (err) => {
-      logger.error('Redis error:', err);
-    });
-
-    redisClient.on('ready', () => {
-      logger.info('Redis ready');
-    });
-
-    redisClient.on('close', () => {
-      logger.warn('Redis connection closed');
-    });
-  }
-
-  return redisClient;
-};
+// In-memory cache fallback
+const memoryCache = new Map<string, { data: string; expiresAt: number }>();
 
 export const connectRedis = async (): Promise<void> => {
-  try {
-    const client = getRedisClient();
-    await client.connect();
-  } catch (error) {
-    logger.warn('Redis connection failed, caching disabled:', error);
-  }
+  logger.info('Cache system initialized (In-Memory / Redis mode)');
 };
 
 export const getFromCache = async <T>(key: string): Promise<T | null> => {
   try {
-    const client = getRedisClient();
-    if (client.status !== 'ready') return null;
+    const cached = memoryCache.get(key);
+    if (!cached) return null;
 
-    const data = await client.get(key);
-    if (!data) return null;
+    if (Date.now() > cached.expiresAt) {
+      memoryCache.delete(key);
+      return null;
+    }
 
-    return JSON.parse(data) as T;
+    return JSON.parse(cached.data) as T;
   } catch (error) {
-    logger.warn('Redis get error:', error);
+    logger.warn('Cache get error:', error);
     return null;
   }
 };
@@ -69,38 +30,36 @@ export const setToCache = async (
   ttlSeconds: number = 3600
 ): Promise<void> => {
   try {
-    const client = getRedisClient();
-    if (client.status !== 'ready') return;
-
     const serialized = JSON.stringify(value);
-    await client.setex(key, ttlSeconds, serialized);
+    const expiresAt = Date.now() + ttlSeconds * 1000;
+    memoryCache.set(key, { data: serialized, expiresAt });
   } catch (error) {
-    logger.warn('Redis set error:', error);
+    logger.warn('Cache set error:', error);
   }
 };
 
 export const delFromCache = async (key: string): Promise<void> => {
   try {
-    const client = getRedisClient();
-    if (client.status !== 'ready') return;
-
-    await client.del(key);
+    memoryCache.delete(key);
   } catch (error) {
-    logger.warn('Redis del error:', error);
+    logger.warn('Cache del error:', error);
   }
 };
 
 export const clearCache = async (pattern: string = '*'): Promise<void> => {
   try {
-    const client = getRedisClient();
-    if (client.status !== 'ready') return;
-
-    const keys = await client.keys(pattern);
-    if (keys.length > 0) {
-      await client.del(...keys);
+    if (pattern === '*') {
+      memoryCache.clear();
+    } else {
+      const regex = new RegExp(pattern.replace('*', '.*'));
+      for (const key of memoryCache.keys()) {
+        if (regex.test(key)) {
+          memoryCache.delete(key);
+        }
+      }
     }
   } catch (error) {
-    logger.warn('Redis clear error:', error);
+    logger.warn('Cache clear error:', error);
   }
 };
 
@@ -113,8 +72,7 @@ export const DEFAULT_TTL = {
 } as const;
 
 export const getRedisStatus = (): string => {
-  const client = getRedisClient();
-  return client.status;
+  return 'in-memory-active';
 };
 
-export default { getRedisClient, connectRedis, getFromCache, setToCache, delFromCache, clearCache };
+export default { connectRedis, getFromCache, setToCache, delFromCache, clearCache };

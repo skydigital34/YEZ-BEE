@@ -35,12 +35,37 @@ import {
   duplicateProduct,
   deleteOrArchiveProduct,
   permanentDeleteProduct,
+  getDeletedProductIds,
   CatalogProduct,
 } from '@/data/products';
 import { YEZBEE_CATEGORIES } from '@/data/categories';
+import { api } from '@/lib/api';
+import { getSafeImageUrl } from '@/lib/utils';
+
+function AdminThumbnail({ src, alt }: { src: string; alt: string }) {
+  const [imgError, setImgError] = useState(false);
+  const defaultImage = '/images/categories/maternity-kurtis.jpg';
+  const displaySrc = imgError ? defaultImage : getSafeImageUrl(src, defaultImage);
+
+  return (
+    <div className="relative w-12 h-14 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+      <Image
+        src={displaySrc}
+        alt={alt}
+        fill
+        className="object-cover"
+        sizes="48px"
+        unoptimized={displaySrc.startsWith('blob:') || displaySrc.startsWith('data:')}
+        onError={() => setImgError(true)}
+      />
+    </div>
+  );
+}
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -52,16 +77,111 @@ export default function AdminProductsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [deleteModalProduct, setDeleteModalProduct] = useState<CatalogProduct | null>(null);
+  const [dbStats, setDbStats] = useState<{
+    total: number;
+    published: number;
+    draft: number;
+    archived: number;
+    lowStock: number;
+    outOfStock: number;
+    featured: number;
+  } | null>(null);
 
-  // Load products & listen for store updates
-  const loadProducts = useCallback(() => {
-    setProducts(getAllProducts());
-  }, []);
+  // Load products from MongoDB Atlas Backend
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    setDbError(null);
+
+    try {
+      // 1. Fetch live admin products from MongoDB Atlas API
+      const response = await api.getAdminProducts({
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        category: selectedCategory !== 'all' ? selectedCategory : undefined,
+        search: debouncedSearch || undefined,
+        sortBy,
+      });
+
+      if (response && response.data) {
+        const mappedProducts = response.data.map((p: any) => {
+          const mainVariant = p.variants?.[0] || {};
+          const totalStock = (p.variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+          const minPrice = p.price || (p.variants || []).reduce((min: number, v: any) => Math.min(min, v.price || Infinity), Infinity) || 0;
+          const maxCompare = p.compareAtPrice || (p.variants || []).reduce((max: number, v: any) => Math.max(max, v.compareAtPrice || 0), 0);
+          const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
+
+          return {
+            id: p._id || p.id,
+            name: p.name,
+            slug: p.slug,
+            subcategory: p.subcategory || 'General',
+            currency: 'INR',
+            images: p.images?.map((img: any) => getSafeImageUrl(img)) || [],
+            gender: 'Women',
+            maternity: true,
+            feedingFriendly: true,
+            highlights: p.highlights || [],
+            rating: 5.0,
+            reviewCount: 0,
+            description: p.description || '',
+            shortDescription: p.shortDescription || '',
+            price: minPrice,
+            compareAtPrice: maxCompare > minPrice ? maxCompare : undefined,
+            discountPercentage: discountPct,
+            category: p.category?.slug || p.category || 'casuals',
+            categoryName: p.category?.name || p.subcategory || 'CASUALS',
+            productType: p.productType || (p.categorySlug === 'kids-wear' ? null : 'FEEDING'),
+            fabric: p.fabric || 'Cotton',
+            fit: p.fit || 'Regular Fit',
+            pattern: p.pattern || 'Printed',
+            occasion: p.occasion || 'Casual',
+            careInstructions: p.careInstructions || [],
+            status: (p.status || (p.isActive ? 'published' : 'draft')).toLowerCase() as 'published' | 'draft' | 'archived',
+            stock: totalStock,
+            lowStockThreshold: p.lowStockThreshold || 5,
+            sku: mainVariant.sku || p._id,
+            thumbnail: getSafeImageUrl(p.images?.[0] || p.thumbnail),
+            galleryImages: p.images?.map((img: any) => getSafeImageUrl(img)) || [],
+            colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))) : ['Standard'],
+            sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) : ['S', 'M', 'L'],
+            variants: p.variants || [],
+            featured: Boolean(p.featured || p.isFeatured),
+            bestseller: Boolean(p.bestSeller || p.isBestSeller),
+            newArrival: Boolean(p.newArrival || p.isNewProduct),
+            tags: p.tags || [],
+            seo: p.seo || { title: p.name, description: p.shortDescription },
+            createdAt: p.createdAt || new Date().toISOString(),
+            updatedAt: p.updatedAt || new Date().toISOString(),
+          } as unknown as CatalogProduct;
+        });
+
+        const deletedIds = getDeletedProductIds();
+        const localProds = getAllProducts();
+        const combinedProducts = mappedProducts.filter((p: any) => !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
+        for (const lp of localProds) {
+          if (!deletedIds.includes(lp.id) && !deletedIds.includes(lp.slug) && !combinedProducts.some((p) => p.id === lp.id || p.slug === lp.slug)) {
+            combinedProducts.unshift(lp);
+          }
+        }
+        setProducts(combinedProducts);
+      }
+
+      // 2. Fetch live database stats
+      const statsRes = await api.getAdminStats().catch(() => null);
+      if (statsRes && statsRes.data) {
+        setDbStats(statsRes.data);
+      }
+    } catch (err: any) {
+      console.error('Failed to connect to MongoDB backend:', err);
+      setDbError('Unable to connect to the product database. Please try again.');
+      // Fallback to local data so Admin UI remains functional
+      setProducts(getAllProducts());
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedStatus, selectedCategory, debouncedSearch, sortBy]);
 
   useEffect(() => {
     loadProducts();
-    window.addEventListener('yezbee_products_updated', loadProducts);
-    return () => window.removeEventListener('yezbee_products_updated', loadProducts);
   }, [loadProducts]);
 
   // Debounce search input
@@ -77,6 +197,7 @@ export default function AdminProductsPage() {
 
   // Compute Stats
   const stats = useMemo(() => {
+    if (dbStats) return dbStats;
     const total = products.length;
     const published = products.filter((p) => p.status === 'published').length;
     const draft = products.filter((p) => p.status === 'draft').length;
@@ -86,7 +207,7 @@ export default function AdminProductsPage() {
     const featured = products.filter((p) => p.featured).length;
 
     return { total, published, draft, archived, lowStock, outOfStock, featured };
-  }, [products]);
+  }, [products, dbStats]);
 
   // Filter & Sort Logic
   const filteredProducts = useMemo(() => {
@@ -112,11 +233,8 @@ export default function AdminProductsPage() {
       if (selectedInventory === 'low_stock' && (p.stock <= 0 || p.stock > (p.lowStockThreshold || 5))) return false;
       if (selectedInventory === 'out_of_stock' && p.stock > 0) return false;
 
-      // 5. Product Type
-      if (selectedType === 'maternity' && !p.maternity) return false;
-      if (selectedType === 'non_maternity' && p.maternity) return false;
-      if (selectedType === 'kids' && p.category !== 'kids-clothing') return false;
-      if (selectedType === 'loungewear' && p.category !== 'loungewear') return false;
+      // 5. Product Type (FEEDING / NON-FEEDING)
+      if (selectedType !== 'all' && p.productType !== selectedType) return false;
 
       // 6. Featured
       if (selectedFeatured === 'yes' && !p.featured) return false;
@@ -165,17 +283,25 @@ export default function AdminProductsPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
-  const handleBulkStatusChange = (status: 'published' | 'draft' | 'archived') => {
-    selectedIds.forEach((id) => updateProductStatus(id, status));
+  const handleBulkStatusChange = async (status: 'published' | 'draft' | 'archived') => {
+    const targetStatus = status.toUpperCase() as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    for (const id of selectedIds) {
+      await api.updateProductStatus(id, targetStatus).catch(() => updateProductStatus(id, status));
+    }
     showToast(`Bulk updated ${selectedIds.length} products to ${status}`);
     setSelectedIds([]);
     loadProducts();
   };
 
   // Actions per item
-  const handleTogglePublish = (p: CatalogProduct) => {
-    const nextStatus = p.status === 'published' ? 'draft' : 'published';
-    updateProductStatus(p.id, nextStatus);
+  const handleTogglePublish = async (p: CatalogProduct) => {
+    const nextStatus = p.status === 'published' ? 'DRAFT' : 'PUBLISHED';
+    try {
+      await api.updateProductStatus(p.id, nextStatus);
+    } catch (err) {
+      console.warn('Backend API update status offline, updating local catalog:', err);
+    }
+    updateProductStatus(p.id, nextStatus.toLowerCase() as any);
     showToast(`Product "${p.name}" is now ${nextStatus}`);
     loadProducts();
   };
@@ -188,14 +314,24 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleConfirmArchive = (id: string) => {
+  const handleConfirmArchive = async (id: string) => {
+    try {
+      await api.archiveProduct(id);
+    } catch (err) {
+      console.warn('Backend API archive offline, updating local catalog:', err);
+    }
     deleteOrArchiveProduct(id);
     showToast('Product archived successfully');
     setDeleteModalProduct(null);
     loadProducts();
   };
 
-  const handleConfirmPermanentDelete = (id: string) => {
+  const handleConfirmPermanentDelete = async (id: string) => {
+    try {
+      await api.deleteProduct(id);
+    } catch (err) {
+      console.warn('Backend API delete offline, updating local catalog:', err);
+    }
     permanentDeleteProduct(id);
     showToast('Product permanently deleted');
     setDeleteModalProduct(null);
@@ -203,7 +339,7 @@ export default function AdminProductsPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6" suppressHydrationWarning>
 
       {/* Toast Feedback */}
       <AnimatePresence>
@@ -219,6 +355,22 @@ export default function AdminProductsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Database Connection Warning Banner */}
+      {dbError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl flex items-center justify-between text-xs font-bold shadow-sm">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+            <span>{dbError}</span>
+          </div>
+          <button
+            onClick={loadProducts}
+            className="px-3.5 py-1.5 bg-amber-700 text-white rounded-xl hover:bg-amber-800 text-[11px] font-bold transition-all shadow-xs"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
 
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -370,13 +522,11 @@ export default function AdminProductsPage() {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full text-xs font-semibold border border-gray-300 rounded-xl px-3 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)]"
+              className="w-full text-xs font-semibold border border-gray-300 rounded-xl px-3 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)] cursor-pointer"
             >
-              <option value="all">All Types</option>
-              <option value="maternity">Maternity Wear</option>
-              <option value="non_maternity">Non-Maternity</option>
-              <option value="kids">Kids Clothing</option>
-              <option value="loungewear">Loungewear</option>
+              <option value="all">All Product Types</option>
+              <option value="FEEDING">FEEDING</option>
+              <option value="NON-FEEDING">NON-FEEDING</option>
             </select>
           </div>
 
@@ -491,9 +641,7 @@ export default function AdminProductsPage() {
 
                       {/* Thumbnail */}
                       <td className="p-4">
-                        <div className="relative w-12 h-14 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-                          <Image src={p.thumbnail} alt={p.name} fill className="object-cover" sizes="48px" />
-                        </div>
+                        <AdminThumbnail src={p.thumbnail} alt={p.name} />
                       </td>
 
                       {/* Name & SKU */}

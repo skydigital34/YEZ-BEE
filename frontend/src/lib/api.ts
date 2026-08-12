@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
 interface TokenResponse {
   access: string;
@@ -36,6 +36,16 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    if (config.data instanceof FormData && config.headers) {
+      delete config.headers['Content-Type'];
+    }
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[API REQUEST]', {
+        baseURL: config.baseURL,
+        url: config.url,
+        method: config.method,
+      });
+    }
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('yezbee-auth-token');
       if (token && config.headers) {
@@ -73,7 +83,7 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token');
         }
 
-        const { data } = await axios.post<TokenResponse>(`${BASE_URL}/auth/refresh/`, {
+        const { data } = await axios.post<TokenResponse>(`${BASE_URL}/auth/refresh`, {
           refresh: refreshToken,
         });
 
@@ -93,9 +103,6 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('yezbee-auth-token');
         localStorage.removeItem('yezbee-refresh-token');
         localStorage.removeItem('yezbee-user');
-        if (typeof window !== 'undefined') {
-          window.location.href = '/auth/login';
-        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -107,128 +114,215 @@ apiClient.interceptors.response.use(
 );
 
 export interface ApiResponse<T> {
+  success: boolean;
   data: T;
   message?: string;
-  status: 'success' | 'error';
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 }
 
 export interface PaginatedResponse<T> {
+  success: boolean;
   data: T[];
-  count: number;
-  next: string | null;
-  previous: string | null;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 }
 
 export interface ProductFilters {
   category?: string;
+  subcategory?: string;
+  productType?: string;
   search?: string;
   minPrice?: number;
   maxPrice?: number;
   colors?: string;
   sizes?: string;
-  fabrics?: string;
-  occasions?: string;
-  rating?: number;
+  fabric?: string;
+  fit?: string;
+  occasion?: string;
+  brand?: string;
+  tags?: string;
+  featured?: boolean | string;
+  isNew?: boolean;
+  isTrending?: boolean;
+  isBestSeller?: boolean;
   sortBy?: string;
   page?: number;
-  pageSize?: number;
+  limit?: number;
+}
+
+export interface AdminProductFilters extends ProductFilters {
+  status?: string;
+  inventory?: string;
 }
 
 export const api = {
-  // Products
+  // Public Customer Products
   getProducts: (filters?: ProductFilters) =>
-    apiClient.get<PaginatedResponse<unknown>>('/products/', { params: filters }).then((r) => r.data),
+    apiClient.get<PaginatedResponse<any>>('/products', { params: filters }).then((r) => r.data),
 
   getProduct: (slug: string) =>
-    apiClient.get<ApiResponse<unknown>>(`/products/${slug}/`).then((r) => r.data),
+    apiClient.get<ApiResponse<any>>(`/products/${slug}`).then((r) => r.data),
 
   searchProducts: (query: string, filters?: ProductFilters) =>
     apiClient
-      .get<PaginatedResponse<unknown>>('/products/search/', { params: { q: query, ...filters } })
+      .get<PaginatedResponse<any>>('/products/search', { params: { q: query, ...filters } })
       .then((r) => r.data),
+
+  getFeaturedProducts: () =>
+    apiClient.get<ApiResponse<any[]>>('/products/featured').then((r) => r.data),
 
   // Categories
   getCategories: () =>
-    apiClient.get<ApiResponse<unknown[]>>('/categories/').then((r) => r.data),
+    apiClient.get<ApiResponse<any[]>>('/categories').then((r) => r.data),
 
   getCategory: (slug: string) =>
-    apiClient.get<ApiResponse<unknown>>(`/categories/${slug}/`).then((r) => r.data),
+    apiClient.get<ApiResponse<any>>(`/categories/${slug}`).then((r) => r.data),
+
+  getCategoryProducts: (slug: string, params?: ProductFilters) =>
+    apiClient.get<ApiResponse<any>>(`/categories/${slug}/products`, { params }).then((r) => r.data),
+
+  // Admin Product Store System
+  getAdminProducts: (filters?: AdminProductFilters) =>
+    apiClient.get<PaginatedResponse<any>>('/products/admin/all', { params: filters }).then((r) => r.data),
+
+  getAdminStats: () =>
+    apiClient.get<ApiResponse<any>>('/products/admin/stats').then((r) => r.data),
+
+  createProduct: (data: any) =>
+    apiClient.post<ApiResponse<any>>('/products', data).then((r) => r.data),
+
+  updateProduct: (id: string, data: any) =>
+    apiClient.put<ApiResponse<any>>(`/products/${id}`, data).then((r) => r.data),
+
+  updateProductStock: (id: string, stock: number, variantSku?: string) =>
+    apiClient.patch<ApiResponse<any>>(`/products/${id}/stock`, { stock, variantSku }).then((r) => r.data),
+
+  updateProductStatus: (id: string, status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED') =>
+    apiClient.patch<ApiResponse<any>>(`/products/${id}/status`, { status }).then((r) => r.data),
+
+  archiveProduct: (id: string) =>
+    apiClient.patch<ApiResponse<any>>(`/products/${id}/archive`).then((r) => r.data),
+
+  deleteProduct: (id: string) =>
+    apiClient.delete<ApiResponse<null>>(`/products/${id}`).then((r) => r.data),
+
+  uploadProductImage: (file: File, category?: string) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    if (category) {
+      formData.append('category', category);
+    }
+    return apiClient
+      .post<ApiResponse<{ url: string; secure_url: string; publicId: string; public_id: string; width: number; height: number; format: string }>>(
+        '/products/upload-image',
+        formData
+      )
+      .then((r) => r.data);
+  },
+
+  uploadProductImages: (files: File[], category?: string) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('images', file));
+    if (category) {
+      formData.append('category', category);
+    }
+    return apiClient
+      .post<ApiResponse<Array<{ url: string; secure_url: string; publicId: string; public_id: string; width: number; height: number; format: string }>>>(
+        '/products/upload-images',
+        formData
+      )
+      .then((r) => r.data);
+  },
+
+  deleteProductImage: (publicId: string) =>
+    apiClient.post<ApiResponse<null>>('/products/delete-image', { publicId }).then((r) => r.data),
 
   // Auth
   login: (email: string, password: string) =>
-    apiClient.post<ApiResponse<{ user: unknown; access: string; refresh: string }>>('/auth/login/', {
+    apiClient.post<ApiResponse<{ user: any; access: string; refresh: string }>>('/auth/login', {
       email,
       password,
     }).then((r) => r.data),
 
   register: (data: { name: string; email: string; phone?: string; password: string }) =>
-    apiClient.post<ApiResponse<{ user: unknown; access: string; refresh: string }>>('/auth/register/', data).then((r) => r.data),
+    apiClient.post<ApiResponse<{ user: any; access: string; refresh: string }>>('/auth/register', data).then((r) => r.data),
 
   logout: () =>
-    apiClient.post<ApiResponse<null>>('/auth/logout/').then((r) => r.data),
+    apiClient.post<ApiResponse<null>>('/auth/logout').then((r) => r.data),
 
   getProfile: () =>
-    apiClient.get<ApiResponse<unknown>>('/auth/profile/').then((r) => r.data),
+    apiClient.get<ApiResponse<any>>('/auth/profile').then((r) => r.data),
 
-  updateProfile: (data: Partial<unknown>) =>
-    apiClient.put<ApiResponse<unknown>>('/auth/profile/', data).then((r) => r.data),
+  updateProfile: (data: Partial<any>) =>
+    apiClient.put<ApiResponse<any>>('/auth/profile', data).then((r) => r.data),
 
   // Orders
-  createOrder: (data: unknown) =>
-    apiClient.post<ApiResponse<unknown>>('/orders/', data).then((r) => r.data),
+  createOrder: (data: any) =>
+    apiClient.post<ApiResponse<any>>('/orders', data).then((r) => r.data),
 
   getOrders: (page?: number) =>
-    apiClient.get<PaginatedResponse<unknown>>('/orders/', { params: { page } }).then((r) => r.data),
+    apiClient.get<PaginatedResponse<any>>('/orders', { params: { page } }).then((r) => r.data),
 
   getOrder: (id: string) =>
-    apiClient.get<ApiResponse<unknown>>(`/orders/${id}/`).then((r) => r.data),
+    apiClient.get<ApiResponse<any>>(`/orders/${id}`).then((r) => r.data),
 
   // Cart
   addToCart: (data: { productId: string; variantId: string; quantity: number }) =>
-    apiClient.post<ApiResponse<unknown>>('/cart/', data).then((r) => r.data),
+    apiClient.post<ApiResponse<any>>('/cart', data).then((r) => r.data),
 
   getCart: () =>
-    apiClient.get<ApiResponse<unknown>>('/cart/').then((r) => r.data),
+    apiClient.get<ApiResponse<any>>('/cart').then((r) => r.data),
 
   updateCart: (id: string, data: { quantity: number }) =>
-    apiClient.put<ApiResponse<unknown>>(`/cart/${id}/`, data).then((r) => r.data),
+    apiClient.put<ApiResponse<any>>(`/cart/${id}`, data).then((r) => r.data),
 
   removeFromCart: (id: string) =>
-    apiClient.delete<ApiResponse<null>>(`/cart/${id}/`).then((r) => r.data),
+    apiClient.delete<ApiResponse<null>>(`/cart/${id}`).then((r) => r.data),
 
   // Wishlist
   addToWishlist: (productId: string) =>
-    apiClient.post<ApiResponse<unknown>>('/wishlist/', { productId }).then((r) => r.data),
+    apiClient.post<ApiResponse<any>>('/wishlist', { productId }).then((r) => r.data),
 
   removeFromWishlist: (productId: string) =>
-    apiClient.delete<ApiResponse<null>>(`/wishlist/${productId}/`).then((r) => r.data),
+    apiClient.delete<ApiResponse<null>>(`/wishlist/${productId}`).then((r) => r.data),
 
   getWishlist: () =>
-    apiClient.get<ApiResponse<unknown[]>>('/wishlist/').then((r) => r.data),
+    apiClient.get<ApiResponse<any[]>>('/wishlist').then((r) => r.data),
 
   // Coupons
   applyCoupon: (code: string, subtotal: number) =>
-    apiClient.post<ApiResponse<{ discount: number; code: string }>>('/coupons/apply/', {
+    apiClient.post<ApiResponse<{ discount: number; code: string }>>('/coupons/apply', {
       code,
       subtotal,
     }).then((r) => r.data),
 
   validateCoupon: (code: string) =>
-    apiClient.get<ApiResponse<unknown>>(`/coupons/${code}/validate/`).then((r) => r.data),
+    apiClient.get<ApiResponse<any>>(`/coupons/${code}/validate`).then((r) => r.data),
 
   // Reviews
   getReviews: (productId: string, page?: number) =>
     apiClient
-      .get<PaginatedResponse<unknown>>(`/products/${productId}/reviews/`, { params: { page } })
+      .get<PaginatedResponse<any>>(`/products/${productId}/reviews`, { params: { page } })
       .then((r) => r.data),
 
   addReview: (productId: string, data: { rating: number; title?: string; body?: string }) =>
     apiClient
-      .post<ApiResponse<unknown>>(`/products/${productId}/reviews/`, data)
+      .post<ApiResponse<any>>(`/products/${productId}/reviews`, data)
       .then((r) => r.data),
 };
 
 export default apiClient;
+

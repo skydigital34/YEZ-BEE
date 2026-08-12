@@ -20,6 +20,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
+import { getSafeImageUrl } from '@/lib/utils';
 
 export default function CartPage() {
   const { items, updateQuantity, removeFromCart, totalAmount, clearCart } = useCart();
@@ -121,7 +122,7 @@ export default function CartPage() {
                     >
                       {/* Item Photo */}
                       <div className="relative aspect-[3/4] w-24 sm:w-28 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                        <Image src={item.image} alt={item.name} fill sizes="120px" className="object-cover object-center" />
+                        <Image src={getSafeImageUrl(item.image)} alt={item.name} fill sizes="120px" className="object-cover object-center" />
                       </div>
 
                       {/* Item Meta */}

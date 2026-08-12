@@ -2,8 +2,11 @@
 const nextConfig = {
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'http', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: '*.cloudinary.com' },
+      { protocol: 'http', hostname: '*.cloudinary.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'via.placeholder.com' },
     ],
     formats: ['image/avif', 'image/webp'],
@@ -25,6 +28,18 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/health',
+        destination: 'http://localhost:5000/api/health',
+      },
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://localhost:5000/api/v1/:path*',
       },
     ];
   },

@@ -5,7 +5,8 @@ import { motion, useInView } from 'framer-motion';
 import { Zap, Clock } from 'lucide-react';
 import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
-import { CATALOG_PRODUCTS } from '@/data/products';
+import { CATALOG_PRODUCTS, CatalogProduct } from '@/data/products';
+import { getSafeProductImage } from '@/lib/utils';
 
 export default function FlashSale() {
   const ref = useRef<HTMLDivElement>(null);
@@ -83,8 +84,8 @@ export default function FlashSale() {
                 comparePrice={product.compareAtPrice}
                 rating={String(product.rating)}
                 reviews={product.reviewCount}
-                image={product.thumbnail}
-                hoverImage={product.images[1] || product.thumbnail}
+                image={getSafeProductImage(product, 0)}
+                hoverImage={getSafeProductImage(product, 1)}
                 colors={product.colors}
                 sizes={product.sizes}
                 discount={product.discountPercentage}

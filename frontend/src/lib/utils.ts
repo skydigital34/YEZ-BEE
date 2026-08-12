@@ -119,12 +119,100 @@ export function getImageUrl(
   path: string | null | undefined,
   size?: 'sm' | 'md' | 'lg'
 ): string {
-  if (!path) return '/placeholder.svg';
-  if (path.startsWith('http')) return path;
+  if (!path || typeof path !== 'string' || path.trim() === '') return '/images/categories/maternity-kurtis.jpg';
+  if (path.startsWith('http') || path.startsWith('/')) return path;
 
   const sizes = { sm: '150x150', md: '400x400', lg: '800x800' };
   const dimension = size ? sizes[size] : 'original';
   return `${process.env.NEXT_PUBLIC_IMAGE_URL || ''}/uploads/${dimension}/${path}`;
+}
+
+export function getSafeImageUrl(
+  url?: any,
+  fallback: string = '/images/categories/maternity-kurtis.jpg'
+): string {
+  if (!url) return fallback;
+
+  // Extract string if passed an object { secure_url, url, publicId, public_id }
+  let raw: any = url;
+  if (typeof raw === 'object' && raw !== null) {
+    raw = raw.secure_url || raw.url || raw.publicId || raw.public_id || fallback;
+  }
+
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return fallback;
+  }
+
+  let trimmed = raw.trim();
+
+  // Revoked blob URLs from previous page sessions cannot be loaded; use fallback
+  if (trimmed.startsWith('blob:')) {
+    return fallback;
+  }
+
+  // If http://res.cloudinary.com or http://*.cloudinary.com, upgrade to https://
+  if (trimmed.startsWith('http://') && trimmed.includes('cloudinary.com')) {
+    trimmed = trimmed.replace('http://', 'https://');
+  }
+
+  // If it's a Cloudinary public ID without protocol or slash prefix
+  if (
+    !trimmed.startsWith('http://') &&
+    !trimmed.startsWith('https://') &&
+    !trimmed.startsWith('/') &&
+    !trimmed.startsWith('blob:') &&
+    !trimmed.startsWith('data:')
+  ) {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'smpyi8aw';
+    trimmed = `https://res.cloudinary.com/${cloudName}/image/upload/${trimmed}`;
+  }
+
+  return trimmed;
+}
+
+export function getSafeProductImage(
+  input: any,
+  index: number = 0,
+  fallback: string = '/images/categories/maternity-kurtis.jpg'
+): string {
+  if (!input) return fallback;
+
+  // Case 1: Input is a Product object
+  if (typeof input === 'object' && !Array.isArray(input)) {
+    const imagesArray = Array.isArray(input.images)
+      ? input.images
+      : Array.isArray(input.galleryImages)
+      ? input.galleryImages
+      : [];
+
+    if (imagesArray.length > index) {
+      return getSafeImageUrl(imagesArray[index], fallback);
+    }
+
+    if (input.thumbnail) {
+      return getSafeImageUrl(input.thumbnail, fallback);
+    }
+
+    if (imagesArray.length > 0) {
+      return getSafeImageUrl(imagesArray[0], fallback);
+    }
+
+    return fallback;
+  }
+
+  // Case 2: Input is an Array
+  if (Array.isArray(input)) {
+    if (input.length > index) {
+      return getSafeImageUrl(input[index], fallback);
+    }
+    if (input.length > 0) {
+      return getSafeImageUrl(input[0], fallback);
+    }
+    return fallback;
+  }
+
+  // Case 3: Input is a string or object URL
+  return getSafeImageUrl(input, fallback);
 }
 
 export function delay(ms: number): Promise<void> {

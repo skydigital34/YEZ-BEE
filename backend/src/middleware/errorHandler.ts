@@ -70,12 +70,13 @@ const sendErrorDev = (err: AppError, res: Response): void => {
 
 const sendErrorProd = (err: AppError, res: Response): void => {
   if (err.isOperational) {
-    res.status(err.statusCode).json({
+    const body: Record<string, unknown> = {
       success: false,
       message: err.message,
       statusCode: err.statusCode,
-      ...(err.errors && { errors: err.errors }),
-    });
+    };
+    if (err.errors) body.errors = err.errors;
+    res.status(err.statusCode).json(body);
   } else {
     logger.error('Unexpected error:', err);
     res.status(500).json({
@@ -99,7 +100,7 @@ export const errorHandler = (
   } else if (err instanceof mongoose.Error.ValidationError) {
     error = handleMongooseValidationError(err);
   } else if ((err as { code?: number }).code === 11000) {
-    error = handleDuplicateKeyError(err as { keyValue: Record<string, unknown> });
+    error = handleDuplicateKeyError(err as unknown as { keyValue: Record<string, unknown> });
   } else if (err instanceof mongoose.Error.CastError) {
     error = handleCastError(err);
   } else if (err instanceof jwt.JsonWebTokenError) {

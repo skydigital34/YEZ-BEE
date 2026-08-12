@@ -48,6 +48,7 @@ export default function Newsletter() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email address"
                   required
+                  suppressHydrationWarning
                   className={cn(
                     'w-full rounded-full border border-white/10 bg-white/5 px-6 py-3.5 text-sm text-white outline-none transition-all',
                     'placeholder:text-white/30',
@@ -58,6 +59,7 @@ export default function Newsletter() {
               </div>
               <button
                 type="submit"
+                suppressHydrationWarning
                 className={cn(
                   'group inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold uppercase tracking-wider transition-all duration-200',
                   'bg-[var(--color-primary-gold)] text-[var(--color-dark)]',

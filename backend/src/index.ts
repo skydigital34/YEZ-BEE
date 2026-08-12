@@ -1,3 +1,11 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables immediately before any route modules import
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config();
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -31,8 +39,6 @@ const validateEnvVars = (): void => {
     'CLOUDINARY_CLOUD_NAME',
     'CLOUDINARY_API_KEY',
     'CLOUDINARY_API_SECRET',
-    'RAZORPAY_KEY_ID',
-    'RAZORPAY_KEY_SECRET',
   ];
 
   const missing: string[] = [];
@@ -54,12 +60,27 @@ const configureMiddleware = (): void => {
     contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
   }));
 
-  app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    process.env.FRONTEND_URL,
+  ].filter((url): url is string => Boolean(url));
+
+  const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+      // Allow any requesting origin dynamically for local development & CORS credentials compatibility
+      callback(null, true);
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }));
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  };
+
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
 
   app.use(compression());
 
@@ -76,9 +97,11 @@ const configureMiddleware = (): void => {
     }));
   }
 
+  const isDev = process.env.NODE_ENV !== 'production';
+
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: isDev ? 10000 : 200,
     standardHeaders: true,
     legacyHeaders: false,
     message: {
@@ -91,7 +114,7 @@ const configureMiddleware = (): void => {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: isDev ? 1000 : 20,
     message: {
       success: false,
       message: 'Too many authentication attempts, please try again after 15 minutes',
@@ -103,15 +126,17 @@ const configureMiddleware = (): void => {
 };
 
 const configureRoutes = (): void => {
-  app.get('/health', (_req: Request, res: Response) => {
+  const healthHandler = (_req: Request, res: Response) => {
     res.status(200).json({
       success: true,
-      message: 'YEZ BEE Fashion API is running',
+      message: 'YEZ BEE API is running',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
     });
-  });
+  };
+
+  app.get('/health', healthHandler);
+  app.get('/api/health', healthHandler);
+  app.get('/api/v1/health', healthHandler);
 
   app.get('/health/detailed', async (_req: Request, res: Response) => {
     const mongoose = require('mongoose');
@@ -165,9 +190,20 @@ const startServer = async (): Promise<void> => {
     const PORT = parseInt(process.env.PORT || '5000', 10);
 
     const server = app.listen(PORT, () => {
-      logger.info(`Server started in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+      console.log(`\n==============================================`);
+      console.log(`YEZ BEE API SERVER STARTED`);
+      console.log(`URL: http://localhost:${PORT}`);
+      console.log(`PORT: ${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/api/health`);
+      console.log(`==============================================\n`);
+      logger.info(`YEZ BEE API SERVER STARTED on port ${PORT}`);
       logger.info(`API available at http://localhost:${PORT}/api/v1`);
-      logger.info(`Health check at http://localhost:${PORT}/health`);
+      logger.info(`Health check at http://localhost:${PORT}/api/health`);
+    });
+
+    server.on('error', (error: any) => {
+      logger.error('HTTP server failed to start:', error);
+      console.error('HTTP server failed to start:', error);
     });
 
     const gracefulShutdown = (signal: string) => {
@@ -203,6 +239,11 @@ const startServer = async (): Promise<void> => {
     process.exit(1);
   }
 };
+
+// Immediately invoke startServer when executed
+if (require.main === module || process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export { app };
 export default startServer;

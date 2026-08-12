@@ -4,6 +4,7 @@ import { slugify } from '../utils/helpers';
 export interface ISubcategory {
   name: string;
   slug: string;
+  productType?: 'FEEDING' | 'NON-FEEDING';
 }
 
 export interface IFilterOption {
@@ -23,7 +24,9 @@ export interface ICategoryDocument extends Document {
   slug: string;
   description: string;
   image?: string;
-  parent?: mongoose.Types.ObjectId;
+  banner?: string;
+  parent?: mongoose.Types.ObjectId | null;
+  hasFeedingSplit: boolean;
   subcategories: ISubcategory[];
   filters: IFilterOption[];
   isActive: boolean;
@@ -35,6 +38,7 @@ const subcategorySchema = new Schema<ISubcategory>(
   {
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, lowercase: true },
+    productType: { type: String, enum: ['FEEDING', 'NON-FEEDING'] },
   },
   { _id: false }
 );
@@ -70,16 +74,16 @@ const categorySchema = new Schema<ICategoryDocument>(
       type: String,
       unique: true,
       lowercase: true,
-      index: true,
     },
     description: { type: String, maxlength: [500, 'Description cannot exceed 500 characters'] },
     image: { type: String },
+    banner: { type: String },
     parent: {
       type: Schema.Types.ObjectId,
       ref: 'Category',
       default: null,
-      index: true,
     },
+    hasFeedingSplit: { type: Boolean, default: false },
     subcategories: [subcategorySchema],
     filters: [filterOptionSchema],
     isActive: { type: Boolean, default: true },

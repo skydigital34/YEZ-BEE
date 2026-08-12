@@ -26,7 +26,7 @@ interface SendEmailOptions {
   subject: string;
   html: string;
   from?: string;
-  attachments?: nodemailer.Attachment[];
+  attachments?: any[];
 }
 
 export const sendEmail = async (options: SendEmailOptions): Promise<void> => {

@@ -58,7 +58,6 @@ export interface IUserDocument extends Document {
   generateAuthToken(): string;
   generateRefreshToken(): string;
   generatePasswordResetToken(): string;
-  toJSON(): Record<string, unknown>;
 }
 
 export interface IUserModel extends Model<IUserDocument> {
@@ -160,20 +159,19 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
     timestamps: true,
     toJSON: {
       transform(_doc, ret) {
-        delete ret.password;
-        delete ret.refreshToken;
-        delete ret.resetPasswordToken;
-        delete ret.resetPasswordExpires;
-        delete ret.passwordChangedAt;
-        delete ret.__v;
-        return ret;
+        const obj = ret as Record<string, any>;
+        delete obj.password;
+        delete obj.refreshToken;
+        delete obj.resetPasswordToken;
+        delete obj.resetPasswordExpires;
+        delete obj.passwordChangedAt;
+        delete obj.__v;
+        return obj;
       },
     },
   }
 );
 
-userSchema.index({ email: 1 });
-userSchema.index({ referralCode: 1 });
 userSchema.index({ 'addresses.pincode': 1 });
 
 userSchema.pre<IUserDocument>('save', async function (next) {
@@ -209,16 +207,16 @@ userSchema.methods.generateAuthToken = function (): string {
       role: this.role,
       email: this.email,
     },
-    process.env.JWT_SECRET!,
-    { expiresIn: JWT_EXPIRES_IN }
+    process.env.JWT_SECRET || 'secret',
+    { expiresIn: (JWT_EXPIRES_IN || '7d') as any }
   );
 };
 
 userSchema.methods.generateRefreshToken = function (): string {
   return jwt.sign(
     { id: this._id },
-    process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET!,
-    { expiresIn: JWT_REFRESH_EXPIRES_IN }
+    process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'refreshsecret',
+    { expiresIn: (JWT_REFRESH_EXPIRES_IN || '30d') as any }
   );
 };
 

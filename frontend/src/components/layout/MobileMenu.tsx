@@ -33,12 +33,20 @@ interface MobileMenuProps {
 }
 
 const CATEGORY_ITEMS = [
-  { label: 'Maternity Kurtis', href: '/category/maternity-kurtis' },
-  { label: 'Maternity Feeding Loungewears', href: '/category/maternity-feeding-loungewears' },
-  { label: 'Maternity Intimatewears', href: '/category/maternity-intimatewears' },
-  { label: 'Non-Maternity Kurtis & Dresses', href: '/category/non-maternity-kurtis-dresses' },
-  { label: 'Kids Clothing', href: '/category/kids-clothing' },
-  { label: 'Loungewear', href: '/category/loungewear' },
+  { label: 'CASUALS', href: '/category/casuals' },
+  { label: '  ↳ FEEDING', href: '/category/casuals/feeding' },
+  { label: '  ↳ NON-FEEDING', href: '/category/casuals/non-feeding' },
+  { label: 'PARTY WEAR', href: '/category/party-wear' },
+  { label: '  ↳ FEEDING', href: '/category/party-wear/feeding' },
+  { label: '  ↳ NON-FEEDING', href: '/category/party-wear/non-feeding' },
+  { label: 'ETHNIC WEAR', href: '/category/ethnic-wear' },
+  { label: 'LOUNGE WEAR', href: '/category/lounge-wear' },
+  { label: '  ↳ FEEDING', href: '/category/lounge-wear/feeding' },
+  { label: '  ↳ NON-FEEDING', href: '/category/lounge-wear/non-feeding' },
+  { label: 'PEPLUM TOPS', href: '/category/peplum-tops' },
+  { label: '  ↳ FEEDING', href: '/category/peplum-tops/feeding' },
+  { label: '  ↳ NON-FEEDING', href: '/category/peplum-tops/non-feeding' },
+  { label: 'KIDS WEAR', href: '/category/kids-wear' },
 ];
 
 export function MobileMenu({ isOpen, onClose, onOpenSearch }: MobileMenuProps) {

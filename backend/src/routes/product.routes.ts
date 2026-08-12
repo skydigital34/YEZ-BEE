@@ -2,16 +2,63 @@ import { Router } from 'express';
 import { body, param } from 'express-validator';
 import { validate } from '../middleware/validate';
 import { authenticate, optionalAuth, adminOnly } from '../middleware/auth';
-import { uploadFields } from '../middleware/upload';
+import { uploadFields, uploadSingle, uploadMultiple } from '../middleware/upload';
 import * as productController from '../controllers/product.controller';
 
 const router = Router();
 
 router.get('/', productController.getProducts);
 
+router.get('/admin/all', productController.getAdminProducts);
+router.get('/admin/stats', productController.getAdminStats);
+
+router.post(
+  '/upload-image',
+  authenticate,
+  adminOnly,
+  uploadFields,
+  productController.uploadProductImage
+);
+
+router.post(
+  '/upload-images',
+  authenticate,
+  adminOnly,
+  uploadMultiple,
+  productController.uploadProductImages
+);
+
+router.post(
+  '/delete-image',
+  authenticate,
+  adminOnly,
+  productController.deleteProductImage
+);
+
 router.get('/featured', productController.getFeaturedProducts);
 
 router.get('/search', productController.searchProducts);
+
+router.patch(
+  '/:id/stock',
+  authenticate,
+  adminOnly,
+  productController.updateProductStock
+);
+
+router.patch(
+  '/:id/status',
+  authenticate,
+  adminOnly,
+  productController.updateProductStatus
+);
+
+router.patch(
+  '/:id/archive',
+  authenticate,
+  adminOnly,
+  productController.archiveProduct
+);
 
 router.get(
   '/:slug',
@@ -27,8 +74,7 @@ router.post(
   adminOnly,
   uploadFields,
   validate([
-    body('name').trim().notEmpty().withMessage('Product name is required'),
-    body('category').isMongoId().withMessage('Valid category ID is required'),
+    body('category').notEmpty().withMessage('Category is required'),
   ]),
   productController.createProduct
 );

@@ -108,6 +108,7 @@ export default function Testimonials() {
           <div className="flex justify-center items-center gap-4 mt-8">
             <button
               onClick={prev}
+              suppressHydrationWarning
               className="h-11 w-11 rounded-full border border-[var(--color-dark)]/20 flex items-center justify-center text-[var(--color-dark)] hover:bg-[var(--color-dark)] hover:text-white transition-all shadow-sm"
               aria-label="Previous testimonial"
             >
@@ -119,6 +120,7 @@ export default function Testimonials() {
                 <button
                   key={index}
                   onClick={() => setCurrent(index)}
+                  suppressHydrationWarning
                   className={cn(
                     'h-2 rounded-full transition-all duration-300',
                     index === current ? 'w-8 bg-[var(--color-primary-gold)]' : 'w-2 bg-gray-300'
@@ -130,6 +132,7 @@ export default function Testimonials() {
 
             <button
               onClick={next}
+              suppressHydrationWarning
               className="h-11 w-11 rounded-full border border-[var(--color-dark)]/20 flex items-center justify-center text-[var(--color-dark)] hover:bg-[var(--color-dark)] hover:text-white transition-all shadow-sm"
               aria-label="Next testimonial"
             >

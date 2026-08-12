@@ -11,25 +11,27 @@ import { cn } from '@/lib/utils';
 // Category taxonomy matching EXACTLY the 6 official YEZ BEE Fashion categories
 const CATEGORY_COLUMNS = [
   {
-    title: 'OFFICIAL CATEGORIES',
+    title: 'CASUALS & LOUNGEWEAR',
     links: [
-      { label: 'Maternity Kurtis', href: '/category/maternity-kurtis' },
-      { label: 'Maternity Feeding Loungewears', href: '/category/maternity-feeding-loungewears' },
-      { label: 'Maternity Intimatewears', href: '/category/maternity-intimatewears' },
-      { label: 'Non-Maternity Kurtis & Dresses', href: '/category/non-maternity-kurtis-dresses' },
-      { label: 'Kids Clothing', href: '/category/kids-clothing' },
-      { label: 'Loungewear', href: '/category/loungewear' },
+      { label: 'CASUALS (All)', href: '/category/casuals' },
+      { label: 'CASUALS → FEEDING', href: '/category/casuals/feeding' },
+      { label: 'CASUALS → NON-FEEDING', href: '/category/casuals/non-feeding' },
+      { label: 'LOUNGE WEAR (All)', href: '/category/lounge-wear' },
+      { label: 'LOUNGE WEAR → FEEDING', href: '/category/lounge-wear/feeding' },
+      { label: 'LOUNGE WEAR → NON-FEEDING', href: '/category/lounge-wear/non-feeding' },
     ],
   },
   {
-    title: 'SHOP BY EDIT',
+    title: 'PARTY, ETHNIC & TOPS',
     links: [
-      { label: 'Maternity Special Edit', href: '/category/maternity-kurtis' },
-      { label: 'Feeding & Nursing Essentials', href: '/category/maternity-feeding-loungewears' },
-      { label: 'Comfort Intimates', href: '/category/maternity-intimatewears' },
-      { label: 'Everyday Non-Maternity', href: '/category/non-maternity-kurtis-dresses' },
-      { label: 'Kids Wear Collection', href: '/category/kids-clothing' },
-      { label: 'Pure Cotton Loungewear', href: '/category/loungewear' },
+      { label: 'PARTY WEAR (All)', href: '/category/party-wear' },
+      { label: 'PARTY WEAR → FEEDING', href: '/category/party-wear/feeding' },
+      { label: 'PARTY WEAR → NON-FEEDING', href: '/category/party-wear/non-feeding' },
+      { label: 'PEPLUM TOPS (All)', href: '/category/peplum-tops' },
+      { label: 'PEPLUM TOPS → FEEDING', href: '/category/peplum-tops/feeding' },
+      { label: 'PEPLUM TOPS → NON-FEEDING', href: '/category/peplum-tops/non-feeding' },
+      { label: 'ETHNIC WEAR', href: '/category/ethnic-wear' },
+      { label: 'KIDS WEAR', href: '/category/kids-wear' },
     ],
   },
 ];

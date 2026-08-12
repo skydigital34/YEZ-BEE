@@ -86,8 +86,51 @@ const statusColors: Record<string, string> = {
   Pending: 'bg-orange-100 text-orange-700 border-orange-200',
 }
 
+import { useEffect } from 'react'
+import { api } from '@/lib/api'
+
+const DATE_RANGES = [
+  { id: '7d', label: '7 Days' },
+  { id: '30d', label: '30 Days' },
+  { id: '90d', label: '90 Days' },
+  { id: '1y', label: '1 Year' },
+];
+
 export default function AdminDashboard() {
   const [selectedRange, setSelectedRange] = useState('7d')
+  const [liveStats, setLiveStats] = useState<{
+    total: number;
+    published: number;
+    draft: number;
+    archived: number;
+    lowStock: number;
+    outOfStock: number;
+    featured: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('yezbee_admin_date_range');
+      if (saved) setSelectedRange(saved);
+    }
+  }, []);
+
+  const handleRangeSelect = (rangeId: string) => {
+    setSelectedRange(rangeId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('yezbee_admin_date_range', rangeId);
+    }
+  };
+
+  useEffect(() => {
+    api.getAdminStats()
+      .then((res) => {
+        if (res && res.data) {
+          setLiveStats(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <motion.div
@@ -101,18 +144,19 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-semibold text-[#1A1A1A] tracking-tight">Good morning, Aarav</h1>
           <p className="text-gray-500 text-sm mt-1">Here&apos;s what&apos;s happening at YEZ BEE today.</p>
         </div>
-        <div className="flex items-center gap-2 bg-white rounded-xl p-1 border border-gray-100 shadow-sm">
-          {['7d', '30d', '90d', '1y'].map((range) => (
+        <div className="flex items-center gap-2 bg-white rounded-xl p-1 border border-gray-100 shadow-sm" suppressHydrationWarning>
+          {DATE_RANGES.map((range) => (
             <button
-              key={range}
-              onClick={() => setSelectedRange(range)}
+              key={range.id}
+              onClick={() => handleRangeSelect(range.id)}
+              suppressHydrationWarning
               className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                selectedRange === range
+                selectedRange === range.id
                   ? 'bg-[#C9A84C] text-white shadow-md shadow-[#C9A84C]/20'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : range === '90d' ? '90 Days' : '1 Year'}
+              {range.label}
             </button>
           ))}
         </div>
@@ -253,7 +297,7 @@ export default function AdminDashboard() {
 
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { icon: Plus, label: 'Add Product', href: '/admin/products/new', desc: 'Add new product to catalog' },
+          { icon: Plus, label: 'Add Product', href: '/admin/products/create', desc: 'Add new product to catalog' },
           { icon: Eye, label: 'View Orders', href: '/admin/orders', desc: 'Manage incoming orders' },
           { icon: BarChart3, label: 'View Analytics', href: '/admin/analytics', desc: 'See detailed reports' },
         ].map((action) => (

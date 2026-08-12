@@ -82,7 +82,23 @@ export const getCategoryWithProducts = async (
     const limit = parseInt(req.query.limit as string, 10) || 12;
     const skip = (page - 1) * limit;
 
-    const category = await Category.findOne({ slug, isActive: true }).lean();
+    let category = await Category.findOne({ slug, isActive: true }).lean();
+    let productTypeFilter: string | null = (req.query.productType as string) || null;
+
+    if (!category && slug.includes('-')) {
+      // Check if subcategory slug like casuals-feeding or party-wear-feeding
+      const parts = slug.split('-');
+      const lastPart = parts[parts.length - 1]; // feeding or non-feeding
+      if (lastPart === 'feeding' || (parts.length >= 2 && parts.slice(-2).join('-') === 'non-feeding')) {
+        const subType = slug.endsWith('non-feeding') ? 'NON-FEEDING' : 'FEEDING';
+        const parentSlug = slug.replace(/-feeding$/, '').replace(/-non-feeding$/, '');
+        category = await Category.findOne({ slug: parentSlug, isActive: true }).lean();
+        if (category) {
+          productTypeFilter = subType;
+        }
+      }
+    }
+
     if (!category) {
       throw new AppError('Category not found', 404);
     }
@@ -91,6 +107,10 @@ export const getCategoryWithProducts = async (
       category: category._id,
       isActive: true,
     };
+
+    if (productTypeFilter) {
+      filter.productType = productTypeFilter.toUpperCase();
+    }
 
     const sortField = (req.query.sort as string) || 'newest';
     let sort: Record<string, 1 | -1> = { createdAt: -1 };

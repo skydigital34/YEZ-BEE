@@ -33,14 +33,15 @@ export const createOrder = async (
       },
     });
 
+    const orderObj = order as any;
     res.status(201).json({
       success: true,
       data: {
-        id: order.id,
-        amount: order.amount,
-        currency: order.currency,
-        receipt: order.receipt,
-        status: order.status,
+        id: orderObj.id,
+        amount: orderObj.amount,
+        currency: orderObj.currency,
+        receipt: orderObj.receipt,
+        status: orderObj.status,
       },
     });
   } catch (error) {

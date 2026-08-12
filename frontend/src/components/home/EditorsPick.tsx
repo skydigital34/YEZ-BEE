@@ -103,7 +103,7 @@ export default function EditorsPick() {
                   Executive Power Tailoring
                 </h3>
                 <Link
-                  href="/category/western-wear"
+                  href="/category/casuals"
                   className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--color-primary-gold)] hover:text-[var(--color-gold-light)] transition-colors"
                 >
                   Explore Capsule <ArrowRight size={13} />

@@ -43,17 +43,9 @@ const navItems = [
   { icon: ShoppingBag, label: 'Orders', href: '/admin/orders' },
   { icon: Users, label: 'Customers', href: '/admin/customers' },
   { icon: FolderTree, label: 'Categories', href: '/admin/categories' },
-  { icon: Warehouse, label: 'Inventory', href: '/admin/inventory' },
   { icon: TicketPercent, label: 'Coupons', href: '/admin/coupons' },
   { icon: Star, label: 'Reviews', href: '/admin/reviews' },
-  { icon: ArrowLeftRight, label: 'Returns', href: '/admin/returns' },
   { icon: BarChart3, label: 'Analytics', href: '/admin/analytics' },
-  { icon: FileText, label: 'Reports', href: '/admin/reports' },
-  { icon: Megaphone, label: 'Marketing', href: '/admin/marketing' },
-  { icon: Search, label: 'SEO', href: '/admin/seo' },
-  { icon: FileEdit, label: 'Blogs', href: '/admin/blogs' },
-  { icon: Truck, label: 'Shipping', href: '/admin/shipping' },
-  { icon: Settings, label: 'Settings', href: '/admin/settings' },
 ]
 
 const SubNav = ({ item, collapsed }: { item: typeof navItems[number], collapsed: boolean }) => {
@@ -99,11 +91,16 @@ const SubNav = ({ item, collapsed }: { item: typeof navItems[number], collapsed:
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const auth: AuthContextType = {
     isAuthenticated: true,
@@ -130,7 +127,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <AuthContext.Provider value={auth}>
-      <div className="min-h-screen bg-[#FAF7F2] flex">
+      <div className="min-h-screen bg-[#FAF7F2] flex" suppressHydrationWarning>
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
@@ -147,6 +144,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           animate={{ width: collapsed ? 72 : 260 }}
           className="fixed left-0 top-0 h-full bg-[#1A1A1A] z-50 overflow-hidden shadow-2xl flex flex-col"
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          suppressHydrationWarning
         >
           <div className="flex items-center justify-between px-4 h-16 border-b border-white/5">
             <Link href="/admin" className="flex items-center gap-2.5 overflow-hidden">
@@ -166,12 +164,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button
               onClick={() => setCollapsed(!collapsed)}
               className="text-gray-500 hover:text-[#C9A84C] transition-colors hidden lg:block"
+              suppressHydrationWarning
             >
               {collapsed ? <PanelRightOpen size={18} /> : <PanelRightClose size={18} />}
             </button>
             <button
               onClick={() => setMobileOpen(false)}
               className="text-gray-400 hover:text-white lg:hidden"
+              suppressHydrationWarning
             >
               <X size={20} />
             </button>
@@ -211,6 +211,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <button
                   onClick={() => setMobileOpen(true)}
                   className="lg:hidden text-gray-600 hover:text-[#C9A84C] transition-colors"
+                  suppressHydrationWarning
                 >
                   <Menu size={22} />
                 </button>
@@ -222,6 +223,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       type="text"
                       placeholder="Search orders, products, customers..."
                       className="w-64 lg:w-96 pl-10 pr-4 py-2 bg-[#FAF7F2] rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/30 focus:bg-white transition-all"
+                      suppressHydrationWarning
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <kbd className="hidden lg:inline-flex px-1.5 py-0.5 text-[10px] font-medium text-gray-400 bg-gray-100 rounded border border-gray-200">
@@ -236,6 +238,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <button
                   onClick={() => setSearchOpen(!searchOpen)}
                   className="md:hidden p-2 text-gray-600 hover:text-[#C9A84C] transition-colors rounded-lg hover:bg-[#FAF7F2]"
+                  suppressHydrationWarning
                 >
                   <Search size={20} />
                 </button>
@@ -244,6 +247,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <button
                     onClick={() => setNotifOpen(!notifOpen)}
                     className="relative p-2 text-gray-600 hover:text-[#C9A84C] transition-colors rounded-lg hover:bg-[#FAF7F2]"
+                    suppressHydrationWarning
                   >
                     <Bell size={20} />
                     {unreadCount > 0 && (
@@ -279,7 +283,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                           ))}
                         </div>
                         <div className="p-3 border-t border-gray-100 text-center">
-                          <button className="text-xs text-[#C9A84C] font-medium hover:underline">
+                          <button className="text-xs text-[#C9A84C] font-medium hover:underline" suppressHydrationWarning>
                             View all notifications
                           </button>
                         </div>
@@ -292,6 +296,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <button
                     onClick={() => setProfileOpen(!profileOpen)}
                     className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-[#FAF7F2] transition-colors"
+                    suppressHydrationWarning
                   >
                     <div className="w-8 h-8 bg-gradient-to-br from-[#C9A84C] to-[#A8882E] rounded-full flex items-center justify-center text-white text-sm font-semibold shadow-md">
                       {auth.adminName.split(' ').map(n => n[0]).join('')}

@@ -4,8 +4,10 @@ import { RATING_VALUES } from '../utils/constants';
 
 export interface IProductImage {
   url: string;
+  publicId?: string;
   alt: string;
   isPrimary: boolean;
+  sortOrder?: number;
 }
 
 export interface IProductVideo {
@@ -58,8 +60,17 @@ export interface IProductDocument extends Document {
   description: string;
   shortDescription: string;
   category: mongoose.Types.ObjectId;
+  parentCategory?: mongoose.Types.ObjectId | null;
   subcategory: string;
+  productType?: 'FEEDING' | 'NON-FEEDING' | null;
   brand: string;
+  price: number;
+  compareAtPrice?: number;
+  discount?: number;
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  featured: boolean;
+  bestSeller: boolean;
+  newArrival: boolean;
   tags: string[];
   images: IProductImage[];
   videos: IProductVideo[];
@@ -80,15 +91,16 @@ export interface IProductDocument extends Document {
   ratings: { average: number; count: number; distribution: IRatingDistribution };
   reviewCount: number;
   soldCount: number;
-  isNew: boolean;
+  isNewProduct: boolean;
   isTrending: boolean;
   isBestSeller: boolean;
   isActive: boolean;
   featuredOrder: number;
   returnPolicy: string;
   shippingInfo: IShippingInfo;
-  taxRate: number;
-
+  imageUrl?: string;
+  imagePublicId?: string;
+  isPublished?: boolean;
   getDiscountedPrice(variantSku: string): number | null;
   isInStock(variantSku: string): boolean;
 }
@@ -96,8 +108,10 @@ export interface IProductDocument extends Document {
 const productImageSchema = new Schema<IProductImage>(
   {
     url: { type: String, required: true },
+    publicId: { type: String, default: '' },
     alt: { type: String, default: '' },
     isPrimary: { type: Boolean, default: false },
+    sortOrder: { type: Number, default: 0 },
   },
   { _id: false }
 );
@@ -174,9 +188,9 @@ const productSchema = new Schema<IProductDocument>(
     },
     slug: {
       type: String,
+      required: [true, 'Slug is required'],
       unique: true,
       lowercase: true,
-      index: true,
     },
     description: { type: String, default: '' },
     shortDescription: {
@@ -187,10 +201,27 @@ const productSchema = new Schema<IProductDocument>(
       type: Schema.Types.ObjectId,
       ref: 'Category',
       required: [true, 'Category is required'],
-      index: true,
+    },
+    parentCategory: {
+      type: Schema.Types.ObjectId,
+      ref: 'Category',
+      default: null,
     },
     subcategory: { type: String, trim: true },
-    brand: { type: String, trim: true, index: true },
+    productType: { type: String, enum: ['FEEDING', 'NON-FEEDING', null], default: null },
+    brand: { type: String, trim: true, default: 'YEZ BEE' },
+    price: { type: Number, default: 0, min: 0 },
+    compareAtPrice: { type: Number, default: 0, min: 0 },
+    discount: { type: Number, default: 0, min: 0 },
+    status: {
+      type: String,
+      enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'],
+      default: 'PUBLISHED',
+      index: true,
+    },
+    featured: { type: Boolean, default: false, index: true },
+    bestSeller: { type: Boolean, default: false, index: true },
+    newArrival: { type: Boolean, default: false, index: true },
     tags: [{ type: String, lowercase: true, trim: true, index: true }],
     images: [productImageSchema],
     videos: [productVideoSchema],
@@ -221,7 +252,7 @@ const productSchema = new Schema<IProductDocument>(
     },
     reviewCount: { type: Number, default: 0, min: 0 },
     soldCount: { type: Number, default: 0, min: 0 },
-    isNew: { type: Boolean, default: false },
+    isNewProduct: { type: Boolean, default: false },
     isTrending: { type: Boolean, default: false },
     isBestSeller: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true, index: true },
@@ -237,11 +268,13 @@ const productSchema = new Schema<IProductDocument>(
   }
 );
 
-productSchema.index({ slug: 1 }, { unique: true });
-productSchema.index({ isActive: 1, createdAt: -1 });
-productSchema.index({ category: 1, isActive: 1 });
-productSchema.index({ tags: 1 });
+productSchema.index({ status: 1, createdAt: -1 });
+productSchema.index({ category: 1, status: 1 });
+productSchema.index({ parentCategory: 1, status: 1 });
+productSchema.index({ category: 1, productType: 1, status: 1 });
 productSchema.index({ 'variants.sku': 1 });
+productSchema.index({ 'variants.size': 1, status: 1 });
+productSchema.index({ 'variants.colorHex': 1, status: 1 });
 productSchema.index({ name: 'text', description: 'text', tags: 'text', brand: 'text' });
 productSchema.index({ soldCount: -1 });
 productSchema.index({ featuredOrder: 1 });
@@ -277,7 +310,8 @@ productSchema.methods.isInStock = function (variantSku: string): boolean {
   return variant ? variant.stock > 0 : false;
 };
 
-productSchema.virtual('discountPercent').get(function () {
+productSchema.virtual('discountPercent').get(function (this: IProductDocument) {
+  if (!this.variants || !this.variants.length) return 0;
   const minPrice = Math.min(...this.variants.map((v: IProductVariant) => v.price));
   const maxCompare = Math.max(
     ...this.variants.map((v: IProductVariant) => v.compareAtPrice || 0)
@@ -288,14 +322,28 @@ productSchema.virtual('discountPercent').get(function () {
   return 0;
 });
 
-productSchema.virtual('minPrice').get(function () {
+productSchema.virtual('minPrice').get(function (this: IProductDocument) {
+  if (!this.variants || !this.variants.length) return 0;
   const activeVariants = this.variants.filter((v: IProductVariant) => v.isActive);
   return Math.min(...activeVariants.map((v: IProductVariant) => v.price));
 });
 
-productSchema.virtual('maxPrice').get(function () {
-  const activeVariants = this.variants.filter((v: IProductVariant) => v.isActive);
-  return Math.max(...activeVariants.map((v: IProductVariant) => v.price));
+productSchema.virtual('imageUrl').get(function (this: IProductDocument) {
+  if (this.images && this.images.length > 0 && this.images[0].url) {
+    return this.images[0].url;
+  }
+  return '';
+});
+
+productSchema.virtual('imagePublicId').get(function (this: IProductDocument) {
+  if (this.images && this.images.length > 0 && this.images[0].publicId) {
+    return this.images[0].publicId;
+  }
+  return '';
+});
+
+productSchema.virtual('isPublished').get(function (this: IProductDocument) {
+  return this.status === 'PUBLISHED' && this.isActive === true;
 });
 
 const Product = mongoose.model<IProductDocument>('Product', productSchema);

@@ -38,6 +38,7 @@ import ProductCard from '@/components/ui/ProductCard';
 import { useCart } from '@/providers/CartProvider';
 import { useWishlist } from '@/providers/WishlistProvider';
 import { CATALOG_PRODUCTS, getProductBySlug, CatalogProduct } from '@/data/products';
+import { getSafeImageUrl } from '@/lib/utils';
 
 // ─── Pincode Shipping Database (Mock Logic) ──────────────────────────────────
 const SERVICABLE_PINCODES: Record<string, { days: number; cod: boolean; city: string }> = {
@@ -60,18 +61,85 @@ function getEstimatedDeliveryDate(daysToAdd: number = 3): string {
   });
 }
 
+import { api } from '@/lib/api';
+
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const slug = (params.slug as string) || 'floral-cotton-maternity-kurti';
+  const slug = (params.slug as string) || 'floral-anarkali-maternity-feeding-kurti';
 
-  // Lookup product from catalog
-  const product: CatalogProduct = useMemo(() => {
-    return getProductBySlug(slug) || CATALOG_PRODUCTS[0];
+  const [dbProduct, setDbProduct] = useState<CatalogProduct | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch product from MongoDB Atlas Backend API
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProduct = async () => {
+      setLoading(true);
+      try {
+        const res = await api.getProduct(slug);
+        if (res && res.data && isMounted) {
+          const p = res.data;
+          const minPrice = p.price || (p.variants || []).reduce((min: number, v: any) => Math.min(min, v.price || Infinity), Infinity) || 0;
+          const maxCompare = p.compareAtPrice || (p.variants || []).reduce((max: number, v: any) => Math.max(max, v.compareAtPrice || 0), 0);
+          const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
+          const totalStock = (p.variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+
+          const mapped = {
+            id: p._id || p.id,
+            name: p.name,
+            slug: p.slug,
+            description: p.description || '',
+            shortDescription: p.shortDescription || '',
+            price: minPrice,
+            compareAtPrice: maxCompare > minPrice ? maxCompare : undefined,
+            discountPercentage: discountPct,
+            category: p.category?.slug || p.category || 'casuals',
+            categoryName: p.category?.name || p.subcategory || 'CASUALS',
+            productType: p.productType || null,
+            fabric: p.fabric || 'Cotton',
+            fit: p.fit || 'Regular Fit',
+            pattern: p.pattern || 'Printed',
+            occasion: p.occasion || 'Casual',
+            careInstructions: p.careInstructions || [],
+            status: (p.status || 'published').toLowerCase() as any,
+            stock: totalStock,
+            thumbnail: getSafeImageUrl(p.images?.[0] || p.thumbnail),
+            galleryImages: (p.images && p.images.length > 0) ? p.images.map((img: any) => getSafeImageUrl(img)).filter((u: string) => Boolean(u && u.trim())) : ['/images/categories/maternity-kurtis.jpg'],
+            colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))).map(name => ({ name, hex: p.variants.find((v: any) => v.color === name)?.colorHex || '#000000' })) as any : [{ name: 'Standard', hex: '#000000' }],
+            sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) as any : ['S', 'M', 'L'],
+            variants: p.variants || [],
+            featured: Boolean(p.featured || p.isFeatured),
+            bestseller: Boolean(p.bestSeller || p.isBestSeller),
+            newArrival: Boolean(p.newArrival || p.isNewProduct),
+            tags: p.tags || [],
+            seo: p.seo || { title: p.name, description: p.shortDescription },
+          } as unknown as CatalogProduct;
+
+          setDbProduct(mapped);
+        }
+      } catch (err) {
+        console.warn('API getProduct error, using fallback product:', err);
+        const fallback = getProductBySlug(slug) || CATALOG_PRODUCTS[0];
+        setDbProduct(fallback);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchProduct();
+    return () => {
+      isMounted = false;
+    };
   }, [slug]);
 
+  // Active product reference
+  const product: CatalogProduct = useMemo(() => {
+    return dbProduct || getProductBySlug(slug) || CATALOG_PRODUCTS[0];
+  }, [dbProduct, slug]);
+
   // Color & Size State
-  const [selectedColor, setSelectedColor] = useState<string>(() => product.colors[0]?.name || '');
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [sizeError, setSizeError] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -79,6 +147,13 @@ export default function ProductDetailPage() {
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
   const [added, setAdded] = useState(false);
+
+  // Sync color selection when product loads
+  useEffect(() => {
+    if (product && product.colors && product.colors.length > 0 && !selectedColor) {
+      setSelectedColor(typeof product.colors[0] === 'string' ? product.colors[0] : product.colors[0]?.name || '');
+    }
+  }, [product, selectedColor]);
 
   // Accordion Expand States (Description default OPEN)
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({
@@ -237,6 +312,14 @@ export default function ProductDetailPage() {
           <Link href={`/category/${product.category}`} className="hover:text-[var(--color-primary-gold)] transition-colors">
             {product.categoryName}
           </Link>
+          {product.productType && (
+            <>
+              <span>/</span>
+              <Link href={`/category/${product.category}/${product.productType.toLowerCase()}`} className="hover:text-[var(--color-primary-gold)] transition-colors font-semibold">
+                {product.productType}
+              </Link>
+            </>
+          )}
           <span>/</span>
           <span className="text-[var(--color-dark)] font-bold truncate max-w-[200px] sm:max-w-none">{product.name}</span>
         </nav>
@@ -262,7 +345,7 @@ export default function ProductDetailPage() {
                   }`}
                   aria-label={`View photo ${index + 1}`}
                 >
-                  <Image src={img} alt={`${product.name} angle ${index + 1}`} fill sizes="80px" className="object-cover object-center" />
+                  <Image src={getSafeImageUrl(img)} alt={`${product.name} angle ${index + 1}`} fill sizes="80px" className="object-cover object-center" />
                 </button>
               ))}
             </div>
@@ -270,7 +353,7 @@ export default function ProductDetailPage() {
             {/* Dominant Primary Image Frame */}
             <div className="relative flex-1 aspect-[3/4] rounded-3xl overflow-hidden bg-white shadow-soft-lg border border-[var(--color-champagne)]/60 group">
               <Image
-                src={product.images[activeImageIndex] || product.thumbnail}
+                src={getSafeImageUrl(product.images[activeImageIndex] || product.thumbnail)}
                 alt={`${product.name} - View ${activeImageIndex + 1}`}
                 fill
                 priority
@@ -343,7 +426,7 @@ export default function ProductDetailPage() {
                     activeImageIndex === index ? 'border-[var(--color-primary-gold)]' : 'border-transparent opacity-70'
                   }`}
                 >
-                  <Image src={img} alt="" fill className="object-cover" />
+                  <Image src={getSafeImageUrl(img)} alt="" fill className="object-cover" />
                 </button>
               ))}
             </div>
@@ -356,7 +439,7 @@ export default function ProductDetailPage() {
             {/* 1. Category Tag & Product Name */}
             <div>
               <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--color-primary-gold)] block mb-1">
-                {product.categoryName}
+                {product.categoryName} {product.productType ? `· ${product.productType}` : ''}
               </span>
               <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--color-dark)] leading-tight">
                 {product.name}
@@ -955,7 +1038,7 @@ export default function ProductDetailPage() {
             >
               <div className="relative w-full max-w-4xl h-full max-h-[90vh] pointer-events-auto flex items-center justify-center">
                 <Image
-                  src={product.images[activeImageIndex] || product.thumbnail}
+                  src={getSafeImageUrl(product.images[activeImageIndex] || product.thumbnail)}
                   alt={product.name}
                   fill
                   className="object-contain"

@@ -37,15 +37,16 @@ export default function NotFound() {
         <p className="text-dark/60 mt-4 leading-relaxed">
           The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
         </p>
-        <form onSubmit={handleSearch} className="mt-8 flex items-center border border-dark/20 rounded-lg overflow-hidden bg-white">
+        <form onSubmit={handleSearch} suppressHydrationWarning className="mt-8 flex items-center border border-dark/20 rounded-lg overflow-hidden bg-white">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for something..."
+            suppressHydrationWarning
             className="flex-1 px-5 py-3 text-sm outline-none bg-transparent"
           />
-          <button type="submit" className="px-5 py-3 text-dark/40 hover:text-gold transition-colors">
+          <button type="submit" suppressHydrationWarning className="px-5 py-3 text-dark/40 hover:text-gold transition-colors">
             <Search size={18} />
           </button>
         </form>

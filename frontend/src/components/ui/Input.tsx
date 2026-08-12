@@ -95,6 +95,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             <input
               id={inputId}
               ref={ref}
+              suppressHydrationWarning
               className={cn(
                 inputVariants({
                   variant,

@@ -227,8 +227,8 @@ export const verifyEmail = async (
     }
 
     user.isVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
+    (user as any).emailVerificationToken = undefined;
+    (user as any).emailVerificationExpires = undefined;
     await user.save();
 
     res.status(200).json({

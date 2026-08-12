@@ -60,6 +60,13 @@ export const FILTER_OPERATORS = {
   BETWEEN: 'between',
 } as const;
 
+export const DEFAULT_TTL = {
+  PRODUCT: 3600,
+  CATEGORY: 3600,
+  USER: 1800,
+  ORDER: 1800,
+} as const;
+
 export const CACHE_KEYS = {
   PRODUCTS_ALL: 'products:all',
   PRODUCT_BY_SLUG: (slug: string) => `product:slug:${slug}`,

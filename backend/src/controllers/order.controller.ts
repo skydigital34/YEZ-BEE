@@ -313,7 +313,7 @@ export const cancelOrder = async (
       ORDER_STATUS.PROCESSING,
     ];
 
-    if (!cancellableStatuses.includes(order.status as string)) {
+    if (!cancellableStatuses.includes(order.status as any)) {
       throw new AppError('Order cannot be cancelled at this stage', 400);
     }
 
@@ -455,7 +455,7 @@ export const updateOrderStatus = async (
       ORDER_STATUS.DELIVERED,
     ];
 
-    const currentIndex = statusFlow.indexOf(order.status as string);
+    const currentIndex = statusFlow.indexOf(order.status as any);
     const newIndex = statusFlow.indexOf(status);
 
     if (newIndex < currentIndex && status !== ORDER_STATUS.CANCELLED && status !== ORDER_STATUS.REFUNDED) {

@@ -1,28 +1,86 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
 import { YEZBEE_CATEGORIES } from '@/data/categories';
-import { CATALOG_PRODUCTS } from '@/data/products';
+import { CATALOG_PRODUCTS, CatalogProduct } from '@/data/products';
+import { api } from '@/lib/api';
+import { getSafeProductImage, getSafeImageUrl } from '@/lib/utils';
 
 export default function NewArrivals() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [items, setItems] = useState<CatalogProduct[]>(CATALOG_PRODUCTS);
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: '-60px' });
+
+  useEffect(() => {
+    let isMounted = true;
+    api.getProducts({ isNew: true, limit: 12 })
+      .then((res) => {
+        if (res && res.data && res.data.length > 0 && isMounted) {
+          const mapped = res.data.map((p: any) => {
+            const rawImages = p.images?.map((i: any) => getSafeImageUrl(i)).filter((u: string) => Boolean(u && u.trim())) || [];
+            const thumbnail = getSafeImageUrl(p.thumbnail || rawImages[0]);
+            const imagesList = rawImages.length > 0 ? rawImages : [thumbnail];
+
+            return {
+              id: p._id || p.id,
+              name: p.name,
+              slug: p.slug,
+              description: p.description || '',
+              shortDescription: p.shortDescription || '',
+              price: p.price || p.variants?.[0]?.price || 0,
+              compareAtPrice: p.compareAtPrice,
+              discountPercentage: p.discount || 0,
+              category: p.category?.slug || 'casuals',
+              categoryName: p.category?.name || 'CASUALS',
+              productType: p.productType,
+              fabric: p.fabric || 'Cotton',
+              fit: p.fit || 'Regular',
+              pattern: p.pattern || 'Printed',
+              occasion: p.occasion || 'Casual',
+              careInstructions: p.careInstructions || [],
+              status: (p.status || 'published').toLowerCase(),
+              stock: (p.variants || []).reduce((acc: number, v: any) => acc + (v.stock || 0), 0),
+              sku: p.variants?.[0]?.sku || p._id,
+              thumbnail,
+              images: imagesList,
+              galleryImages: imagesList,
+              colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))).map(name => ({ name, hex: '#000000' })) as any : [],
+              sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) as any : [],
+              variants: p.variants || [],
+              featured: Boolean(p.featured),
+              bestseller: Boolean(p.bestSeller),
+              newArrival: true,
+              tags: p.tags || [],
+              seo: p.seo || { title: p.name, description: p.shortDescription },
+            } as unknown as CatalogProduct;
+          });
+          setItems(mapped);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const categories = useMemo(() => {
     return ['All', ...YEZBEE_CATEGORIES.map((c) => c.name)];
   }, []);
 
+  const allProducts = items;
+
   const filteredProducts = useMemo(() => {
     if (selectedCategory === 'All') {
-      return CATALOG_PRODUCTS;
+      return allProducts;
     }
-    return CATALOG_PRODUCTS.filter((p) => p.categoryName === selectedCategory);
-  }, [selectedCategory]);
+    return allProducts.filter((p) => p.categoryName === selectedCategory);
+  }, [allProducts, selectedCategory]);
 
   return (
     <section className="py-20 sm:py-28 bg-[var(--color-warm-white)]">
@@ -46,6 +104,7 @@ export default function NewArrivals() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
+                suppressHydrationWarning
                 className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-full transition-all cursor-pointer ${
                   selectedCategory === cat
                     ? 'bg-[var(--color-dark)] text-white shadow-dark-sm scale-105'
@@ -77,8 +136,8 @@ export default function NewArrivals() {
                 comparePrice={product.compareAtPrice}
                 rating={String(product.rating)}
                 reviews={product.reviewCount}
-                image={product.thumbnail}
-                hoverImage={product.images[1] || product.thumbnail}
+                image={getSafeProductImage(product, 0)}
+                hoverImage={getSafeProductImage(product, 1)}
                 colors={product.colors}
                 sizes={product.sizes}
                 discount={product.discountPercentage}

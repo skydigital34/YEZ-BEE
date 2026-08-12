@@ -142,11 +142,13 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search gowns, sarees, lehengas, blazers..."
+                  suppressHydrationWarning
                   className="flex-1 bg-transparent py-2 text-sm sm:text-base text-white outline-none placeholder:text-white/40 font-sans"
                 />
                 <div className="flex items-center gap-2">
                   <button
                     type="submit"
+                    suppressHydrationWarning
                     className="p-2 rounded-full bg-[var(--color-primary-gold)] text-[var(--color-dark)] text-xs font-bold uppercase hover:bg-[var(--color-gold-light)] transition-all"
                   >
                     Search
@@ -154,6 +156,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                   <button
                     type="button"
                     onClick={onClose}
+                    suppressHydrationWarning
                     className="rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
                   >
                     <X size={18} />
@@ -175,6 +178,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       <button
                         key={term}
                         onClick={() => handleSearchSubmit(term)}
+                        suppressHydrationWarning
                         className="rounded-full px-4 py-1.5 text-xs font-semibold bg-white/10 text-white/90 hover:bg-[var(--color-primary-gold)] hover:text-[var(--color-dark)] transition-all"
                       >
                         {term}

@@ -1,3 +1,6 @@
+import { getSafeImageUrl } from '@/lib/utils';
+import { getCategoryBySlug } from './categories';
+
 export interface ProductVariant {
   id?: string;
   color: string;
@@ -21,8 +24,9 @@ export interface CatalogProduct {
   id: string;
   slug: string;
   name: string;
-  category: string; // One of the 6 exact category slugs
-  categoryName: string; // Exact category display name
+  category: string; // One of the 6 exact category slugs ('casuals', 'party-wear', 'ethnic-wear', 'lounge-wear', 'peplum-tops', 'kids-wear')
+  categoryName: string; // Exact customer-facing category name
+  productType?: 'FEEDING' | 'NON-FEEDING' | null; // Product-level feeding classification
   subcategory: string;
   shortDescription: string;
   description: string;
@@ -67,20 +71,21 @@ export interface CatalogProduct {
 }
 
 export const INITIAL_PRODUCTS: CatalogProduct[] = [
-  // ── CATEGORY 1: MATERNITY KURTIS ───────────────────────────────────────────
+  // ── CATEGORY 1: CASUALS → FEEDING ──────────────────────────────────────────
   {
     id: 'mat-kurti-1',
-    slug: 'floral-cotton-maternity-kurti',
-    name: 'Floral Cotton A-Line Maternity Kurti',
-    category: 'maternity-kurtis',
-    categoryName: 'Maternity Kurtis',
-    subcategory: 'Cotton Kurtis',
-    shortDescription: 'Breathable pure cotton A-line maternity kurti with generous pregnancy bump room.',
-    description: 'Designed for ultimate comfort during pregnancy, this floral print A-line kurti is crafted from 100% breathable Mulberry cotton. Features side gathers that expand gracefully with your growing bump.',
+    slug: 'floral-cotton-feeding-casual-kurti',
+    name: 'Floral Cotton A-Line Feeding Casual Kurti',
+    category: 'casuals',
+    categoryName: 'CASUALS',
+    productType: 'FEEDING',
+    subcategory: 'Feeding',
+    shortDescription: 'Breathable pure cotton A-line casual kurti with discreet feeding access.',
+    description: 'Designed for everyday comfort, this floral print A-line kurti is crafted from 100% breathable Mulberry cotton. Features dual concealed vertical zips for seamless feeding access.',
     highlights: [
       '100% breathable Mulberry cotton',
-      'Side gathers for pregnancy bump expansion',
       'Discreet feeding zipper access',
+      'Relaxed body silhouette',
       'Hypoallergenic soft skin feel',
     ],
     price: 1899,
@@ -99,17 +104,10 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
       { name: 'Sage Green', hex: '#8FBC8F' },
     ],
     variants: [
-      { color: 'Peach Floral', size: 'S', sku: 'YZB-MK1-PCH-S', stock: 8, isActive: true },
-      { color: 'Peach Floral', size: 'M', sku: 'YZB-MK1-PCH-M', stock: 12, isActive: true },
-      { color: 'Peach Floral', size: 'L', sku: 'YZB-MK1-PCH-L', stock: 5, isActive: true },
-      { color: 'Peach Floral', size: 'XL', sku: 'YZB-MK1-PCH-XL', stock: 0, isActive: true },
-      { color: 'Navy Blue', size: 'M', sku: 'YZB-MK1-NAV-M', stock: 10, isActive: true },
-      { color: 'Navy Blue', size: 'L', sku: 'YZB-MK1-NAV-L', stock: 7, isActive: true },
-      { color: 'Navy Blue', size: 'XL', sku: 'YZB-MK1-NAV-XL', stock: 3, isActive: true },
-      { color: 'Navy Blue', size: '2XL', sku: 'YZB-MK1-NAV-2XL', stock: 2, isActive: true },
-      { color: 'Sage Green', size: 'S', sku: 'YZB-MK1-SAG-S', stock: 6, isActive: true },
-      { color: 'Sage Green', size: 'M', sku: 'YZB-MK1-SAG-M', stock: 9, isActive: true },
-      { color: 'Sage Green', size: 'L', sku: 'YZB-MK1-SAG-L', stock: 0, isActive: true },
+      { color: 'Peach Floral', size: 'S', sku: 'YZB-CAS-F1-PCH-S', stock: 8, isActive: true },
+      { color: 'Peach Floral', size: 'M', sku: 'YZB-CAS-F1-PCH-M', stock: 12, isActive: true },
+      { color: 'Peach Floral', size: 'L', sku: 'YZB-CAS-F1-PCH-L', stock: 5, isActive: true },
+      { color: 'Navy Blue', size: 'M', sku: 'YZB-CAS-F1-NAV-M', stock: 10, isActive: true },
     ],
     fabric: '100% Pure Cotton',
     fit: 'Relaxed A-Line Silhouette',
@@ -122,11 +120,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     maternity: true,
     feedingFriendly: true,
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    stock: 62,
+    stock: 35,
     lowStockThreshold: 5,
     rating: 4.8,
     reviewCount: 42,
-    tags: ['maternity', 'kurti', 'cotton', 'office wear'],
+    tags: ['casuals', 'feeding', 'kurti', 'cotton', 'office wear'],
     careInstructions: 'Machine wash cold inside out with gentle detergent.',
     shippingInfo: 'Dispatched within 24 hours. Free delivery nationwide.',
     returnPolicy: '7-day doorstep exchange and return policy.',
@@ -136,207 +134,25 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     status: 'published',
     active: true,
     seo: {
-      title: 'Floral Cotton A-Line Maternity Kurti | YEZ BEE Fashion',
-      description: 'Shop comfortable 100% cotton floral maternity kurti with bump expansion and feeding access.',
+      title: 'Floral Cotton A-Line Feeding Casual Kurti | YEZ BEE Fashion',
+      description: 'Shop comfortable 100% cotton floral casual kurti with concealed feeding access.',
     },
     createdAt: '2026-07-01T10:00:00Z',
     updatedAt: '2026-08-01T12:00:00Z',
   },
-  {
-    id: 'mat-kurti-2',
-    slug: 'anarkali-rayon-maternity-kurti',
-    name: 'Anarkali Printed Rayon Maternity Kurti',
-    category: 'maternity-kurtis',
-    categoryName: 'Maternity Kurtis',
-    subcategory: 'Anarkali Kurtis',
-    shortDescription: 'Festive flare Anarkali maternity kurti with fluid drape and empire waist.',
-    description: 'Crafted from soft modal rayon, this flared Anarkali maternity kurti offers effortless movement and elegant drape for festive celebrations and family occasions.',
-    highlights: ['Modal rayon fluid drape', 'Empire waist maternity flare', 'Festive gold prints'],
-    price: 2299,
-    compareAtPrice: 2999,
-    costPrice: 1100,
-    discountPercentage: 23,
-    currency: 'INR',
-    images: ['/images/maternity/slide3.jpg', '/images/categories/maternity-kurtis.jpg'],
-    thumbnail: '/images/maternity/slide3.jpg',
-    colors: [
-      { name: 'Maroon Gold', hex: '#800000' },
-      { name: 'Teal Blue', hex: '#008080' },
-    ],
-    variants: [
-      { color: 'Maroon Gold', size: 'M', sku: 'YZB-MK2-MAR-M', stock: 6, isActive: true },
-      { color: 'Maroon Gold', size: 'L', sku: 'YZB-MK2-MAR-L', stock: 4, isActive: true },
-      { color: 'Maroon Gold', size: 'XL', sku: 'YZB-MK2-MAR-XL', stock: 2, isActive: true },
-      { color: 'Teal Blue', size: 'S', sku: 'YZB-MK2-TEA-S', stock: 5, isActive: true },
-      { color: 'Teal Blue', size: 'M', sku: 'YZB-MK2-TEA-M', stock: 8, isActive: true },
-      { color: 'Teal Blue', size: '2XL', sku: 'YZB-MK2-TEA-2XL', stock: 3, isActive: true },
-    ],
-    fabric: 'Soft Premium Rayon',
-    fit: 'Empire Waist Flared Fit',
-    pattern: 'Gold Ethnic Block Print',
-    neckStyle: 'Round Neck with V-Cut',
-    sleeveLength: '3/4th Sleeve',
-    length: 'Ankle Length (52")',
-    occasion: 'Festive & Celebration',
-    gender: 'Women',
-    maternity: true,
-    feedingFriendly: false,
-    sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    stock: 32,
-    lowStockThreshold: 5,
-    rating: 4.9,
-    reviewCount: 28,
-    tags: ['maternity', 'anarkali', 'festive', 'rayon'],
-    careInstructions: 'Dry clean recommended or hand wash cold.',
-    shippingInfo: 'Express 2-day delivery available.',
-    returnPolicy: '7-day easy return policy.',
-    featured: true,
-    bestseller: false,
-    newArrival: true,
-    status: 'published',
-    active: true,
-    seo: {
-      title: 'Anarkali Printed Rayon Maternity Kurti | YEZ BEE Fashion',
-      description: 'Elegant flared Anarkali maternity kurti for festive celebrations.',
-    },
-    createdAt: '2026-07-05T10:00:00Z',
-    updatedAt: '2026-08-02T11:00:00Z',
-  },
 
-  // ── CATEGORY 2: MATERNITY FEEDING LOUNGEWEARS ──────────────────────────────
-  {
-    id: 'feed-lounge-1',
-    slug: 'soft-modal-nursing-lounge-set',
-    name: 'Soft Modal Nursing & Feeding Lounge Set',
-    category: 'maternity-feeding-loungewears',
-    categoryName: 'Maternity Feeding Loungewears',
-    subcategory: 'Nursing Lounge Sets',
-    shortDescription: 'Ultrasoft nursing lounge set with dual concealed zippers for easy breastfeeding.',
-    description: 'Designed specifically for pregnancy through postpartum nursing. Features invisible 2-way zippers on both sides for discreet and effortless breastfeeding access.',
-    highlights: ['Concealed 2-way nursing zippers', '95% Modal Cotton stretch', 'Postpartum relaxed waistband'],
-    price: 1999,
-    compareAtPrice: 2699,
-    costPrice: 900,
-    discountPercentage: 25,
-    currency: 'INR',
-    images: ['/images/categories/maternity-feeding-loungewears.jpg', '/images/maternity/slide2.jpg'],
-    thumbnail: '/images/categories/maternity-feeding-loungewears.jpg',
-    colors: [
-      { name: 'Blush Pink', hex: '#FFB6C1' },
-      { name: 'Lavender', hex: '#E6E6FA' },
-      { name: 'Mint Green', hex: '#98FF98' },
-    ],
-    variants: [
-      { color: 'Blush Pink', size: 'S', sku: 'YZB-FL1-BLU-S', stock: 10, isActive: true },
-      { color: 'Blush Pink', size: 'M', sku: 'YZB-FL1-BLU-M', stock: 14, isActive: true },
-      { color: 'Blush Pink', size: 'L', sku: 'YZB-FL1-BLU-L', stock: 8, isActive: true },
-      { color: 'Lavender', size: 'M', sku: 'YZB-FL1-LAV-M', stock: 12, isActive: true },
-      { color: 'Lavender', size: 'XL', sku: 'YZB-FL1-LAV-XL', stock: 6, isActive: true },
-      { color: 'Mint Green', size: 'L', sku: 'YZB-FL1-MNT-L', stock: 5, isActive: true },
-      { color: 'Mint Green', size: '2XL', sku: 'YZB-FL1-MNT-2XL', stock: 3, isActive: true },
-    ],
-    fabric: '95% Modal Cotton, 5% Elastane',
-    fit: 'Relaxed Postpartum Fit',
-    pattern: 'Solid Pastel',
-    neckStyle: 'Round Neck',
-    sleeveLength: 'Short Sleeve',
-    length: 'Regular Lounge Top & Pajama',
-    occasion: 'Home & Sleepwear',
-    gender: 'Women',
-    maternity: true,
-    feedingFriendly: true,
-    sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    stock: 58,
-    lowStockThreshold: 5,
-    rating: 4.9,
-    reviewCount: 64,
-    tags: ['nursing', 'feeding', 'loungewear', 'postpartum'],
-    careInstructions: 'Machine wash gentle. Do not bleach.',
-    shippingInfo: 'Free express shipping nationwide.',
-    returnPolicy: '7-day easy return policy.',
-    featured: true,
-    bestseller: true,
-    newArrival: true,
-    status: 'published',
-    active: true,
-    seo: {
-      title: 'Soft Modal Nursing Lounge Set | YEZ BEE Fashion',
-      description: 'Breastfeeding-friendly lounge set with invisible side zips.',
-    },
-    createdAt: '2026-07-10T10:00:00Z',
-    updatedAt: '2026-08-03T09:00:00Z',
-  },
-
-  // ── CATEGORY 3: MATERNITY INTIMATEWEARS ────────────────────────────────────
-  {
-    id: 'mat-inti-1',
-    slug: 'seamless-nursing-bra-pack-of-2',
-    name: 'Seamless Stretch Nursing Bra (Pack of 2)',
-    category: 'maternity-intimatewears',
-    categoryName: 'Maternity Intimatewears',
-    subcategory: 'Nursing Bras',
-    shortDescription: 'Wire-free seamless maternity and nursing bra with one-hand drop-down clips.',
-    description: 'Unbelievably soft wire-free nursing bra pack offering 360-degree stretch to adapt to breast size changes during pregnancy and lactating stages. Features front drop-down clips.',
-    highlights: ['Wire-free 360-degree stretch', 'One-hand front nursing clip', 'Removable breathable pads'],
-    price: 1299,
-    compareAtPrice: 1799,
-    costPrice: 550,
-    discountPercentage: 27,
-    currency: 'INR',
-    images: ['/images/categories/maternity-intimatewears.jpg'],
-    thumbnail: '/images/categories/maternity-intimatewears.jpg',
-    colors: [
-      { name: 'Nude & Black', hex: '#E3C1B4' },
-      { name: 'Blush & White', hex: '#FDE8E8' },
-    ],
-    variants: [
-      { color: 'Nude & Black', size: 'M', sku: 'YZB-MI1-NB-M', stock: 15, isActive: true },
-      { color: 'Nude & Black', size: 'L', sku: 'YZB-MI1-NB-L', stock: 18, isActive: true },
-      { color: 'Nude & Black', size: 'XL', sku: 'YZB-MI1-NB-XL', stock: 10, isActive: true },
-      { color: 'Nude & Black', size: '2XL', sku: 'YZB-MI1-NB-2XL', stock: 6, isActive: true },
-      { color: 'Blush & White', size: 'M', sku: 'YZB-MI1-BW-M', stock: 12, isActive: true },
-      { color: 'Blush & White', size: 'L', sku: 'YZB-MI1-BW-L', stock: 14, isActive: true },
-    ],
-    fabric: 'Microfiber Nylon & Spandex',
-    fit: 'Wire-Free Support',
-    pattern: 'Solid Seamless',
-    occasion: 'Daily Intimate Essential',
-    gender: 'Women',
-    maternity: true,
-    feedingFriendly: true,
-    sizes: ['M', 'L', 'XL', '2XL'],
-    stock: 75,
-    lowStockThreshold: 10,
-    rating: 4.9,
-    reviewCount: 92,
-    tags: ['nursing bra', 'intimatewear', 'seamless', 'support'],
-    careInstructions: 'Hand wash cold. Line dry in shade.',
-    shippingInfo: 'Hygiene sealed packaging.',
-    returnPolicy: 'Non-returnable for hygiene reasons unless defective.',
-    featured: true,
-    bestseller: true,
-    newArrival: false,
-    status: 'published',
-    active: true,
-    seo: {
-      title: 'Seamless Stretch Nursing Bra Pack of 2 | YEZ BEE Fashion',
-      description: 'Wire-free seamless nursing bra with one-hand drop-down clips.',
-    },
-    createdAt: '2026-07-12T10:00:00Z',
-    updatedAt: '2026-08-01T15:00:00Z',
-  },
-
-  // ── CATEGORY 4: NON-MATERNITY KURTIS & DRESSES ─────────────────────────────
+  // ── CATEGORY 1: CASUALS → NON-FEEDING ──────────────────────────────────────
   {
     id: 'non-mat-1',
-    slug: 'printed-a-line-everyday-kurti',
-    name: 'Printed A-Line Everyday Cotton Kurti',
-    category: 'non-maternity-kurtis-dresses',
-    categoryName: 'Non-Maternity Kurtis & Dresses',
-    subcategory: 'Printed Kurtis',
-    shortDescription: 'Classic non-maternity printed cotton kurti for daily wear and office.',
-    description: 'Tailored for standard women\'s silhouettes, this chic A-line kurti features geometric motif prints, Mandarin collar, and 3/4th sleeves.',
-    highlights: ['100% fine cotton', 'Tailored non-maternity fit', 'Office & everyday casual'],
+    slug: 'printed-a-line-non-feeding-casual-kurti',
+    name: 'Printed A-Line Non-Feeding Casual Kurti',
+    category: 'casuals',
+    categoryName: 'CASUALS',
+    productType: 'NON-FEEDING',
+    subcategory: 'Non-Feeding',
+    shortDescription: 'Classic non-feeding printed cotton casual kurti for daily wear and office.',
+    description: 'Tailored with crisp non-feeding silhouettes, this chic A-line casual kurti features geometric motif prints, Mandarin collar, and 3/4th sleeves.',
+    highlights: ['100% fine cotton', 'Tailored non-feeding fit', 'Office & everyday casual'],
     price: 1499,
     compareAtPrice: 1999,
     costPrice: 650,
@@ -349,12 +165,9 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
       { name: 'Mustard Yellow', hex: '#FFC107' },
     ],
     variants: [
-      { color: 'Indigo Blue', size: 'S', sku: 'YZB-NM1-IND-S', stock: 7, isActive: true },
-      { color: 'Indigo Blue', size: 'M', sku: 'YZB-NM1-IND-M', stock: 12, isActive: true },
-      { color: 'Indigo Blue', size: 'L', sku: 'YZB-NM1-IND-L', stock: 9, isActive: true },
-      { color: 'Mustard Yellow', size: 'S', sku: 'YZB-NM1-MUS-S', stock: 5, isActive: true },
-      { color: 'Mustard Yellow', size: 'M', sku: 'YZB-NM1-MUS-M', stock: 8, isActive: true },
-      { color: 'Mustard Yellow', size: 'XL', sku: 'YZB-NM1-MUS-XL', stock: 3, isActive: true },
+      { color: 'Indigo Blue', size: 'S', sku: 'YZB-CAS-NF1-IND-S', stock: 7, isActive: true },
+      { color: 'Indigo Blue', size: 'M', sku: 'YZB-CAS-NF1-IND-M', stock: 12, isActive: true },
+      { color: 'Mustard Yellow', size: 'M', sku: 'YZB-CAS-NF1-MUS-M', stock: 8, isActive: true },
     ],
     fabric: '100% Fine Cotton',
     fit: 'Standard Women\'s Fit',
@@ -367,11 +180,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     maternity: false,
     feedingFriendly: false,
     sizes: ['S', 'M', 'L', 'XL'],
-    stock: 44,
+    stock: 27,
     lowStockThreshold: 5,
     rating: 4.6,
     reviewCount: 31,
-    tags: ['kurti', 'non-maternity', 'printed', 'cotton'],
+    tags: ['casuals', 'non-feeding', 'kurti', 'printed', 'cotton'],
     careInstructions: 'Machine wash cold.',
     shippingInfo: 'Free shipping on orders above ₹999.',
     returnPolicy: '7-day doorstep return.',
@@ -381,21 +194,437 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     status: 'published',
     active: true,
     seo: {
-      title: 'Printed A-Line Everyday Cotton Kurti | YEZ BEE Fashion',
-      description: 'Stylish non-maternity printed A-line kurti for office & casual wear.',
+      title: 'Printed A-Line Non-Feeding Casual Kurti | YEZ BEE Fashion',
+      description: 'Stylish non-feeding printed A-line casual kurti for office & daily wear.',
     },
     createdAt: '2026-07-15T10:00:00Z',
     updatedAt: '2026-08-02T14:00:00Z',
   },
 
-  // ── CATEGORY 5: KIDS CLOTHING ──────────────────────────────────────────────
+  // ── CATEGORY 2: PARTY WEAR → FEEDING ──────────────────────────────────────
+  {
+    id: 'party-feed-1',
+    slug: 'anarkali-gold-print-feeding-party-dress',
+    name: 'Anarkali Gold Print Feeding Party Dress',
+    category: 'party-wear',
+    categoryName: 'PARTY WEAR',
+    productType: 'FEEDING',
+    subcategory: 'Feeding',
+    shortDescription: 'Festive flare Anarkali party gown with hidden feeding access.',
+    description: 'Crafted from soft modal rayon, this flared Anarkali party gown offers effortless movement and elegant drape for festive celebrations with concealed feeding access.',
+    highlights: ['Modal rayon fluid drape', 'Concealed feeding access', 'Festive gold prints'],
+    price: 2299,
+    compareAtPrice: 2999,
+    costPrice: 1100,
+    discountPercentage: 23,
+    currency: 'INR',
+    images: ['/images/maternity/slide3.jpg', '/images/categories/maternity-kurtis.jpg'],
+    thumbnail: '/images/maternity/slide3.jpg',
+    colors: [
+      { name: 'Maroon Gold', hex: '#800000' },
+      { name: 'Teal Blue', hex: '#008080' },
+    ],
+    variants: [
+      { color: 'Maroon Gold', size: 'M', sku: 'YZB-PW-F1-MAR-M', stock: 6, isActive: true },
+      { color: 'Maroon Gold', size: 'L', sku: 'YZB-PW-F1-MAR-L', stock: 4, isActive: true },
+      { color: 'Teal Blue', size: 'M', sku: 'YZB-PW-F1-TEA-M', stock: 8, isActive: true },
+    ],
+    fabric: 'Soft Premium Rayon',
+    fit: 'Empire Waist Flared Fit',
+    pattern: 'Gold Ethnic Block Print',
+    neckStyle: 'Round Neck with V-Cut',
+    sleeveLength: '3/4th Sleeve',
+    length: 'Ankle Length (52")',
+    occasion: 'Festive & Party Wear',
+    gender: 'Women',
+    maternity: true,
+    feedingFriendly: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    stock: 18,
+    lowStockThreshold: 5,
+    rating: 4.9,
+    reviewCount: 28,
+    tags: ['party wear', 'feeding', 'anarkali', 'festive'],
+    careInstructions: 'Dry clean recommended or hand wash cold.',
+    shippingInfo: 'Express 2-day delivery available.',
+    returnPolicy: '7-day easy return policy.',
+    featured: true,
+    bestseller: false,
+    newArrival: true,
+    status: 'published',
+    active: true,
+    seo: {
+      title: 'Anarkali Gold Print Feeding Party Dress | YEZ BEE Fashion',
+      description: 'Elegant flared Anarkali feeding party dress for festive celebrations.',
+    },
+    createdAt: '2026-07-05T10:00:00Z',
+    updatedAt: '2026-08-02T11:00:00Z',
+  },
+
+  // ── CATEGORY 2: PARTY WEAR → NON-FEEDING ──────────────────────────────────
+  {
+    id: 'party-nonfeed-1',
+    slug: 'sequin-embroidered-non-feeding-party-gown',
+    name: 'Sequin Embroidered Non-Feeding Party Gown',
+    category: 'party-wear',
+    categoryName: 'PARTY WEAR',
+    productType: 'NON-FEEDING',
+    subcategory: 'Non-Feeding',
+    shortDescription: 'Luxury silk-blend sequin party gown for grand evening events.',
+    description: 'Elevate your evening wardrobe with this exquisite sequin embroidered non-feeding party gown crafted with a flared fluid silhouette.',
+    highlights: ['Silk-blend sequin embellishment', 'Fluid grand flare', 'Full satin lining'],
+    price: 3499,
+    compareAtPrice: 4999,
+    costPrice: 1700,
+    discountPercentage: 30,
+    currency: 'INR',
+    images: ['/images/luxury_featured_collection.jpg'],
+    thumbnail: '/images/luxury_featured_collection.jpg',
+    colors: [
+      { name: 'Royal Emerald', hex: '#004B23' },
+      { name: 'Midnight Black', hex: '#0B090A' },
+    ],
+    variants: [
+      { color: 'Royal Emerald', size: 'M', sku: 'YZB-PW-NF1-EME-M', stock: 5, isActive: true },
+      { color: 'Midnight Black', size: 'L', sku: 'YZB-PW-NF1-BLK-L', stock: 7, isActive: true },
+    ],
+    fabric: 'Silk Georgette Blend',
+    fit: 'Flared Evening Silhouette',
+    pattern: 'Sequin Embroidery',
+    neckStyle: 'Sweetheart Neck',
+    sleeveLength: 'Full Sleeve',
+    length: 'Floor Length',
+    occasion: 'Grand Party & Gala',
+    gender: 'Women',
+    maternity: false,
+    feedingFriendly: false,
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 12,
+    lowStockThreshold: 3,
+    rating: 5.0,
+    reviewCount: 19,
+    tags: ['party wear', 'non-feeding', 'gown', 'sequin'],
+    careInstructions: 'Dry clean only.',
+    shippingInfo: 'Insured luxury delivery.',
+    returnPolicy: '7-day doorstep return.',
+    featured: true,
+    bestseller: true,
+    newArrival: true,
+    status: 'published',
+    active: true,
+    seo: {
+      title: 'Sequin Embroidered Non-Feeding Party Gown | YEZ BEE Fashion',
+      description: 'Luxury sequin embroidered non-feeding party gown for evening celebrations.',
+    },
+    createdAt: '2026-07-25T10:00:00Z',
+    updatedAt: '2026-08-04T10:00:00Z',
+  },
+
+  // ── CATEGORY 3: ETHNIC WEAR ───────────────────────────────────────────────
+  {
+    id: 'ethnic-1',
+    slug: 'handcrafted-banarasi-silk-ethnic-saree',
+    name: 'Handcrafted Banarasi Silk Ethnic Saree',
+    category: 'ethnic-wear',
+    categoryName: 'ETHNIC WEAR',
+    productType: null,
+    subcategory: 'Ethnic Wear',
+    shortDescription: 'Pure handwoven Banarasi silk saree with ornate zari borders.',
+    description: 'Heritage handwoven Banarasi silk saree woven with gold zari weaves. Comes with unstitched blouse piece.',
+    highlights: ['Pure Banarasi Silk', 'Handcrafted zari weave', 'Unstitched matching blouse included'],
+    price: 4599,
+    compareAtPrice: 5999,
+    costPrice: 2200,
+    discountPercentage: 23,
+    currency: 'INR',
+    images: ['/images/luxury_featured_collection.jpg'],
+    thumbnail: '/images/luxury_featured_collection.jpg',
+    colors: [
+      { name: 'Crimson Red', hex: '#990000' },
+      { name: 'Royal Gold', hex: '#DAA520' },
+    ],
+    variants: [
+      { color: 'Crimson Red', size: 'Free Size', sku: 'YZB-ETH-1-RED-FS', stock: 12, isActive: true },
+      { color: 'Royal Gold', size: 'Free Size', sku: 'YZB-ETH-1-GLD-FS', stock: 9, isActive: true },
+    ],
+    fabric: 'Pure Banarasi Silk',
+    fit: 'Classic Saree Drape',
+    pattern: 'Gold Zari Brocade',
+    occasion: 'Weddings & Festive',
+    gender: 'Women',
+    maternity: false,
+    feedingFriendly: false,
+    sizes: ['Free Size'],
+    stock: 21,
+    lowStockThreshold: 5,
+    rating: 4.9,
+    reviewCount: 38,
+    tags: ['ethnic wear', 'saree', 'banarasi', 'silk', 'wedding'],
+    careInstructions: 'Dry clean only.',
+    shippingInfo: 'Dispatched in rigid protective box.',
+    returnPolicy: '7-day easy exchange.',
+    featured: true,
+    bestseller: true,
+    newArrival: true,
+    status: 'published',
+    active: true,
+    seo: {
+      title: 'Handcrafted Banarasi Silk Ethnic Saree | YEZ BEE Fashion',
+      description: 'Authentic Banarasi silk ethnic saree with gold zari weave.',
+    },
+    createdAt: '2026-07-28T10:00:00Z',
+    updatedAt: '2026-08-05T10:00:00Z',
+  },
+
+  // ── CATEGORY 4: LOUNGE WEAR → FEEDING ─────────────────────────────────────
+  {
+    id: 'feed-lounge-1',
+    slug: 'soft-modal-feeding-lounge-set',
+    name: 'Soft Modal Feeding Lounge Set',
+    category: 'lounge-wear',
+    categoryName: 'LOUNGE WEAR',
+    productType: 'FEEDING',
+    subcategory: 'Feeding',
+    shortDescription: 'Ultrasoft feeding lounge set with dual concealed zips for easy breastfeeding.',
+    description: 'Designed specifically for home and sleep comfort. Features invisible 2-way zippers on both sides for discreet breastfeeding access.',
+    highlights: ['Concealed 2-way feeding zips', '95% Modal Cotton stretch', 'Relaxed waistband'],
+    price: 1999,
+    compareAtPrice: 2699,
+    costPrice: 900,
+    discountPercentage: 25,
+    currency: 'INR',
+    images: ['/images/categories/maternity-feeding-loungewears.jpg', '/images/maternity/slide2.jpg'],
+    thumbnail: '/images/categories/maternity-feeding-loungewears.jpg',
+    colors: [
+      { name: 'Blush Pink', hex: '#FFB6C1' },
+      { name: 'Lavender', hex: '#E6E6FA' },
+    ],
+    variants: [
+      { color: 'Blush Pink', size: 'S', sku: 'YZB-LW-F1-BLU-S', stock: 10, isActive: true },
+      { color: 'Blush Pink', size: 'M', sku: 'YZB-LW-F1-BLU-M', stock: 14, isActive: true },
+      { color: 'Lavender', size: 'M', sku: 'YZB-LW-F1-LAV-M', stock: 12, isActive: true },
+    ],
+    fabric: '95% Modal Cotton, 5% Elastane',
+    fit: 'Relaxed Lounge Fit',
+    pattern: 'Solid Pastel',
+    neckStyle: 'Round Neck',
+    sleeveLength: 'Short Sleeve',
+    length: 'Regular Lounge Top & Pajama',
+    occasion: 'Home & Sleepwear',
+    gender: 'Women',
+    maternity: true,
+    feedingFriendly: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    stock: 36,
+    lowStockThreshold: 5,
+    rating: 4.9,
+    reviewCount: 64,
+    tags: ['lounge wear', 'feeding', 'night suit', 'modal'],
+    careInstructions: 'Machine wash gentle. Do not bleach.',
+    shippingInfo: 'Free express shipping nationwide.',
+    returnPolicy: '7-day easy return policy.',
+    featured: true,
+    bestseller: true,
+    newArrival: true,
+    status: 'published',
+    active: true,
+    seo: {
+      title: 'Soft Modal Feeding Lounge Set | YEZ BEE Fashion',
+      description: 'Breastfeeding-friendly lounge set with invisible side zips.',
+    },
+    createdAt: '2026-07-10T10:00:00Z',
+    updatedAt: '2026-08-03T09:00:00Z',
+  },
+
+  // ── CATEGORY 4: LOUNGE WEAR → NON-FEEDING ─────────────────────────────────
+  {
+    id: 'lounge-1',
+    slug: 'relaxed-cotton-pajama-non-feeding-lounge-set',
+    name: 'Relaxed Cotton Pajama Non-Feeding Lounge Set',
+    category: 'lounge-wear',
+    categoryName: 'LOUNGE WEAR',
+    productType: 'NON-FEEDING',
+    subcategory: 'Non-Feeding',
+    shortDescription: 'Everyday comfortable non-feeding cotton lounge top and pajama set.',
+    description: 'Women\'s non-feeding loungewear set crafted from combed cotton knit. Designed for relaxing at home, weekend downtime, and comfortable sleep.',
+    highlights: ['Combed cotton knit stretch', 'Elastic waistband with drawstring', 'Deep side pockets'],
+    price: 1599,
+    compareAtPrice: 2099,
+    costPrice: 700,
+    discountPercentage: 24,
+    currency: 'INR',
+    images: ['/images/categories/loungewear.jpg'],
+    thumbnail: '/images/categories/loungewear.jpg',
+    colors: [
+      { name: 'Sage Green', hex: '#87A96B' },
+      { name: 'Charcoal Grey', hex: '#36454F' },
+    ],
+    variants: [
+      { color: 'Sage Green', size: 'S', sku: 'YZB-LW-NF1-SAG-S', stock: 9, isActive: true },
+      { color: 'Sage Green', size: 'M', sku: 'YZB-LW-NF1-SAG-M', stock: 15, isActive: true },
+      { color: 'Charcoal Grey', size: 'M', sku: 'YZB-LW-NF1-CHR-M', stock: 8, isActive: true },
+    ],
+    fabric: 'Combed Cotton Knit',
+    fit: 'Relaxed Casual Fit',
+    pattern: 'Solid Colour',
+    neckStyle: 'Crew Neck',
+    sleeveLength: 'Half Sleeve',
+    length: 'Full Length Pajama',
+    occasion: 'Home & Sleepwear',
+    gender: 'Women',
+    maternity: false,
+    feedingFriendly: false,
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 32,
+    lowStockThreshold: 5,
+    rating: 4.8,
+    reviewCount: 45,
+    tags: ['lounge wear', 'non-feeding', 'pajama set', 'cotton'],
+    careInstructions: 'Machine wash cold.',
+    shippingInfo: 'Dispatched within 24 hours.',
+    returnPolicy: '7-day doorstep return.',
+    featured: true,
+    bestseller: true,
+    newArrival: false,
+    status: 'published',
+    active: true,
+    seo: {
+      title: 'Relaxed Cotton Pajama Non-Feeding Lounge Set | YEZ BEE Fashion',
+      description: 'Comfortable pure cotton non-feeding loungewear set with pockets for home & sleep.',
+    },
+    createdAt: '2026-07-22T10:00:00Z',
+    updatedAt: '2026-08-02T10:00:00Z',
+  },
+
+  // ── CATEGORY 5: PEPLUM TOPS → FEEDING ─────────────────────────────────────
+  {
+    id: 'peplum-feed-1',
+    slug: 'flared-cotton-feeding-peplum-top',
+    name: 'Flared Cotton Feeding Peplum Top',
+    category: 'peplum-tops',
+    categoryName: 'PEPLUM TOPS',
+    productType: 'FEEDING',
+    subcategory: 'Feeding',
+    shortDescription: 'Trendy waist-accentuated peplum top with hidden feeding access.',
+    description: 'Chic flared peplum top crafted from breathable cotton, designed with concealed nursing zips to offer stylish nursing on the go.',
+    highlights: ['Concealed nursing zips', 'Flared peplum cinch waist', 'Breathable cotton fabric'],
+    price: 1699,
+    compareAtPrice: 2199,
+    costPrice: 750,
+    discountPercentage: 23,
+    currency: 'INR',
+    images: ['/images/maternity/slide1.jpg'],
+    thumbnail: '/images/maternity/slide1.jpg',
+    colors: [
+      { name: 'Blush Pink', hex: '#FFB6C1' },
+      { name: 'Navy Blue', hex: '#1B2A4A' },
+    ],
+    variants: [
+      { color: 'Blush Pink', size: 'S', sku: 'YZB-PEP-F1-BLU-S', stock: 8, isActive: true },
+      { color: 'Blush Pink', size: 'M', sku: 'YZB-PEP-F1-BLU-M', stock: 11, isActive: true },
+      { color: 'Navy Blue', size: 'M', sku: 'YZB-PEP-F1-NAV-M', stock: 9, isActive: true },
+    ],
+    fabric: '100% Pure Cotton',
+    fit: 'Peplum Cinch Waist',
+    pattern: 'Printed Tunic',
+    neckStyle: 'V-Neck',
+    sleeveLength: '3/4th Sleeve',
+    length: 'Hip Length Peplum',
+    occasion: 'Casual & Outings',
+    gender: 'Women',
+    maternity: true,
+    feedingFriendly: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 28,
+    lowStockThreshold: 5,
+    rating: 4.7,
+    reviewCount: 26,
+    tags: ['peplum tops', 'feeding', 'cotton top', 'tunic'],
+    careInstructions: 'Machine wash cold with like colors.',
+    shippingInfo: 'Fast dispatch within 24 hours.',
+    returnPolicy: '7-day easy doorstep returns.',
+    featured: true,
+    bestseller: false,
+    newArrival: true,
+    status: 'published',
+    active: true,
+    seo: {
+      title: 'Flared Cotton Feeding Peplum Top | YEZ BEE Fashion',
+      description: 'Chic cotton peplum tunic top with concealed nursing zips.',
+    },
+    createdAt: '2026-07-30T10:00:00Z',
+    updatedAt: '2026-08-05T14:00:00Z',
+  },
+
+  // ── CATEGORY 5: PEPLUM TOPS → NON-FEEDING ─────────────────────────────────
+  {
+    id: 'peplum-nonfeed-1',
+    slug: 'embroidered-cotton-non-feeding-peplum-top',
+    name: 'Embroidered Cotton Non-Feeding Peplum Top',
+    category: 'peplum-tops',
+    categoryName: 'PEPLUM TOPS',
+    productType: 'NON-FEEDING',
+    subcategory: 'Non-Feeding',
+    shortDescription: 'Modern embroidered non-feeding peplum tunic for western casual styling.',
+    description: 'Chic non-feeding peplum tunic styled with schiffli embroidery and gathered waist silhouette.',
+    highlights: ['Fine schiffli embroidery', 'Flared peplum hem', 'Regular non-feeding waist'],
+    price: 1599,
+    compareAtPrice: 1999,
+    costPrice: 680,
+    discountPercentage: 20,
+    currency: 'INR',
+    images: ['/images/maternity/slide1.jpg'],
+    thumbnail: '/images/maternity/slide1.jpg',
+    colors: [
+      { name: 'Off White', hex: '#FAF9F6' },
+      { name: 'Coral Pink', hex: '#FF6F61' },
+    ],
+    variants: [
+      { color: 'Off White', size: 'S', sku: 'YZB-PEP-NF1-WHT-S', stock: 6, isActive: true },
+      { color: 'Off White', size: 'M', sku: 'YZB-PEP-NF1-WHT-M', stock: 10, isActive: true },
+      { color: 'Coral Pink', size: 'M', sku: 'YZB-PEP-NF1-CRL-M', stock: 7, isActive: true },
+    ],
+    fabric: 'Schiffli Cotton',
+    fit: 'Standard Peplum Fit',
+    pattern: 'Schiffli Embroidered',
+    neckStyle: 'Square Neck',
+    sleeveLength: 'Puff Short Sleeve',
+    length: 'Waist Length',
+    occasion: 'Casual & Brunch Wear',
+    gender: 'Women',
+    maternity: false,
+    feedingFriendly: false,
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 23,
+    lowStockThreshold: 5,
+    rating: 4.8,
+    reviewCount: 22,
+    tags: ['peplum tops', 'non-feeding', 'embroidered', 'casual top'],
+    careInstructions: 'Gentle hand wash.',
+    shippingInfo: 'Dispatched within 24 hours.',
+    returnPolicy: '7-day easy returns.',
+    featured: false,
+    bestseller: true,
+    newArrival: true,
+    status: 'published',
+    active: true,
+    seo: {
+      title: 'Embroidered Cotton Non-Feeding Peplum Top | YEZ BEE Fashion',
+      description: 'Trendy schiffli embroidered non-feeding peplum tunic top for women.',
+    },
+    createdAt: '2026-08-01T10:00:00Z',
+    updatedAt: '2026-08-06T10:00:00Z',
+  },
+
+  // ── CATEGORY 6: KIDS WEAR ─────────────────────────────────────────────────
   {
     id: 'kids-1',
-    slug: 'floral-cotton-girls-dress',
+    slug: 'floral-cotton-girls-party-dress',
     name: 'Floral Printed Cotton Girls Party Dress',
-    category: 'kids-clothing',
-    categoryName: 'Kids Clothing',
-    subcategory: 'Girls Dresses',
+    category: 'kids-wear',
+    categoryName: 'KIDS WEAR',
+    productType: null,
+    subcategory: 'Kids Wear',
     shortDescription: 'Charming pure cotton girls flared dress with soft cotton lining.',
     description: 'Crafted with hypoallergenic 100% cotton fabric and zero scratchy seams. Perfect for kids birthday parties, family gatherings, and everyday play.',
     highlights: ['100% hypoallergenic cotton', 'Zero scratchy seams', 'Comfort flared skirt'],
@@ -414,9 +643,7 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
       { color: 'Coral Pink', size: '1-2Y', sku: 'YZB-KD1-PNK-1Y', stock: 6, isActive: true },
       { color: 'Coral Pink', size: '2-3Y', sku: 'YZB-KD1-PNK-2Y', stock: 10, isActive: true },
       { color: 'Coral Pink', size: '3-4Y', sku: 'YZB-KD1-PNK-3Y', stock: 8, isActive: true },
-      { color: 'Coral Pink', size: '5-6Y', sku: 'YZB-KD1-PNK-5Y', stock: 4, isActive: true },
       { color: 'Sunshine Yellow', size: '2-3Y', sku: 'YZB-KD1-YEL-2Y', stock: 7, isActive: true },
-      { color: 'Sunshine Yellow', size: '4-5Y', sku: 'YZB-KD1-YEL-4Y', stock: 5, isActive: true },
     ],
     fabric: '100% Soft Cotton',
     fit: 'Comfortable Kids Fit',
@@ -430,11 +657,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     maternity: false,
     feedingFriendly: false,
     sizes: ['1-2Y', '2-3Y', '3-4Y', '4-5Y', '5-6Y'],
-    stock: 40,
+    stock: 31,
     lowStockThreshold: 5,
     rating: 4.9,
     reviewCount: 22,
-    tags: ['kids dress', 'girls clothing', 'cotton kids'],
+    tags: ['kids wear', 'girls dress', 'cotton kids'],
     careInstructions: 'Gentle machine wash.',
     shippingInfo: 'Standard 3-day delivery.',
     returnPolicy: '7-day easy exchange.',
@@ -450,97 +677,106 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     createdAt: '2026-07-20T10:00:00Z',
     updatedAt: '2026-08-01T16:00:00Z',
   },
-
-  // ── CATEGORY 6: LOUNGEWEAR ────────────────────────────────────────────────
-  {
-    id: 'lounge-1',
-    slug: 'relaxed-cotton-pajama-lounge-set',
-    name: 'Relaxed Cotton Pajama Lounge Set',
-    category: 'loungewear',
-    categoryName: 'Loungewear',
-    subcategory: 'Pajama Sets',
-    shortDescription: 'Everyday comfortable cotton lounge top and pajama set for women.',
-    description: 'General women\'s non-maternity loungewear set crafted from combed cotton knit. Designed for relaxing at home, weekend downtime, and comfortable sleep.',
-    highlights: ['Combed cotton knit stretch', 'Elastic waistband with drawstring', 'Deep side pockets'],
-    price: 1599,
-    compareAtPrice: 2099,
-    costPrice: 700,
-    discountPercentage: 24,
-    currency: 'INR',
-    images: ['/images/categories/loungewear.jpg'],
-    thumbnail: '/images/categories/loungewear.jpg',
-    colors: [
-      { name: 'Sage Green', hex: '#87A96B' },
-      { name: 'Charcoal Grey', hex: '#36454F' },
-    ],
-    variants: [
-      { color: 'Sage Green', size: 'S', sku: 'YZB-LG1-SAG-S', stock: 9, isActive: true },
-      { color: 'Sage Green', size: 'M', sku: 'YZB-LG1-SAG-M', stock: 15, isActive: true },
-      { color: 'Sage Green', size: 'L', sku: 'YZB-LG1-SAG-L', stock: 11, isActive: true },
-      { color: 'Charcoal Grey', size: 'M', sku: 'YZB-LG1-CHR-M', stock: 8, isActive: true },
-      { color: 'Charcoal Grey', size: 'XL', sku: 'YZB-LG1-CHR-XL', stock: 6, isActive: true },
-    ],
-    fabric: 'Combed Cotton Knit',
-    fit: 'Relaxed Casual Fit',
-    pattern: 'Solid Colour',
-    neckStyle: 'Crew Neck',
-    sleeveLength: 'Half Sleeve',
-    length: 'Full Length Pajama',
-    occasion: 'Home & Sleepwear',
-    gender: 'Women',
-    maternity: false,
-    feedingFriendly: false,
-    sizes: ['S', 'M', 'L', 'XL'],
-    stock: 49,
-    lowStockThreshold: 5,
-    rating: 4.8,
-    reviewCount: 45,
-    tags: ['loungewear', 'pajama set', 'cotton night suit'],
-    careInstructions: 'Machine wash cold.',
-    shippingInfo: 'Dispatched within 24 hours.',
-    returnPolicy: '7-day doorstep return.',
-    featured: true,
-    bestseller: true,
-    newArrival: false,
-    status: 'published',
-    active: true,
-    seo: {
-      title: 'Relaxed Cotton Pajama Lounge Set | YEZ BEE Fashion',
-      description: 'Comfortable pure cotton loungewear set with pockets for home & sleep.',
-    },
-    createdAt: '2026-07-22T10:00:00Z',
-    updatedAt: '2026-08-02T10:00:00Z',
-  },
 ];
 
 // ── Persistent Product Catalog Store (Single Source of Truth) ────────────────
-const STORAGE_KEY = 'yezbee_admin_products_v1';
+const STORAGE_KEY = 'yezbee_admin_products_v2';
+const DELETED_KEYS = 'yezbee_deleted_product_ids_v1';
 
-export function getAllProducts(): CatalogProduct[] {
-  if (typeof window === 'undefined') return INITIAL_PRODUCTS;
+export function getDeletedProductIds(): string[] {
+  if (typeof window === 'undefined') return [];
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_PRODUCTS));
-      return INITIAL_PRODUCTS;
-    }
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_PRODUCTS;
-  } catch (err) {
-    console.error('Failed to parse catalog products from storage:', err);
-    return INITIAL_PRODUCTS;
+    const stored = localStorage.getItem(DELETED_KEYS);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
   }
 }
 
-export const CATALOG_PRODUCTS: CatalogProduct[] = typeof window !== 'undefined' ? getAllProducts() : INITIAL_PRODUCTS;
+export function markProductAsDeleted(id: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const deleted = getDeletedProductIds();
+    if (!deleted.includes(id)) {
+      deleted.push(id);
+      localStorage.setItem(DELETED_KEYS, JSON.stringify(deleted));
+    }
+  } catch (err) {
+    console.error('Failed to mark product as deleted:', err);
+  }
+}
+
+export function getAllProducts(): CatalogProduct[] {
+  if (typeof window === 'undefined') return INITIAL_PRODUCTS;
+  const deletedIds = getDeletedProductIds();
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    let list: CatalogProduct[] = INITIAL_PRODUCTS;
+    if (stored !== null) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        list = parsed;
+      }
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_PRODUCTS));
+    }
+
+    const mapped = list.map((p: any) => {
+      const catConfig = getCategoryBySlug(p.category) || (p.categoryName ? getCategoryBySlug(p.categoryName) : undefined);
+      const categorySlug = catConfig?.slug || (typeof p.category === 'string' && !p.category.match(/^[0-9a-fA-F]{24}$/) ? p.category.toLowerCase().trim() : 'casuals');
+      const categoryName = catConfig?.name || p.categoryName || getCategoryNameBySlug(categorySlug);
+      return {
+        ...p,
+        category: categorySlug,
+        categoryName,
+      };
+    });
+
+    return mapped.filter((p) => !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
+  } catch (err) {
+    console.error('Failed to parse catalog products from storage:', err);
+    return INITIAL_PRODUCTS.filter((p) => !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
+  }
+}
+
+export const CATALOG_PRODUCTS: CatalogProduct[] = INITIAL_PRODUCTS;
+
+function sanitizeProductForStorage(p: CatalogProduct): CatalogProduct {
+  const sanitizeUrl = (url: any) => {
+    if (typeof url === 'string' && url.startsWith('data:image/') && url.length > 250000) {
+      return '/images/categories/maternity-kurtis.jpg';
+    }
+    return url;
+  };
+
+  return {
+    ...p,
+    thumbnail: sanitizeUrl(p.thumbnail),
+    images: Array.isArray(p.images) ? p.images.map(sanitizeUrl) : p.images,
+  };
+}
 
 function saveProductsToStorage(products: CatalogProduct[]) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+    const sanitized = products.map(sanitizeProductForStorage);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
     window.dispatchEvent(new Event('yezbee_products_updated'));
   } catch (err) {
-    console.error('Failed to save catalog products:', err);
+    console.warn('LocalStorage quota warning, compressing image data and retrying:', err);
+    try {
+      const stripped = products.map((p) => ({
+        ...p,
+        images: Array.isArray(p.images)
+          ? p.images.map((img: any) => (typeof img === 'string' && img.startsWith('data:') ? '/images/categories/maternity-kurtis.jpg' : img))
+          : ['/images/categories/maternity-kurtis.jpg'],
+        thumbnail: typeof p.thumbnail === 'string' && p.thumbnail.startsWith('data:') ? '/images/categories/maternity-kurtis.jpg' : p.thumbnail,
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+      window.dispatchEvent(new Event('yezbee_products_updated'));
+    } catch (finalErr) {
+      console.error('Could not save product catalog to localStorage:', finalErr);
+    }
   }
 }
 
@@ -554,14 +790,86 @@ export function getProductById(id: string): CatalogProduct | undefined {
   return products.find((p) => p.id === id);
 }
 
-export function getProductsByCategory(categorySlug: string): CatalogProduct[] {
-  const normalized = categorySlug.toLowerCase().trim();
-  const products = getAllProducts().filter((p) => p.status === 'published');
-  if (normalized === 'all') return products;
-  return products.filter((p) => p.category === normalized);
+export function getProductsByCategory(categorySlug: string, productType?: 'FEEDING' | 'NON-FEEDING' | string | null): CatalogProduct[] {
+  const normalizedCat = categorySlug.toLowerCase().trim();
+  const products = getAllProducts().filter((p) => (p.status || 'published').toLowerCase() === 'published');
+  
+  if (normalizedCat === 'all') return products;
+
+  // Check if legacy slug passed
+  const legacyMap: Record<string, { cat: string; type?: 'FEEDING' | 'NON-FEEDING' }> = {
+    'maternity-kurtis': { cat: 'casuals', type: 'FEEDING' },
+    'maternity-feeding-loungewears': { cat: 'lounge-wear', type: 'FEEDING' },
+    'maternity-intimatewears': { cat: 'lounge-wear', type: 'FEEDING' },
+    'non-maternity-kurtis-dresses': { cat: 'casuals', type: 'NON-FEEDING' },
+    'kids-clothing': { cat: 'kids-wear' },
+    'loungewear': { cat: 'lounge-wear', type: 'NON-FEEDING' },
+  };
+
+  let targetCat = normalizedCat;
+  let targetType = productType;
+
+  if (legacyMap[normalizedCat]) {
+    targetCat = legacyMap[normalizedCat].cat;
+    if (!targetType) {
+      targetType = legacyMap[normalizedCat].type;
+    }
+  }
+
+  const categoryConfig = getCategoryBySlug(targetCat);
+  const targetCategorySlug = categoryConfig?.slug || targetCat;
+  const targetCategoryName = (categoryConfig?.name || targetCat).toLowerCase();
+
+  return products.filter((p) => {
+    const rawCat = typeof p.category === 'string' ? p.category : (p.category as any)?.slug || (p.category as any)?.name || '';
+    const rawCatName = (p.categoryName || '').toLowerCase().trim();
+
+    const catSlug = rawCat.toLowerCase().trim().replace(/\s+/g, '-');
+    const catNameSlug = rawCatName.replace(/\s+/g, '-');
+
+    const matchesCat =
+      catSlug === targetCategorySlug ||
+      catNameSlug === targetCategorySlug ||
+      rawCatName === targetCategoryName ||
+      catSlug.includes(targetCategorySlug) ||
+      targetCategorySlug.includes(catSlug) ||
+      (categoryConfig && (p.category === categoryConfig.id || p.category === categoryConfig.slug));
+
+    if (!matchesCat) return false;
+
+    if (targetType && targetType !== 'all') {
+      const normType = targetType.toUpperCase();
+      return (p.productType || '').toUpperCase() === normType;
+    }
+
+    return true;
+  });
 }
 
 // ── Admin Store Operations ───────────────────────────────────────────────────
+
+function safeImg(url: any, fallback: string = '/images/categories/maternity-kurtis.jpg'): string {
+  if (!url) return fallback;
+  let raw: any = url;
+  if (typeof raw === 'object' && raw !== null) {
+    raw = raw.secure_url || raw.url || raw.publicId || raw.public_id || fallback;
+  }
+  if (typeof raw !== 'string' || !raw.trim() || raw.startsWith('blob:')) return fallback;
+  let trimmed = raw.trim();
+  if (trimmed.startsWith('http://') && trimmed.includes('cloudinary.com')) {
+    trimmed = trimmed.replace('http://', 'https://');
+  }
+  if (
+    !trimmed.startsWith('http://') &&
+    !trimmed.startsWith('https://') &&
+    !trimmed.startsWith('/') &&
+    !trimmed.startsWith('data:')
+  ) {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'smpyi8aw';
+    trimmed = `https://res.cloudinary.com/${cloudName}/image/upload/${trimmed}`;
+  }
+  return trimmed;
+}
 
 export function saveOrUpdateProduct(productData: Partial<CatalogProduct>): CatalogProduct {
   const products = getAllProducts();
@@ -583,13 +891,19 @@ export function saveOrUpdateProduct(productData: Partial<CatalogProduct>): Catal
 
   const existingIndex = products.findIndex((p) => p.id === id);
 
+  const rawCat = productData.category || 'casuals';
+  const catConfig = getCategoryBySlug(rawCat) || (productData.categoryName ? getCategoryBySlug(productData.categoryName) : undefined);
+  const normalizedCategorySlug = catConfig?.slug || (typeof rawCat === 'string' && !rawCat.match(/^[0-9a-fA-F]{24}$/) ? rawCat.toLowerCase().trim() : 'casuals');
+  const normalizedCategoryName = catConfig?.name || productData.categoryName || getCategoryNameBySlug(normalizedCategorySlug);
+
   const fullProduct: CatalogProduct = {
     id,
     slug: productData.slug || slugify(productData.name || 'product'),
     name: productData.name || 'Untitled Product',
-    category: productData.category || 'maternity-kurtis',
-    categoryName: productData.categoryName || getCategoryNameBySlug(productData.category || 'maternity-kurtis'),
-    subcategory: productData.subcategory || 'General',
+    category: normalizedCategorySlug,
+    categoryName: normalizedCategoryName,
+    productType: productData.productType || null,
+    subcategory: productData.subcategory || (productData.productType === 'FEEDING' ? 'Feeding' : productData.productType === 'NON-FEEDING' ? 'Non-Feeding' : 'General'),
     shortDescription: productData.shortDescription || '',
     description: productData.description || '',
     highlights: productData.highlights || [],
@@ -597,9 +911,10 @@ export function saveOrUpdateProduct(productData: Partial<CatalogProduct>): Catal
     compareAtPrice: productData.compareAtPrice || null,
     costPrice: productData.costPrice || 0,
     discountPercentage,
-    currency: 'INR',
-    images: productData.images && productData.images.length > 0 ? productData.images : ['/images/categories/maternity-kurtis.jpg'],
-    thumbnail: productData.thumbnail || (productData.images && productData.images[0]) || '/images/categories/maternity-kurtis.jpg',
+    images: (productData.images && productData.images.length > 0)
+      ? productData.images.map((img: any) => safeImg(img)).filter(Boolean)
+      : ['/images/categories/maternity-kurtis.jpg'],
+    thumbnail: safeImg(productData.thumbnail || (productData.images && productData.images[0])),
     colors: productData.colors || [{ name: 'Default', hex: '#000000' }],
     variants: productData.variants || [],
     fabric: productData.fabric || '100% Pure Cotton',
@@ -611,8 +926,8 @@ export function saveOrUpdateProduct(productData: Partial<CatalogProduct>): Catal
     occasion: productData.occasion || 'Everyday',
     gender: productData.gender || 'Women',
     ageGroup: productData.ageGroup || '',
-    maternity: !!productData.maternity,
-    feedingFriendly: !!productData.feedingFriendly,
+    maternity: productData.productType === 'FEEDING' || !!productData.maternity,
+    feedingFriendly: productData.productType === 'FEEDING' || !!productData.feedingFriendly,
     sizes: productData.sizes || ['S', 'M', 'L', 'XL'],
     stock: computedStock,
     lowStockThreshold: productData.lowStockThreshold || 5,
@@ -686,8 +1001,12 @@ export function deleteOrArchiveProduct(id: string): boolean {
 }
 
 export function permanentDeleteProduct(id: string): boolean {
-  const products = getAllProducts().filter((p) => p.id !== id);
+  markProductAsDeleted(id);
+  const products = getAllProducts().filter((p) => p.id !== id && p.slug !== id);
   saveProductsToStorage(products);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('yezbee_products_updated'));
+  }
   return true;
 }
 
@@ -703,12 +1022,12 @@ export function slugify(text: string): string {
 
 export function getCategoryNameBySlug(slug: string): string {
   const map: Record<string, string> = {
-    'maternity-kurtis': 'Maternity Kurtis',
-    'maternity-feeding-loungewears': 'Maternity Feeding Loungewears',
-    'maternity-intimatewears': 'Maternity Intimatewears',
-    'non-maternity-kurtis-dresses': 'Non-Maternity Kurtis & Dresses',
-    'kids-clothing': 'Kids Clothing',
-    'loungewear': 'Loungewear',
+    'casuals': 'CASUALS',
+    'party-wear': 'PARTY WEAR',
+    'ethnic-wear': 'ETHNIC WEAR',
+    'lounge-wear': 'LOUNGE WEAR',
+    'peplum-tops': 'PEPLUM TOPS',
+    'kids-wear': 'KIDS WEAR',
   };
-  return map[slug] || 'Maternity Kurtis';
+  return map[slug] || 'CASUALS';
 }

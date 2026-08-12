@@ -15,12 +15,12 @@ const footerColumns = [
   {
     title: 'SHOP',
     links: [
-      { label: 'Maternity Kurtis', href: '/category/maternity-kurtis' },
-      { label: 'Maternity Feeding Loungewears', href: '/category/maternity-feeding-loungewears' },
-      { label: 'Maternity Intimatewears', href: '/category/maternity-intimatewears' },
-      { label: 'Non-Maternity Kurtis & Dresses', href: '/category/non-maternity-kurtis-dresses' },
-      { label: 'Kids Clothing', href: '/category/kids-clothing' },
-      { label: 'Loungewear', href: '/category/loungewear' },
+      { label: 'CASUALS', href: '/category/casuals' },
+      { label: 'PARTY WEAR', href: '/category/party-wear' },
+      { label: 'ETHNIC WEAR', href: '/category/ethnic-wear' },
+      { label: 'LOUNGE WEAR', href: '/category/lounge-wear' },
+      { label: 'PEPLUM TOPS', href: '/category/peplum-tops' },
+      { label: 'KIDS WEAR', href: '/category/kids-wear' },
     ],
   },
   {
@@ -157,6 +157,7 @@ export default function Footer() {
                   <input
                     type="email"
                     placeholder="Enter your email"
+                    suppressHydrationWarning
                     className={cn(
                       'w-full rounded-full border border-white/15 bg-white/5 py-2.5 pl-10 pr-4 text-xs text-white',
                       'placeholder:text-white/30 outline-none transition-colors focus:border-[var(--color-primary-gold)]'
@@ -165,6 +166,7 @@ export default function Footer() {
                   />
                 </div>
                 <button
+                  suppressHydrationWarning
                   className={cn(
                     'rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200',
                     'bg-[var(--color-primary-gold)] text-[var(--color-dark)]',

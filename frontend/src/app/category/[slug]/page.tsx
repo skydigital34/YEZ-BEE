@@ -13,12 +13,20 @@ import {
   List,
   Filter,
   Sparkles,
-  Ruler,
-  CheckCircle2,
+  ShoppingBag,
+  ArrowRight,
 } from 'lucide-react';
 import ProductCard from '@/components/ui/ProductCard';
-import { YEZBEE_CATEGORIES, getCategoryBySlug, CategoryConfig } from '@/data/categories';
-import { CATALOG_PRODUCTS, CatalogProduct } from '@/data/products';
+import {
+  YEZBEE_CATEGORIES,
+  getCategoryBySlug,
+  getCategoryWithSubcategory,
+  hasFeedingSplit,
+  CategoryConfig,
+} from '@/data/categories';
+import { CATALOG_PRODUCTS, CatalogProduct, getProductsByCategory, getDeletedProductIds } from '@/data/products';
+import { api } from '@/lib/api';
+import { getSafeImageUrl } from '@/lib/utils';
 
 // ─── Filter Constants ────────────────────────────────────────────────────────
 
@@ -36,8 +44,7 @@ const COLORS = [
   { name: 'Coral Pink', hex: '#FF6F61' },
 ];
 
-const FABRICS = ['100% Pure Cotton', 'Soft Premium Rayon', 'Modal Cotton Knit', 'Microfiber Nylon', 'Combed Cotton'];
-const OCCASIONS = ['Everyday & Office Wear', 'Festive & Celebration', 'Home & Sleepwear', 'Party & Casual', 'Daily Intimate Essential'];
+const FABRICS = ['100% Pure Cotton', 'Soft Premium Rayon', 'Modal Cotton Knit', 'Microfiber Nylon', 'Combed Cotton', 'Silk Georgette Blend', 'Schiffli Cotton'];
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest Arrivals' },
@@ -49,34 +56,52 @@ const SORT_OPTIONS = [
 
 // ─── Inner Category Component ────────────────────────────────────────────────
 
-function CategoryPageContent() {
+export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const slug = (params.slug as string) || 'all';
-  const categoryConfig = getCategoryBySlug(slug);
 
-  const isKidsCategory = slug === 'kids-clothing';
+  // Support subSlug from props (for /category/[slug]/[sub]) or searchParams (type=FEEDING)
+  const queryProductType = searchParams.get('type') || searchParams.get('productType');
+  const initialTypeFilter = subSlug
+    ? subSlug.toUpperCase() === 'FEEDING' ? 'FEEDING' : subSlug.toUpperCase() === 'NON-FEEDING' ? 'NON-FEEDING' : 'all'
+    : queryProductType ? queryProductType.toUpperCase() as 'FEEDING' | 'NON-FEEDING' | 'all' : 'all';
+
+  const categoryConfig = getCategoryBySlug(slug);
+  const showProductTypeFilter = categoryConfig ? categoryConfig.hasFeedingSplit : (slug === 'all');
+
+  const isKidsCategory = slug === 'kids-wear' || slug === 'kids-clothing';
   const availableSizeList = isKidsCategory ? KIDS_SIZES : WOMEN_SIZES;
 
   // ── UI State ───────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
+  const [selectedProductType, setSelectedProductType] = useState<string>(initialTypeFilter);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedFabrics, setSelectedFabrics] = useState<string[]>([]);
-  const [selectedOccasions, setSelectedOccasions] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
   const [inStockOnly, setInStockOnly] = useState(false);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     category: true,
+    productType: true,
     color: true,
     fabric: true,
-    occasion: true,
+    size: true,
   });
+
+  // Keep type filter in sync with route subSlug
+  useEffect(() => {
+    if (subSlug) {
+      const upper = subSlug.toUpperCase();
+      if (upper === 'FEEDING' || upper === 'NON-FEEDING') {
+        setSelectedProductType(upper);
+      }
+    }
+  }, [subSlug]);
 
   // ── URL-Aware Size Filter ───────────────────────────────────────────────
   const [selectedSizes, setSelectedSizes] = useState<string[]>(() => {
@@ -132,54 +157,140 @@ function CategoryPageContent() {
   const clearAllFilters = useCallback(() => {
     setSelectedColors([]);
     setSelectedFabrics([]);
-    setSelectedOccasions([]);
-    setPriceRange([0, 10000]);
+    setSelectedProductType('all');
     setInStockOnly(false);
     setSelectedSizes([]);
     updateSizeUrl([]);
   }, [updateSizeUrl]);
 
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const activeFilterCount =
+    (selectedProductType !== 'all' ? 1 : 0) +
     selectedColors.length +
     selectedSizes.length +
     selectedFabrics.length +
-    selectedOccasions.length +
     (inStockOnly ? 1 : 0);
+
+  const [dbProducts, setDbProducts] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch live published products from MongoDB backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveProducts = async () => {
+      setLoading(true);
+      try {
+        const response = await api.getProducts({
+          category: slug !== 'all' ? slug : undefined,
+          productType: selectedProductType !== 'all' ? selectedProductType : undefined,
+          sizes: selectedSizes.length ? selectedSizes.join(',') : undefined,
+          colors: selectedColors.length ? selectedColors.join(',') : undefined,
+          sortBy,
+        });
+
+        if (response && response.data && isMounted) {
+          const mapped = response.data.map((p: any) => {
+            const minPrice = p.price || (p.variants || []).reduce((min: number, v: any) => Math.min(min, v.price || Infinity), Infinity) || 0;
+            const maxCompare = p.compareAtPrice || (p.variants || []).reduce((max: number, v: any) => Math.max(max, v.compareAtPrice || 0), 0);
+            const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
+            const totalStock = (p.variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+
+            return {
+              id: p._id || p.id,
+              name: p.name,
+              slug: p.slug,
+              description: p.description || '',
+              shortDescription: p.shortDescription || '',
+              price: minPrice,
+              compareAtPrice: maxCompare > minPrice ? maxCompare : undefined,
+              discountPercentage: discountPct,
+              category: p.category?.slug || p.category || 'casuals',
+              categoryName: p.category?.name || p.subcategory || 'CASUALS',
+              productType: p.productType || null,
+              fabric: p.fabric || 'Cotton',
+              fit: p.fit || 'Regular Fit',
+              pattern: p.pattern || 'Printed',
+              occasion: p.occasion || 'Casual',
+              careInstructions: p.careInstructions || [],
+              status: (p.status || 'published').toLowerCase() as any,
+              stock: totalStock,
+              image: getSafeImageUrl(p.images?.[0] || p.thumbnail),
+              thumbnail: getSafeImageUrl(p.images?.[0] || p.thumbnail),
+              hoverImage: getSafeImageUrl(p.images?.[1] || p.images?.[0] || p.thumbnail),
+              galleryImages: p.images?.map((img: any) => getSafeImageUrl(img)) || [],
+              colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))) : ['Standard'],
+              sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) : ['S', 'M', 'L'],
+              variants: p.variants || [],
+              featured: Boolean(p.featured || p.isFeatured),
+              bestseller: Boolean(p.bestSeller || p.isBestSeller),
+              newArrival: Boolean(p.newArrival || p.isNewProduct),
+              tags: p.tags || [],
+              seo: p.seo || { title: p.name, description: p.shortDescription },
+            } as unknown as CatalogProduct;
+          });
+
+          const typeFilter = selectedProductType !== 'all' ? selectedProductType : undefined;
+          const deletedIds = getDeletedProductIds();
+          const localProds = getProductsByCategory(slug, typeFilter);
+          const combined = mapped.filter((p: any) => p.status === 'published' && !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
+
+          for (const lp of localProds) {
+            if (!deletedIds.includes(lp.id) && !deletedIds.includes(lp.slug) && !combined.some((p) => p.id === lp.id || p.slug === lp.slug)) {
+              combined.unshift(lp);
+            }
+          }
+
+          setDbProducts(combined);
+        }
+      } catch (err) {
+        console.warn('Backend API connection warning, using fallback category data:', err);
+        const typeFilter = selectedProductType !== 'all' ? selectedProductType : undefined;
+        setDbProducts(getProductsByCategory(slug, typeFilter));
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchLiveProducts();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('yezbee_products_updated', fetchLiveProducts);
+    }
+    return () => {
+      isMounted = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('yezbee_products_updated', fetchLiveProducts);
+      }
+    };
+  }, [slug, selectedProductType, selectedSizes, selectedColors, sortBy]);
 
   // ── Category Products Filtering ─────────────────────────────────────────
   const filteredProducts = useMemo(() => {
-    return CATALOG_PRODUCTS.filter((p) => {
-      // 1. Strict Category Match (Unless 'all' is specified)
-      if (slug !== 'all' && p.category !== slug) {
+    return dbProducts.filter((p) => {
+      // Color filter
+      if (selectedColors.length && !p.colors.some((c) => selectedColors.includes(typeof c === 'string' ? c : c.name))) {
         return false;
       }
 
-      // 2. Price filter
-      if (p.price > priceRange[1]) return false;
-
-      // 3. Color filter (OR within colors)
-      if (selectedColors.length && !p.colors.some((c) => selectedColors.includes(c.name))) {
-        return false;
-      }
-
-      // 4. Size filter (OR within sizes)
+      // Size filter
       if (selectedSizes.length) {
         const hasMatchingSize = selectedSizes.some((s) => p.sizes.includes(s));
         if (!hasMatchingSize) return false;
       }
 
-      // 5. Fabric filter
+      // Fabric filter
       if (selectedFabrics.length && !selectedFabrics.includes(p.fabric)) return false;
 
-      // 6. Occasion filter
-      if (selectedOccasions.length && !selectedOccasions.includes(p.occasion)) return false;
-
-      // 7. In stock only
+      // In stock only
       if (inStockOnly && p.stock <= 0) return false;
 
       return true;
     });
-  }, [slug, selectedColors, selectedSizes, selectedFabrics, selectedOccasions, priceRange, inStockOnly]);
+  }, [dbProducts, selectedColors, selectedSizes, selectedFabrics, inStockOnly]);
 
   // ── Sorting ─────────────────────────────────────────────────────────────
   const sortedProducts = useMemo(() => {
@@ -206,7 +317,7 @@ function CategoryPageContent() {
     <div className="space-y-6 bg-white p-6 rounded-2xl border border-[var(--color-champagne)]/60 shadow-soft-sm">
       <div className="flex items-center justify-between pb-4 border-b border-[var(--color-champagne)]">
         <h3 className="font-display font-bold text-sm uppercase tracking-wider text-[var(--color-dark)] flex items-center gap-2">
-          <Filter size={14} className="text-[var(--color-primary-gold)]" /> Catalog Filters
+          <Filter size={14} className="text-[var(--color-primary-gold)]" /> Filters
         </h3>
         {activeFilterCount > 0 && (
           <button
@@ -224,23 +335,107 @@ function CategoryPageContent() {
           onClick={() => setExpandedSections((prev) => ({ ...prev, category: !prev.category }))}
           className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]"
         >
-          <span>Official Categories</span>
+          <span>Categories</span>
           {expandedSections.category ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         {expandedSections.category && (
-          <div className="mt-3 space-y-2 text-xs">
+          <div className="mt-3 space-y-1.5 text-xs font-sans">
             {YEZBEE_CATEGORIES.map((cat) => (
               <Link
                 key={cat.id}
                 href={cat.path}
-                className={`block py-1.5 px-2 rounded-lg transition-colors ${
+                className={`block py-2 px-3 rounded-xl transition-all ${
                   slug === cat.slug
-                    ? 'bg-[var(--color-dark)] text-white font-bold'
-                    : 'text-[var(--color-dark)]/75 hover:bg-[var(--color-champagne)]/40 hover:text-[var(--color-dark)]'
+                    ? 'bg-[var(--color-dark)] text-white font-bold shadow-sm'
+                    : 'text-[var(--color-dark)]/80 hover:bg-[var(--color-champagne)]/40 hover:text-[var(--color-dark)] font-semibold'
                 }`}
               >
                 {cat.name}
               </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* FEEDING / NON-FEEDING Product Type Filter (ONLY shown for categories with split) */}
+      {showProductTypeFilter && (
+        <div className="pb-4 border-b border-[var(--color-champagne)]">
+          <button
+            onClick={() => setExpandedSections((prev) => ({ ...prev, productType: !prev.productType }))}
+            className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]"
+          >
+            <span>Product Type</span>
+            {expandedSections.productType ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {expandedSections.productType && (
+            <div className="mt-3 space-y-2 text-xs font-sans">
+              <button
+                onClick={() => {
+                  setSelectedProductType('all');
+                  if (subSlug) router.push(`/category/${slug}`);
+                }}
+                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  selectedProductType === 'all'
+                    ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)]'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-black'
+                }`}
+              >
+                All {categoryConfig ? categoryConfig.name : 'Products'}
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedProductType('FEEDING');
+                  router.push(`/category/${slug}/feeding`);
+                }}
+                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  selectedProductType === 'FEEDING'
+                    ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] shadow-sm'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-black'
+                }`}
+              >
+                FEEDING
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedProductType('NON-FEEDING');
+                  router.push(`/category/${slug}/non-feeding`);
+                }}
+                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  selectedProductType === 'NON-FEEDING'
+                    ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] shadow-sm'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-black'
+                }`}
+              >
+                NON-FEEDING
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Size Filter */}
+      <div className="pb-4 border-b border-[var(--color-champagne)]">
+        <button
+          onClick={() => setExpandedSections((prev) => ({ ...prev, size: !prev.size }))}
+          className="flex items-center justify-between w-full text-left font-semibold text-xs uppercase tracking-wider text-[var(--color-dark)]"
+        >
+          <span>Size</span>
+          {expandedSections.size ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {expandedSections.size && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {availableSizeList.map((sz) => (
+              <button
+                key={sz}
+                onClick={() => toggleSize(sz)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                  selectedSizes.includes(sz)
+                    ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] shadow-sm'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-black'
+                }`}
+              >
+                {sz}
+              </button>
             ))}
           </div>
         )}
@@ -289,7 +484,7 @@ function CategoryPageContent() {
             {FABRICS.map((fabric) => (
               <label
                 key={fabric}
-                className="flex items-center gap-2 text-xs text-[var(--color-dark)]/80 cursor-pointer hover:text-[var(--color-primary-gold)]"
+                className="flex items-center gap-2 text-xs text-[var(--color-dark)]/80 cursor-pointer hover:text-[var(--color-primary-gold)] font-medium"
               >
                 <input
                   type="checkbox"
@@ -304,274 +499,222 @@ function CategoryPageContent() {
         )}
       </div>
 
-      <button
-        onClick={clearAllFilters}
-        className="w-full py-3 border border-[var(--color-primary-gold)] text-[var(--color-primary-gold)] text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[var(--color-primary-gold)] hover:text-[var(--color-dark)] transition-colors"
-      >
-        Reset All Filters
-      </button>
+      {/* In Stock Only Toggle */}
+      <div>
+        <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-[var(--color-dark)] cursor-pointer">
+          <span>In Stock Only</span>
+          <input
+            type="checkbox"
+            checked={inStockOnly}
+            onChange={(e) => setInStockOnly(e.target.checked)}
+            className="rounded border-gray-300 text-[var(--color-primary-gold)] focus:ring-[var(--color-primary-gold)] h-4 w-4"
+          />
+        </label>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[var(--color-warm-white)]">
-      {/* Contextual Breadcrumb */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
-        <nav className="flex items-center gap-2 text-xs text-[var(--color-dark)]/50 font-medium" aria-label="Breadcrumb">
-          <Link href="/" className="hover:text-[var(--color-primary-gold)] transition-colors">Home</Link>
-          <span>/</span>
-          <Link href="/category/all" className="hover:text-[var(--color-primary-gold)] transition-colors">Categories</Link>
-          <span>/</span>
-          <span className="text-[var(--color-dark)] font-bold">{categoryConfig?.name || 'All Collections'}</span>
-        </nav>
-      </div>
-
-      {/* Category Hero Banner */}
-      <div className="relative h-[220px] sm:h-[300px] bg-[var(--color-darker)] overflow-hidden">
+    <div className="min-h-screen bg-[var(--color-warm-white)] font-sans" suppressHydrationWarning>
+      {/* ── CATEGORY BANNER ── */}
+      <div className="relative bg-black text-white overflow-hidden py-16 sm:py-24 border-b border-[var(--color-primary-gold)]/40">
         <Image
-          src={categoryConfig?.image || '/images/categories/maternity-kurtis.jpg'}
+          src={categoryConfig?.banner || '/images/categories/maternity-kurtis.jpg'}
           alt={categoryConfig?.name || 'Category'}
           fill
           priority
-          sizes="100vw"
-          className="object-cover object-center opacity-40"
+          className="object-cover object-center opacity-35"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-transparent z-10" />
-
-        <div className="relative z-20 h-full max-w-7xl mx-auto px-6 lg:px-8 flex flex-col justify-center text-white">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={14} className="text-[var(--color-gold-light)]" />
-            <span className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--color-gold-light)]">
-              YEZ BEE OFFICIAL COLLECTION
-            </span>
-          </div>
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white mb-2">
-            {categoryConfig?.name || 'All Collections'}
-          </h1>
-          <p className="text-white/80 max-w-xl text-xs sm:text-sm font-sans leading-relaxed">
-            {categoryConfig?.description || 'Discover our luxury collection of comfort-first maternity wear, nursing loungewear, kids clothing, and everyday fashion.'}
-          </p>
-        </div>
-      </div>
-
-      {/* Main Content Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-8 items-start">
-          {/* Desktop Filter Sidebar */}
-          <aside className="hidden lg:block w-[260px] flex-shrink-0" aria-label="Product filters">
-            <div className="sticky top-28">
-              <FilterSidebar />
-            </div>
-          </aside>
-
-          {/* Right Product Column */}
-          <div className="flex-1 min-w-0">
-
-            {/* 1. Size Filter Row (Centered 50px Circular Buttons at Top of Products Area) */}
-            <div className="mb-6 flex flex-col items-center justify-center">
-              <div
-                className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3"
-                role="group"
-                aria-label="Filter products by size"
-              >
-                {availableSizeList.map((size) => {
-                  const isActive = selectedSizes.includes(size);
-                  return (
-                    <button
-                      key={size}
-                      id={`size-filter-${size}`}
-                      onClick={() => toggleSize(size)}
-                      aria-pressed={isActive}
-                      aria-label={`Filter by size ${size}`}
-                      className={[
-                        'relative flex items-center justify-center',
-                        isKidsCategory ? 'px-3.5 h-[42px] rounded-xl' : 'w-[50px] h-[50px] rounded-full',
-                        'text-xs font-bold font-sans border transition-all duration-200 cursor-pointer select-none',
-                        isActive
-                          ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] ring-2 ring-[var(--color-primary-gold)] scale-105 shadow-gold-sm'
-                          : 'bg-white text-[var(--color-dark)] border-black/20 hover:border-[var(--color-primary-gold)] hover:scale-[1.06]',
-                      ].join(' ')}
-                    >
-                      {size}
-                      {isActive && (
-                        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[var(--color-primary-gold)] ring-2 ring-white" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {selectedSizes.length > 0 && (
-                <div className="mt-3 flex items-center gap-2 text-xs">
-                  <span className="text-gray-500 font-medium">Selected Size: {selectedSizes.join(', ')}</span>
-                  <button
-                    onClick={() => { setSelectedSizes([]); updateSizeUrl([]); }}
-                    className="text-[var(--color-primary-gold)] font-bold hover:underline"
-                  >
-                    Clear Filter
-                  </button>
-                </div>
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent" />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl">
+            {/* Breadcrumb Navigation */}
+            <div className="flex items-center gap-2 text-xs text-white/60 mb-4 font-sans uppercase tracking-widest">
+              <Link href="/" className="hover:text-[var(--color-primary-gold)] transition-colors">Home</Link>
+              <span>/</span>
+              <Link href="/category/all" className="hover:text-[var(--color-primary-gold)] transition-colors">Categories</Link>
+              <span>/</span>
+              <span className="text-[var(--color-primary-gold)] font-bold">
+                {categoryConfig?.name || 'Catalog'}
+              </span>
+              {selectedProductType !== 'all' && (
+                <>
+                  <span>/</span>
+                  <span className="text-white font-bold">{selectedProductType}</span>
+                </>
               )}
             </div>
 
-            {/* 2. Controls & Count Header */}
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <p className="text-base font-semibold text-[var(--color-dark)]">
-                {filteredProducts.length} {filteredProducts.length === 1 ? 'style' : 'styles'} available
-              </p>
+            <h1 className="font-display text-3xl sm:text-5xl font-bold text-white tracking-tight uppercase">
+              {categoryConfig?.name || 'All Products'}
+              {selectedProductType !== 'all' && (
+                <span className="text-[var(--color-primary-gold)] ml-3 text-2xl sm:text-4xl">· {selectedProductType}</span>
+              )}
+            </h1>
 
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center border border-gray-200 rounded-lg overflow-hidden bg-white">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-[var(--color-primary-gold)] text-[var(--color-dark)]' : 'text-gray-400 hover:text-[var(--color-dark)]'}`}
-                    aria-label="Grid View"
-                  >
-                    <Grid3X3 size={16} />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[var(--color-primary-gold)] text-[var(--color-dark)]' : 'text-gray-400 hover:text-[var(--color-dark)]'}`}
-                    aria-label="List View"
-                  >
-                    <List size={16} />
-                  </button>
-                </div>
-
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="text-xs font-semibold border border-gray-300 rounded-lg px-4 py-2 bg-white outline-none focus:border-[var(--color-primary-gold)] text-[var(--color-dark)] cursor-pointer"
-                  aria-label="Sort products"
-                >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  onClick={() => setShowMobileFilter(true)}
-                  className="lg:hidden flex items-center gap-2 px-4 py-2 border border-[var(--color-primary-gold)] rounded-lg text-xs font-bold uppercase tracking-wider text-[var(--color-dark)] hover:bg-[var(--color-primary-gold)] transition-colors"
-                  aria-label="Open filters"
-                >
-                  <Filter size={14} /> Filters
-                </button>
-              </div>
-            </div>
-
-            {/* 3. Product Grid */}
-            {filteredProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[var(--color-champagne)]">
-                <Ruler size={32} className="text-gray-300 mb-3" />
-                <h3 className="font-display text-xl font-bold text-[var(--color-dark)] mb-2">
-                  No products matched your active filters
-                </h3>
-                <p className="text-gray-500 text-xs mb-6 text-center max-w-xs">
-                  Try clearing your size or color filters to discover available styles.
-                </p>
-                <button
-                  onClick={clearAllFilters}
-                  className="px-8 py-3 bg-[var(--color-primary-gold)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[var(--color-gold-light)] transition-colors"
-                >
-                  Clear All Filters
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-6'}>
-                  <AnimatePresence mode="popLayout">
-                    {displayedProducts.map((product) => (
-                      <motion.div
-                        key={product.id}
-                        layout
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                      >
-                        <ProductCard
-                          id={product.id}
-                          name={product.name}
-                          category={product.categoryName}
-                          price={product.price}
-                          comparePrice={product.compareAtPrice}
-                          rating={String(product.rating)}
-                          reviews={product.reviewCount}
-                          image={product.thumbnail}
-                          hoverImage={product.images[1] || product.thumbnail}
-                          colors={product.colors}
-                          sizes={product.sizes}
-                          discount={product.discountPercentage}
-                          stock={product.stock}
-                        />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-
-                {visibleCount < filteredProducts.length && (
-                  <div className="flex justify-center mt-12">
-                    <button
-                      onClick={() => setVisibleCount((prev) => prev + 12)}
-                      className="px-10 py-3.5 border-2 border-[var(--color-dark)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-[0.15em] rounded-full hover:bg-[var(--color-dark)] hover:text-white transition-all"
-                    >
-                      Load More Styles ({filteredProducts.length - visibleCount} remaining)
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Category SEO Content Footnote */}
-            {categoryConfig && (
-              <div className="mt-16 bg-white p-8 rounded-3xl border border-[var(--color-champagne)]/60 text-xs leading-relaxed text-gray-600 space-y-3">
-                <h3 className="font-display font-bold text-base text-[var(--color-dark)]">
-                  About YEZ BEE {categoryConfig.name}
-                </h3>
-                <p>{categoryConfig.description}</p>
-                <p>
-                  Every garment in our {categoryConfig.name.toLowerCase()} catalog is engineered with premium fabrics, reinforced stitching, and tailored silhouettes for everyday comfort and lasting elegance.
-                </p>
-              </div>
-            )}
-
+            <p className="mt-4 text-xs sm:text-sm text-white/80 leading-relaxed font-sans max-w-xl">
+              {categoryConfig?.description || 'Explore our exclusive fashion collection handcrafted for elegance and comfort.'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* ── MAIN CONTENT GRID ── */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        {/* Toolbar Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-[var(--color-champagne)]">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowMobileFilter(true)}
+              className="lg:hidden inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-dark)] text-white text-xs font-bold uppercase rounded-xl"
+            >
+              <Filter size={14} /> Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+            </button>
+
+            <p className="text-xs text-gray-500 font-semibold" suppressHydrationWarning>
+              Showing <span className="font-bold text-black" suppressHydrationWarning>{displayedProducts.length}</span> of{' '}
+              <span className="font-bold text-black" suppressHydrationWarning>{sortedProducts.length}</span> styles
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-bold uppercase text-gray-500 hidden sm:block">Sort By:</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2 text-xs font-bold border border-gray-300 rounded-xl bg-white outline-none focus:border-[var(--color-primary-gold)] cursor-pointer"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            <div className="hidden sm:flex items-center border border-gray-300 rounded-xl overflow-hidden bg-white">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-[var(--color-dark)] text-white' : 'text-gray-400 hover:text-black'}`}
+                aria-label="Grid view"
+              >
+                <Grid3X3 size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[var(--color-dark)] text-white' : 'text-gray-400 hover:text-black'}`}
+                aria-label="List view"
+              >
+                <List size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Desktop Filter Sidebar */}
+          <div className="hidden lg:block lg:col-span-3 sticky top-24">
+            <FilterSidebar />
+          </div>
+
+          {/* Product Listing Section */}
+          <div className="lg:col-span-9">
+            {!isMounted || loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((skel) => (
+                  <div key={skel} className="aspect-[3/4] bg-gray-200/60 animate-pulse rounded-2xl border border-gray-100" />
+                ))}
+              </div>
+            ) : displayedProducts.length > 0 ? (
+              <div
+                className={
+                  viewMode === 'grid'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'
+                    : 'space-y-6'
+                }
+              >
+                {displayedProducts.map((prod) => (
+                  <ProductCard key={prod.id} {...(prod as any)} />
+                ))}
+              </div>
+            ) : (
+              /* EMPTY STATE: Requirement 19 */
+              <div className="text-center py-20 px-6 bg-white rounded-3xl border border-gray-200 shadow-soft-sm max-w-lg mx-auto">
+                <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-200">
+                  <ShoppingBag size={28} className="text-[var(--color-primary-gold)]" />
+                </div>
+                <h3 className="font-display text-xl font-bold text-gray-900 mb-2">
+                  No products available in this category yet.
+                </h3>
+                <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+                  We are updating our catalog with fresh couture drops. Explore other categories or reset your active filters.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={clearAllFilters}
+                      className="px-6 py-2.5 bg-gray-100 text-gray-800 text-xs font-bold rounded-full hover:bg-gray-200 transition-all"
+                    >
+                      Clear Active Filters
+                    </button>
+                  )}
+                  <Link
+                    href="/category/casuals"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-[var(--color-dark)] text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-black transition-all shadow-md"
+                  >
+                    Continue Shopping <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Load More Button */}
+            {displayedProducts.length < sortedProducts.length && (
+              <div className="mt-12 text-center">
+                <button
+                  onClick={() => setVisibleCount((prev) => prev + 12)}
+                  className="px-8 py-3 bg-[var(--color-dark)] text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-black transition-all shadow-md"
+                >
+                  Load More Styles ({sortedProducts.length - displayedProducts.length} remaining)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Drawer Filter */}
       <AnimatePresence>
         {showMobileFilter && (
-          <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm lg:hidden flex justify-end"
+          >
             <motion.div
-              className="fixed inset-0 bg-black/50 z-50 lg:hidden backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowMobileFilter(false)}
-            />
-            <motion.div
-              role="dialog"
-              aria-modal="true"
-              className="fixed top-0 right-0 h-full w-[320px] max-w-[85vw] bg-[var(--color-warm-white)] z-50 overflow-y-auto lg:hidden"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25 }}
+              className="w-full max-w-xs bg-white h-full overflow-y-auto p-6 flex flex-col justify-between"
             >
-              <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-4 border-b border-[var(--color-champagne)]">
-                <span className="font-display font-bold text-sm uppercase tracking-wider">
-                  Category Filters
-                </span>
-                <button onClick={() => setShowMobileFilter(false)} className="p-1">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="p-4">
+              <div>
+                <div className="flex items-center justify-between pb-4 border-b border-gray-200 mb-6">
+                  <h3 className="font-bold text-sm uppercase tracking-wider">Filters</h3>
+                  <button onClick={() => setShowMobileFilter(false)} className="p-1">
+                    <X size={20} />
+                  </button>
+                </div>
                 <FilterSidebar />
               </div>
+              <button
+                onClick={() => setShowMobileFilter(false)}
+                className="w-full py-3 bg-[var(--color-dark)] text-white text-xs font-bold uppercase rounded-xl mt-6"
+              >
+                Apply Filters
+              </button>
             </motion.div>
-          </>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
@@ -580,7 +723,7 @@ function CategoryPageContent() {
 
 export default function CategoryPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[var(--color-warm-white)] flex items-center justify-center">Loading Category...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-warm-white)] flex items-center justify-center"><p className="text-xs font-bold uppercase tracking-widest text-[var(--color-primary-gold)]">Loading YEZ BEE Catalog...</p></div>}>
       <CategoryPageContent />
     </Suspense>
   );

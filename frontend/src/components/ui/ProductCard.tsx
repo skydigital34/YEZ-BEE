@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingBag, Eye, Star, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getSafeImageUrl } from '@/lib/utils';
 import { useCart } from '@/providers/CartProvider';
 import { useWishlist } from '@/providers/WishlistProvider';
 
@@ -13,11 +13,14 @@ export interface ProductCardProps {
   id: string | number;
   name: string;
   category?: string;
+  productType?: string | null;
   price: number;
   comparePrice?: number | null;
   rating?: number | string;
   reviews?: number;
-  image: string;
+  image?: any;
+  thumbnail?: any;
+  images?: any;
   hoverImage?: string;
   colors?: Array<{ name: string; hex: string }>;
   sizes?: string[];
@@ -27,17 +30,21 @@ export interface ProductCardProps {
   stock?: number;
   onQuickView?: (id: string | number) => void;
   className?: string;
+  [key: string]: any;
 }
 
 export default function ProductCard({
   id,
   name,
-  category = 'Luxury Wear',
+  category = 'CASUALS',
+  productType,
   price,
   comparePrice,
   rating = 4.8,
   reviews = 42,
   image,
+  thumbnail,
+  images,
   hoverImage,
   colors = [],
   sizes = ['S', 'M', 'L', 'XL'],
@@ -47,6 +54,7 @@ export default function ProductCard({
   stock = 8,
   onQuickView,
   className,
+  ...rest
 }: ProductCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [selectedColor, setSelectedColor] = useState(0);
@@ -55,8 +63,12 @@ export default function ProductCard({
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
+  const primaryImage = getSafeImageUrl(
+    image || thumbnail || (Array.isArray(images) ? images[0] : images) || rest.galleryImages?.[0]
+  );
+  const secondaryImage = hoverImage || primaryImage;
+
   const isWishlisted = isInWishlist(id);
-  const secondaryImage = hoverImage || image;
   const numRating = typeof rating === 'string' ? parseFloat(rating) : rating;
   const calcDiscount = discount || (comparePrice && comparePrice > price ? Math.round(((comparePrice - price) / comparePrice) * 100) : 0);
 
@@ -67,7 +79,7 @@ export default function ProductCard({
       id,
       name,
       price,
-      image,
+      image: primaryImage,
       color: colors[selectedColor]?.name || 'Default',
       size: sizes[0] || 'M',
       quantity: 1,
@@ -83,16 +95,19 @@ export default function ProductCard({
       id,
       name,
       price,
-      image,
+      image: primaryImage,
       category,
     });
   };
 
   const [imgError, setImgError] = useState(false);
   const defaultImage = '/images/luxury_featured_collection.jpg';
-  const displayImage = imgError
-    ? defaultImage
-    : (isHovered ? secondaryImage : image) || defaultImage;
+  const rawImage = isHovered ? (hoverImage || primaryImage) : primaryImage;
+  const displayImage = imgError ? defaultImage : getSafeImageUrl(rawImage, defaultImage);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [rawImage]);
 
   return (
     <div
@@ -102,7 +117,7 @@ export default function ProductCard({
     >
       {/* Image Container with 3:4 Luxury Portrait Aspect Ratio */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--color-warm-white)]">
-        <Link href={`/product/${id}`} className="block h-full w-full">
+        <Link href={`/product/${id}`} className="relative block h-full w-full">
           <Image
             src={displayImage}
             alt={name}
@@ -110,6 +125,7 @@ export default function ProductCard({
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
             loading="lazy"
+            unoptimized={displayImage.startsWith('blob:') || displayImage.startsWith('data:')}
             onError={() => setImgError(true)}
           />
         </Link>
@@ -136,6 +152,7 @@ export default function ProductCard({
         {/* Wishlist Heart Button */}
         <button
           onClick={handleWishlistToggle}
+          suppressHydrationWarning
           className={cn(
             'absolute top-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all duration-300 shadow-sm',
             isWishlisted
@@ -149,7 +166,6 @@ export default function ProductCard({
 
         {/* Quick View & Size Hover Bar Overlay */}
         <div className="absolute inset-x-0 bottom-0 z-20 translate-y-full transition-transform duration-300 group-hover:translate-y-0 p-3 bg-gradient-to-t from-[var(--color-dark)]/90 via-[var(--color-dark)]/60 to-transparent flex flex-col gap-2">
-          {/* Desktop-only: premium size availability preview */}
           {sizes.length > 0 && (
             <div className="hidden sm:flex flex-col items-center gap-0.5">
               <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/50">
@@ -169,6 +185,7 @@ export default function ProductCard({
                   e.stopPropagation();
                   onQuickView(id);
                 }}
+                suppressHydrationWarning
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-white/20 text-white text-xs font-semibold backdrop-blur-md hover:bg-white hover:text-[var(--color-dark)] transition-colors"
               >
                 <Eye size={14} /> Quick View
@@ -176,6 +193,7 @@ export default function ProductCard({
             )}
             <button
               onClick={handleAddToCart}
+              suppressHydrationWarning
               className={cn(
                 'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300',
                 addedToCart
@@ -200,7 +218,7 @@ export default function ProductCard({
       {/* Card Body Details */}
       <div className="flex flex-col flex-1 p-4 bg-white">
         <div className="flex items-center justify-between text-[11px] text-[var(--color-dark)]/50 font-medium uppercase tracking-wider mb-1">
-          <span>{category}</span>
+          <span className="font-bold text-[var(--color-dark)]/70">{category} {productType ? `· ${productType}` : ''}</span>
           {stock <= 5 && stock > 0 && (
             <span className="text-[var(--color-soft-red)] font-semibold">Only {stock} left!</span>
           )}
@@ -243,21 +261,26 @@ export default function ProductCard({
 
           {colors.length > 0 && (
             <div className="flex items-center gap-1">
-              {colors.slice(0, 3).map((c, i) => (
-                <button
-                  key={c.name}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSelectedColor(i);
-                  }}
-                  className={cn(
-                    'h-3.5 w-3.5 rounded-full border border-gray-300 transition-transform',
-                    selectedColor === i && 'ring-2 ring-[var(--color-primary-gold)] ring-offset-1 scale-110'
-                  )}
-                  style={{ backgroundColor: c.hex }}
-                  title={c.name}
-                />
-              ))}
+              {colors.slice(0, 3).map((c, i) => {
+                const colorName = typeof c === 'string' ? c : c?.name || `Color-${i}`;
+                const colorHex = typeof c === 'string' ? '#000000' : c?.hex || '#000000';
+                return (
+                  <button
+                    key={`${colorName}-${i}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSelectedColor(i);
+                    }}
+                    suppressHydrationWarning
+                    className={cn(
+                      'h-3.5 w-3.5 rounded-full border border-gray-300 transition-transform',
+                      selectedColor === i && 'ring-2 ring-[var(--color-primary-gold)] ring-offset-1 scale-110'
+                    )}
+                    style={{ backgroundColor: colorHex }}
+                    title={colorName}
+                  />
+                );
+              })}
               {colors.length > 3 && (
                 <span className="text-[10px] text-[var(--color-dark)]/50 font-medium">
                   +{colors.length - 3}
