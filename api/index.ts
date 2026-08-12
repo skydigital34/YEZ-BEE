@@ -4,19 +4,19 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
-import { connectDatabase } from '../../backend/src/config/database';
+import { connectDatabase } from '../backend/src/config/database';
 
 // Import routes
-import authRoutes from '../../backend/src/routes/auth.routes';
-import productRoutes from '../../backend/src/routes/product.routes';
-import categoryRoutes from '../../backend/src/routes/category.routes';
-import orderRoutes from '../../backend/src/routes/order.routes';
-import cartRoutes from '../../backend/src/routes/cart.routes';
-import couponRoutes from '../../backend/src/routes/coupon.routes';
-import wishlistRoutes from '../../backend/src/routes/wishlist.routes';
-import paymentRoutes from '../../backend/src/routes/payment.routes';
-import userRoutes from '../../backend/src/routes/user.routes';
-import { errorHandler, notFoundHandler } from '../../backend/src/middleware/errorHandler';
+import authRoutes from '../backend/src/routes/auth.routes';
+import productRoutes from '../backend/src/routes/product.routes';
+import categoryRoutes from '../backend/src/routes/category.routes';
+import orderRoutes from '../backend/src/routes/order.routes';
+import cartRoutes from '../backend/src/routes/cart.routes';
+import couponRoutes from '../backend/src/routes/coupon.routes';
+import wishlistRoutes from '../backend/src/routes/wishlist.routes';
+import paymentRoutes from '../backend/src/routes/payment.routes';
+import userRoutes from '../backend/src/routes/user.routes';
+import { errorHandler, notFoundHandler } from '../backend/src/middleware/errorHandler';
 
 const app = express();
 
