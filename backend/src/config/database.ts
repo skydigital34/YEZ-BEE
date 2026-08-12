@@ -3,21 +3,19 @@ import dns from 'dns';
 import { logger } from '../utils/helpers';
 
 // Configure DNS for MongoDB SRV record resolution on Windows / local networks
-try {
-  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
-} catch {
-  // Ignore DNS set failures
+if (!process.env.VERCEL) {
+  try {
+    dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+  } catch {
+    // Ignore DNS set failures
+  }
 }
-
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 3000;
 
 const connectionOptions: mongoose.ConnectOptions = {
   maxPoolSize: 10,
-  minPoolSize: 2,
+  minPoolSize: 1,
   serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  family: 4,
+  socketTimeoutMS: 30000,
   dbName: 'yezbee',
 };
 
@@ -29,7 +27,19 @@ export const connectDatabase = async (): Promise<void> => {
     return;
   }
 
-  const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/yezbee';
+  const uri = process.env.MONGODB_URI || 'mongodb+srv://sbfashionamazon:dharu1234@yez-bee.pnmkrhi.mongodb.net/yezbee?retryWrites=true&w=majority';
+
+  if (process.env.VERCEL) {
+    try {
+      await mongoose.connect(uri, connectionOptions);
+      isConnected = true;
+      logger.info('MongoDB Atlas connected on Vercel Serverless');
+    } catch (error) {
+      logger.error('Vercel MongoDB connection failed:', error instanceof Error ? error.message : error);
+      throw error;
+    }
+    return;
+  }
 
   const connectWithRetry = async (): Promise<void> => {
     try {
@@ -39,7 +49,6 @@ export const connectDatabase = async (): Promise<void> => {
       logger.info('MongoDB Atlas connected successfully to "yezbee" database');
     } catch (error) {
       retryCount++;
-      // Safe error message without exposing connection credentials
       const safeErrorMessage = error instanceof Error ? error.message.replace(/mongodb\+srv:\/\/[^@]+@/, 'mongodb+srv://***:***@') : String(error);
       logger.error(`MongoDB connection attempt ${retryCount} failed: ${safeErrorMessage}`);
 
@@ -50,10 +59,6 @@ export const connectDatabase = async (): Promise<void> => {
       }
 
       logger.error('Max retries reached. Could not connect to MongoDB Atlas.');
-      // In server environments, throw error instead of crashing if imported
-      if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
-        process.exit(1);
-      }
     }
   };
 

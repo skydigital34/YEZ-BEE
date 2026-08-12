@@ -53,13 +53,11 @@ app.use(`${API_PREFIX}/users`, userRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Connect DB once (cached for serverless warm starts)
-let isConnected = false;
-
 export default async function handler(req: Request, res: Response) {
-  if (!isConnected) {
+  try {
     await connectDatabase();
-    isConnected = true;
+  } catch (err) {
+    console.error('MongoDB serverless connection error:', err);
   }
   return app(req, res);
 }
