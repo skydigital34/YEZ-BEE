@@ -15,9 +15,9 @@ const nextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
-    turbopack: {
-      root: '../',
-    },
+  },
+  turbopack: {
+    root: '../',
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
