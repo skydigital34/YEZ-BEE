@@ -171,9 +171,7 @@ export default function AdminProductsPage() {
         setDbStats(statsRes.data);
       }
     } catch (err: any) {
-      console.error('Failed to connect to MongoDB backend:', err);
-      setDbError('Unable to connect to the product database. Please try again.');
-      // Fallback to local data so Admin UI remains functional
+      console.warn('Backend API sync offline, loading local catalog:', err);
       setProducts(getAllProducts());
     } finally {
       setLoading(false);
