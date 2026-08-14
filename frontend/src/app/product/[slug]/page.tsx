@@ -85,12 +85,16 @@ export default function ProductDetailPage() {
           const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
           const totalStock = (p.variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
 
+          const imageList = (p.images && p.images.length > 0)
+            ? p.images.map((img: any) => getSafeImageUrl(img)).filter((u: string) => Boolean(u && u.trim()))
+            : [getSafeImageUrl(p.thumbnail) || '/images/categories/maternity-kurtis.jpg'];
+
           const mapped = {
             id: p._id || p.id,
             name: p.name,
-            slug: p.slug,
+            slug: p.slug || slug,
             description: p.description || '',
-            shortDescription: p.shortDescription || '',
+            shortDescription: p.shortDescription || p.description || '',
             price: minPrice,
             compareAtPrice: maxCompare > minPrice ? maxCompare : undefined,
             discountPercentage: discountPct,
@@ -101,14 +105,32 @@ export default function ProductDetailPage() {
             fit: p.fit || 'Regular Fit',
             pattern: p.pattern || 'Printed',
             occasion: p.occasion || 'Casual',
-            careInstructions: p.careInstructions || [],
+            careInstructions: Array.isArray(p.careInstructions)
+              ? p.careInstructions.join('. ')
+              : (p.careInstructions || 'Machine wash cold with gentle detergent.'),
             status: (p.status || 'published').toLowerCase() as any,
             stock: totalStock,
-            thumbnail: getSafeImageUrl(p.images?.[0] || p.thumbnail),
-            galleryImages: (p.images && p.images.length > 0) ? p.images.map((img: any) => getSafeImageUrl(img)).filter((u: string) => Boolean(u && u.trim())) : ['/images/categories/maternity-kurtis.jpg'],
-            colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))).map(name => ({ name, hex: p.variants.find((v: any) => v.color === name)?.colorHex || '#000000' })) as any : [{ name: 'Standard', hex: '#000000' }],
-            sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) as any : ['S', 'M', 'L'],
+            thumbnail: getSafeImageUrl(p.images?.[0] || p.thumbnail) || imageList[0],
+            images: imageList,
+            galleryImages: imageList,
+            colors: p.variants && p.variants.length > 0
+              ? Array.from(new Set(p.variants.map((v: any) => v.color))).map((name: any) => ({
+                  name: name || 'Standard',
+                  hex: p.variants.find((v: any) => v.color === name)?.colorHex || '#000000',
+                }))
+              : [{ name: 'Standard', hex: '#000000' }],
+            sizes: p.variants && p.variants.length > 0
+              ? Array.from(new Set(p.variants.map((v: any) => v.size)))
+              : ['S', 'M', 'L', 'XL'],
             variants: p.variants || [],
+            maternity: p.maternity ?? Boolean(p.productType === 'FEEDING' || p.tags?.includes('maternity')),
+            feedingFriendly: p.feedingFriendly ?? Boolean(p.productType === 'FEEDING' || p.tags?.includes('feeding')),
+            rating: p.ratings?.average || p.rating || 4.8,
+            reviewCount: p.ratings?.count || p.reviewCount || 12,
+            shippingInfo: typeof p.shippingInfo === 'string'
+              ? p.shippingInfo
+              : 'Dispatched within 24 hours. Free delivery nationwide.',
+            returnPolicy: p.returnPolicy || '7-day doorstep exchange and return policy.',
             featured: Boolean(p.featured || p.isFeatured),
             bestseller: Boolean(p.bestSeller || p.isBestSeller),
             newArrival: Boolean(p.newArrival || p.isNewProduct),

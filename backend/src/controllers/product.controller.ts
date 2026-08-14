@@ -141,14 +141,26 @@ export const getProductBySlug = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const cacheKey = CACHE_KEYS.PRODUCT_BY_SLUG(req.params.slug);
+    const paramValue = req.params.slug;
+    const cacheKey = CACHE_KEYS.PRODUCT_BY_SLUG(paramValue);
     const cached = await getFromCache(cacheKey);
     if (cached) {
       res.status(200).json({ success: true, data: cached });
       return;
     }
 
-    const product = await Product.findOne({ slug: req.params.slug, isActive: true })
+    const isMongoId = /^[0-9a-fA-F]{24}$/.test(paramValue);
+    const identifierFilter = isMongoId
+      ? { $or: [{ _id: paramValue }, { slug: paramValue }] }
+      : { slug: paramValue };
+
+    const statusFilter = {
+      $or: [{ status: 'PUBLISHED' }, { isActive: true }, { status: { $exists: false } }],
+    };
+
+    const product = await Product.findOne({
+      $and: [identifierFilter, statusFilter],
+    })
       .populate('category', 'name slug')
       .lean();
 
