@@ -1,3 +1,32 @@
+export const CATEGORY_CONFIG = {
+  casuals: {
+    label: "Casuals",
+    subcategories: ["feeding", "non-feeding"]
+  },
+  "party-wear": {
+    label: "Party Wear",
+    subcategories: ["feeding", "non-feeding"]
+  },
+  "ethnic-wear": {
+    label: "Ethnic Wear",
+    subcategories: ["feeding", "non-feeding"]
+  },
+  "lounge-wear": {
+    label: "Lounge Wear",
+    subcategories: []
+  },
+  "peplum-tops": {
+    label: "Peplum Tops",
+    subcategories: ["feeding", "non-feeding"]
+  },
+  "kids-wear": {
+    label: "Kids Wear",
+    subcategories: []
+  }
+} as const;
+
+export type CategorySlug = keyof typeof CATEGORY_CONFIG;
+
 export interface SubcategoryConfig {
   id: string;
   name: string;
@@ -89,8 +118,25 @@ export const YEZBEE_CATEGORIES: CategoryConfig[] = [
     image: '/images/categories/non-maternity-kurtis-dresses.jpg',
     banner: '/images/categories/non-maternity-kurtis-dresses.jpg',
     sortOrder: 3,
-    hasFeedingSplit: false,
-    subcategories: [],
+    hasFeedingSplit: true,
+    subcategories: [
+      {
+        id: 'ethnic-wear-feeding',
+        name: 'FEEDING',
+        slug: 'feeding',
+        path: '/category/ethnic-wear/feeding',
+        productType: 'FEEDING',
+        description: 'Traditional ethnic kurtas and festive sets featuring discreet feeding access.',
+      },
+      {
+        id: 'ethnic-wear-non-feeding',
+        name: 'NON-FEEDING',
+        slug: 'non-feeding',
+        path: '/category/ethnic-wear/non-feeding',
+        productType: 'NON-FEEDING',
+        description: 'Handcrafted sarees, festive lehengas, and regular ethnic ensembles.',
+      },
+    ],
   },
   {
     id: 'lounge-wear',
@@ -101,25 +147,8 @@ export const YEZBEE_CATEGORIES: CategoryConfig[] = [
     image: '/images/categories/maternity-feeding-loungewears.jpg',
     banner: '/images/categories/maternity-feeding-loungewears.jpg',
     sortOrder: 4,
-    hasFeedingSplit: true,
-    subcategories: [
-      {
-        id: 'lounge-wear-feeding',
-        name: 'FEEDING',
-        slug: 'feeding',
-        path: '/category/lounge-wear/feeding',
-        productType: 'FEEDING',
-        description: 'Ultra-soft night suits and lounge sets with 2-way nursing zipper access.',
-      },
-      {
-        id: 'lounge-wear-non-feeding',
-        name: 'NON-FEEDING',
-        slug: 'non-feeding',
-        path: '/category/lounge-wear/non-feeding',
-        productType: 'NON-FEEDING',
-        description: 'Relaxed home dresses and pajama sets in comfortable stretch cottons.',
-      },
-    ],
+    hasFeedingSplit: false,
+    subcategories: [],
   },
   {
     id: 'peplum-tops',

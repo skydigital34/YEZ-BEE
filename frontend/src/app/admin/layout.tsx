@@ -368,9 +368,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </AnimatePresence>
           </header>
 
-          <div className="p-4 lg:p-8">
+          <div className="p-4 lg:p-8 flex-1">
             {children}
           </div>
+
+          <footer className="mt-auto px-4 lg:px-8 py-4 border-t border-gray-200/60 bg-white/60 text-xs text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>&copy; {new Date().getFullYear()} YEZ BEE FASHION &bull; Admin Management Portal v2.0</span>
+            <div className="flex items-center gap-4 text-gray-500">
+              <Link href="/" target="_blank" className="hover:text-[#C9A84C] transition-colors font-medium">
+                View Customer Storefront ↗
+              </Link>
+              <span>&bull;</span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                System Status: <strong className="text-emerald-700 font-bold">Online</strong>
+              </span>
+            </div>
+          </footer>
         </motion.main>
       </div>
     </AuthContext.Provider>

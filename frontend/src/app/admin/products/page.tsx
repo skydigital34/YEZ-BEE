@@ -660,6 +660,13 @@ export default function AdminProductsPage() {
                         <span className="inline-block px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 text-[11px] font-semibold">
                           {p.categoryName}
                         </span>
+                        {p.productType && (
+                          <span className={`block mt-1 text-[10px] font-bold uppercase tracking-wider ${
+                            p.productType === 'FEEDING' ? 'text-amber-700' : 'text-gray-500'
+                          }`}>
+                            ↳ {p.productType}
+                          </span>
+                        )}
                       </td>
 
                       {/* Price */}

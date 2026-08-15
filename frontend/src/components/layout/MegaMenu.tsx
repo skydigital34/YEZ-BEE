@@ -11,26 +11,26 @@ import { cn } from '@/lib/utils';
 // Category taxonomy matching EXACTLY the 6 official YEZ BEE Fashion categories
 const CATEGORY_COLUMNS = [
   {
-    title: 'CASUALS & LOUNGEWEAR',
+    title: 'CASUALS & PARTY WEAR',
     links: [
       { label: 'CASUALS (All)', href: '/category/casuals' },
       { label: 'CASUALS → FEEDING', href: '/category/casuals/feeding' },
       { label: 'CASUALS → NON-FEEDING', href: '/category/casuals/non-feeding' },
-      { label: 'LOUNGE WEAR (All)', href: '/category/lounge-wear' },
-      { label: 'LOUNGE WEAR → FEEDING', href: '/category/lounge-wear/feeding' },
-      { label: 'LOUNGE WEAR → NON-FEEDING', href: '/category/lounge-wear/non-feeding' },
-    ],
-  },
-  {
-    title: 'PARTY, ETHNIC & TOPS',
-    links: [
       { label: 'PARTY WEAR (All)', href: '/category/party-wear' },
       { label: 'PARTY WEAR → FEEDING', href: '/category/party-wear/feeding' },
       { label: 'PARTY WEAR → NON-FEEDING', href: '/category/party-wear/non-feeding' },
+    ],
+  },
+  {
+    title: 'ETHNIC, TOPS & STANDALONE',
+    links: [
+      { label: 'ETHNIC WEAR (All)', href: '/category/ethnic-wear' },
+      { label: 'ETHNIC WEAR → FEEDING', href: '/category/ethnic-wear/feeding' },
+      { label: 'ETHNIC WEAR → NON-FEEDING', href: '/category/ethnic-wear/non-feeding' },
       { label: 'PEPLUM TOPS (All)', href: '/category/peplum-tops' },
       { label: 'PEPLUM TOPS → FEEDING', href: '/category/peplum-tops/feeding' },
       { label: 'PEPLUM TOPS → NON-FEEDING', href: '/category/peplum-tops/non-feeding' },
-      { label: 'ETHNIC WEAR', href: '/category/ethnic-wear' },
+      { label: 'LOUNGE WEAR', href: '/category/lounge-wear' },
       { label: 'KIDS WEAR', href: '/category/kids-wear' },
     ],
   },

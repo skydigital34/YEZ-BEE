@@ -85,9 +85,32 @@ export default function ProductDetailPage() {
           const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
           const totalStock = (p.variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
 
-          const imageList = (p.images && p.images.length > 0)
-            ? p.images.map((img: any) => getSafeImageUrl(img)).filter((u: string) => Boolean(u && u.trim()))
-            : [getSafeImageUrl(p.thumbnail) || '/images/categories/maternity-kurtis.jpg'];
+          const rawImages = Array.isArray(p.images) && p.images.length > 0
+            ? p.images
+            : (p.thumbnail ? [p.thumbnail] : []);
+
+          let cleanImages = rawImages
+            .map((img: any) => getSafeImageUrl(img, ''))
+            .filter((u: string) => {
+              if (!u || !u.trim()) return false;
+              if (u.includes('slide1.jpg') || u.includes('slide2.jpg') || u.includes('slide3.jpg')) {
+                return false;
+              }
+              return true;
+            });
+
+          cleanImages = Array.from(new Set(cleanImages));
+
+          if (cleanImages.length === 0) {
+            const thumbUrl = getSafeImageUrl(p.thumbnail, '');
+            if (thumbUrl && !thumbUrl.includes('slide1') && !thumbUrl.includes('slide2') && !thumbUrl.includes('slide3')) {
+              cleanImages.push(thumbUrl);
+            } else {
+              cleanImages.push('/images/categories/maternity-kurtis.jpg');
+            }
+          }
+
+          const imageList = cleanImages;
 
           const mapped = {
             id: p._id || p.id,

@@ -6,9 +6,7 @@ import { WishlistProvider } from '@/providers/WishlistProvider'
 import { CompareProvider } from '@/providers/CompareProvider'
 import { Toaster } from 'react-hot-toast'
 import { LenisProvider } from '@/providers/LenisProvider'
-import Header from '@/components/layout/Header'
-import Footer from '@/components/layout/Footer'
-import MobileBottomNav from '@/components/layout/MobileBottomNav'
+import RootLayoutClient from '@/components/layout/RootLayoutClient'
 import LoadingScreen from '@/components/LoadingScreen'
 
 const playfair = Playfair_Display({
@@ -70,10 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-6 focus:py-3 focus:bg-gold focus:text-dark focus:rounded-lg focus:outline-none">
                   Skip to main content
                 </a>
-                <Header />
-                <main id="main-content">{children}</main>
-                <Footer />
-                <MobileBottomNav />
+                <RootLayoutClient>{children}</RootLayoutClient>
                 <Toaster
                   position="top-right"
                   toastOptions={{

@@ -61,8 +61,14 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
+  async (error: AxiosError<{ message?: string; error?: string }>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    // Extract human-readable error message from API response
+    const serverMessage = error.response?.data?.message || error.response?.data?.error;
+    if (serverMessage) {
+      error.message = serverMessage;
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {

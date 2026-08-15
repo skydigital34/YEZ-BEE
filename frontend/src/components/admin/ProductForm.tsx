@@ -480,6 +480,11 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
 
     if (!name.trim()) errs.name = 'Product name is required';
     if (!selectedCategory) errs.category = 'Category selection is required';
+    if (currentCategoryConfig?.hasFeedingSplit) {
+      if (!productType || (productType !== 'FEEDING' && productType !== 'NON-FEEDING')) {
+        errs.productType = 'Feeding or Non-Feeding classification is required for this category';
+      }
+    }
     if (!price || Number(price) <= 0) errs.price = 'Selling price must be greater than 0';
     if (compareAtPrice && Number(compareAtPrice) < Number(price)) {
       errs.compareAtPrice = 'Compare-at price cannot be lower than selling price';
@@ -534,7 +539,9 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
       categorySlug: selectedCategory,
       categoryName: currentCategoryConfig?.name || selectedCategory.toUpperCase(),
       productType: currentCategoryConfig?.hasFeedingSplit ? productType : null,
-      subcategory: productType === 'FEEDING' ? 'Feeding' : 'General',
+      subcategory: currentCategoryConfig?.hasFeedingSplit
+        ? (productType === 'FEEDING' ? 'Feeding' : 'Non-Feeding')
+        : null,
       shortDescription,
       description: description || shortDescription,
       brand,
@@ -812,8 +819,13 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
                   const matched = categoriesList.find((c) => c.slug === catSlug);
                   if (matched) {
                     setSelectedCategoryId(matched._id || matched.id);
-                    if (matched.hasFeedingSplit) setProductType('FEEDING');
-                    else setProductType(null);
+                    if (matched.hasFeedingSplit) {
+                      setProductType((prev) => (prev === 'FEEDING' || prev === 'NON-FEEDING' ? prev : 'FEEDING'));
+                      setSubcategory((prev) => (prev === 'Non-Feeding' ? 'Non-Feeding' : 'Feeding'));
+                    } else {
+                      setProductType(null);
+                      setSubcategory('');
+                    }
                   }
                 }}
                 className="w-full px-4 py-2.5 text-xs font-semibold rounded-xl border border-gray-300 outline-none focus:border-[var(--color-primary-gold)] bg-white cursor-pointer"
@@ -835,7 +847,10 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
                 <div className="flex items-center gap-3 pt-0.5">
                   <button
                     type="button"
-                    onClick={() => setProductType('FEEDING')}
+                    onClick={() => {
+                      setProductType('FEEDING');
+                      setSubcategory('Feeding');
+                    }}
                     className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl border transition-all ${productType === 'FEEDING'
                         ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] shadow-sm'
                         : 'bg-white text-gray-700 border-gray-300 hover:border-black'
@@ -845,7 +860,10 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
                   </button>
                   <button
                     type="button"
-                    onClick={() => setProductType('NON-FEEDING')}
+                    onClick={() => {
+                      setProductType('NON-FEEDING');
+                      setSubcategory('Non-Feeding');
+                    }}
                     className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl border transition-all ${productType === 'NON-FEEDING'
                         ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] shadow-sm'
                         : 'bg-white text-gray-700 border-gray-300 hover:border-black'
@@ -854,6 +872,9 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
                     NON-FEEDING
                   </button>
                 </div>
+                {errors.productType && (
+                  <p className="text-[10px] text-rose-600 font-semibold mt-1">{errors.productType}</p>
+                )}
               </div>
             )}
           </div>
