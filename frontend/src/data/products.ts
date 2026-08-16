@@ -93,10 +93,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 950,
     discountPercentage: 24,
     currency: 'INR',
-    images: [
-      '/images/categories/maternity-kurtis.jpg',
-    ],
-    thumbnail: '/images/categories/maternity-kurtis.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Peach Floral', hex: '#FFDAB9' },
       { name: 'Navy Blue', hex: '#1B2A4A' },
@@ -157,8 +155,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 650,
     discountPercentage: 25,
     currency: 'INR',
-    images: ['/images/categories/non-maternity-kurtis-dresses.jpg'],
-    thumbnail: '/images/categories/non-maternity-kurtis-dresses.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Indigo Blue', hex: '#3F51B5' },
       { name: 'Mustard Yellow', hex: '#FFC107' },
@@ -217,8 +215,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 1100,
     discountPercentage: 23,
     currency: 'INR',
-    images: ['/images/categories/maternity-kurtis.jpg'],
-    thumbnail: '/images/categories/maternity-kurtis.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Maroon Gold', hex: '#800000' },
       { name: 'Teal Blue', hex: '#008080' },
@@ -277,8 +275,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 1700,
     discountPercentage: 30,
     currency: 'INR',
-    images: ['/images/luxury_featured_collection.jpg'],
-    thumbnail: '/images/luxury_featured_collection.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Royal Emerald', hex: '#004B23' },
       { name: 'Midnight Black', hex: '#0B090A' },
@@ -336,8 +334,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 2200,
     discountPercentage: 23,
     currency: 'INR',
-    images: ['/images/luxury_featured_collection.jpg'],
-    thumbnail: '/images/luxury_featured_collection.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Crimson Red', hex: '#990000' },
       { name: 'Royal Gold', hex: '#DAA520' },
@@ -392,8 +390,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 1700,
     discountPercentage: 26,
     currency: 'INR',
-    images: ['/images/categories/non-maternity-kurtis-dresses.jpg'],
-    thumbnail: '/images/categories/non-maternity-kurtis-dresses.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Maroon Gold', hex: '#800000' },
       { name: 'Teal Blue', hex: '#008080' },
@@ -449,8 +447,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 900,
     discountPercentage: 25,
     currency: 'INR',
-    images: ['/images/categories/maternity-feeding-loungewears.jpg'],
-    thumbnail: '/images/categories/maternity-feeding-loungewears.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Blush Pink', hex: '#FFB6C1' },
       { name: 'Lavender', hex: '#E6E6FA' },
@@ -508,8 +506,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 700,
     discountPercentage: 24,
     currency: 'INR',
-    images: ['/images/categories/loungewear.jpg'],
-    thumbnail: '/images/categories/loungewear.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Sage Green', hex: '#87A96B' },
       { name: 'Charcoal Grey', hex: '#36454F' },
@@ -568,8 +566,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 750,
     discountPercentage: 23,
     currency: 'INR',
-    images: ['/images/categories/maternity-kurtis.jpg'],
-    thumbnail: '/images/categories/maternity-kurtis.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Blush Pink', hex: '#FFB6C1' },
       { name: 'Navy Blue', hex: '#1B2A4A' },
@@ -628,8 +626,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 680,
     discountPercentage: 20,
     currency: 'INR',
-    images: ['/images/categories/non-maternity-kurtis-dresses.jpg'],
-    thumbnail: '/images/categories/non-maternity-kurtis-dresses.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Off White', hex: '#FAF9F6' },
       { name: 'Coral Pink', hex: '#FF6F61' },
@@ -688,8 +686,8 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 420,
     discountPercentage: 33,
     currency: 'INR',
-    images: ['/images/categories/kids-clothing.jpg'],
-    thumbnail: '/images/categories/kids-clothing.jpg',
+    images: [],
+    thumbnail: '',
     colors: [
       { name: 'Coral Pink', hex: '#FF6F61' },
       { name: 'Sunshine Yellow', hex: '#FFD700' },
@@ -799,15 +797,15 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = INITIAL_PRODUCTS;
 function sanitizeProductForStorage(p: CatalogProduct): CatalogProduct {
   const sanitizeUrl = (url: any) => {
     if (typeof url === 'string' && url.startsWith('data:image/') && url.length > 250000) {
-      return '/images/categories/maternity-kurtis.jpg';
+      return '';
     }
-    return url;
+    return typeof url === 'string' ? url : '';
   };
 
   return {
     ...p,
     thumbnail: sanitizeUrl(p.thumbnail),
-    images: Array.isArray(p.images) ? p.images.map(sanitizeUrl) : p.images,
+    images: Array.isArray(p.images) ? p.images.map(sanitizeUrl).filter(Boolean) : [],
   };
 }
 

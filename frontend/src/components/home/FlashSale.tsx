@@ -5,12 +5,16 @@ import { motion, useInView } from 'framer-motion';
 import { Zap, Clock } from 'lucide-react';
 import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
-import { CATALOG_PRODUCTS, CatalogProduct } from '@/data/products';
-import { getSafeProductImage } from '@/lib/utils';
+import { CatalogProduct } from '@/data/products';
+import { api } from '@/lib/api';
+import { getSafeProductImage, getSafeImageUrl } from '@/lib/utils';
+import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 
 export default function FlashSale() {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: '-60px' });
+  const [items, setItems] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // 24 Hour Countdown Timer
   const [timeLeft, setTimeLeft] = useState({ hours: 18, minutes: 42, seconds: 15 });
@@ -27,9 +31,74 @@ export default function FlashSale() {
     return () => clearInterval(timer);
   }, []);
 
-  const flashSaleProducts = useMemo(() => {
-    return CATALOG_PRODUCTS.filter((p) => p.discountPercentage > 0).slice(0, 4);
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    api.getProducts({ limit: 10 })
+      .then((res) => {
+        if (res && res.data && res.data.length > 0 && isMounted) {
+          const mapped = res.data
+            .map((p: any) => {
+              const rawImages = p.images?.map((i: any) => getSafeImageUrl(i)).filter((u: string) => Boolean(u && u.trim())) || [];
+              const thumbnail = getSafeImageUrl(p.thumbnail || rawImages[0], '');
+              const imagesList = rawImages.length > 0 ? rawImages : (thumbnail ? [thumbnail] : []);
+              const minPrice = p.price || (p.variants || []).reduce((min: number, v: any) => Math.min(min, v.price || Infinity), Infinity) || 0;
+              const maxCompare = p.compareAtPrice || (p.variants || []).reduce((max: number, v: any) => Math.max(max, v.compareAtPrice || 0), 0);
+              const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
+
+              return {
+                id: p._id || p.id,
+                name: p.name,
+                slug: p.slug,
+                description: p.description || '',
+                shortDescription: p.shortDescription || '',
+                price: minPrice,
+                compareAtPrice: maxCompare > minPrice ? maxCompare : undefined,
+                discountPercentage: discountPct,
+                category: p.category?.slug || 'casuals',
+                categoryName: p.category?.name || 'CASUALS',
+                productType: p.productType,
+                fabric: p.fabric || 'Cotton',
+                fit: p.fit || 'Regular',
+                pattern: p.pattern || 'Printed',
+                occasion: p.occasion || 'Casual',
+                careInstructions: p.careInstructions || [],
+                status: (p.status || 'published').toLowerCase(),
+                stock: (p.variants || []).reduce((acc: number, v: any) => acc + (v.stock || 0), 0),
+                sku: p.variants?.[0]?.sku || p._id,
+                thumbnail,
+                images: imagesList,
+                galleryImages: imagesList,
+                colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))).map(name => ({ name, hex: '#000000' })) as any : [],
+                sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) as any : [],
+                variants: p.variants || [],
+                featured: Boolean(p.featured),
+                bestseller: Boolean(p.bestSeller),
+                newArrival: Boolean(p.newArrival),
+                tags: p.tags || [],
+                seo: p.seo || { title: p.name, description: p.shortDescription },
+              } as unknown as CatalogProduct;
+            });
+
+          const discounted = mapped.filter((p) => p.discountPercentage > 0).slice(0, 4);
+          setItems(discounted.length > 0 ? discounted : mapped.slice(0, 4));
+        } else if (isMounted) {
+          setItems([]);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setItems([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const flashSaleProducts = items;
 
   return (
     <section className="py-20 sm:py-28 bg-[var(--color-dark)] text-white relative overflow-hidden">
@@ -65,35 +134,43 @@ export default function FlashSale() {
           </div>
         </div>
 
-        <div
-          ref={ref}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-        >
-          {flashSaleProducts.map((product, i) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 24 }}
-              animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-              transition={{ delay: i * 0.08, duration: 0.5, ease: 'easeOut' }}
-            >
-              <ProductCard
-                id={product.id}
-                name={product.name}
-                category={product.categoryName}
-                price={product.price}
-                comparePrice={product.compareAtPrice}
-                rating={String(product.rating)}
-                reviews={product.reviewCount}
-                image={getSafeProductImage(product, 0)}
-                hoverImage={getSafeProductImage(product, 1)}
-                colors={product.colors}
-                sizes={product.sizes}
-                discount={product.discountPercentage}
-                stock={product.stock}
-              />
-            </motion.div>
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((skel) => (
+              <ProductCardSkeleton key={skel} />
+            ))}
+          </div>
+        ) : (
+          <div
+            ref={ref}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          >
+            {flashSaleProducts.map((product, i) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 24 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+                transition={{ delay: i * 0.08, duration: 0.5, ease: 'easeOut' }}
+              >
+                <ProductCard
+                  id={product.id}
+                  name={product.name}
+                  category={product.categoryName}
+                  price={product.price}
+                  comparePrice={product.compareAtPrice}
+                  rating={String(product.rating)}
+                  reviews={product.reviewCount}
+                  image={getSafeProductImage(product, 0)}
+                  hoverImage={getSafeProductImage(product, 1)}
+                  colors={product.colors}
+                  sizes={product.sizes}
+                  discount={product.discountPercentage}
+                  stock={product.stock}
+                />
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-12 text-center">
           <Link

@@ -45,9 +45,9 @@ const orderData = {
     country: 'India',
   },
   items: [
-    { id: 1, name: 'Silk Evening Gown - Gold', sku: 'YEB-SEG-001-GD-M', price: 42500, quantity: 1, image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=400&auto=format&fit=crop' },
-    { id: 2, name: 'Statement Necklace - Pearl', sku: 'YEB-SN-010-PL', price: 12500, quantity: 1, image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=400&auto=format&fit=crop' },
-    { id: 3, name: 'Embellished Heels - Nude', sku: 'YEB-EH-012-ND-7', price: 18500, quantity: 1, image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=400&auto=format&fit=crop' },
+    { id: 1, name: 'Silk Evening Gown - Gold', sku: 'YEB-SEG-001-GD-M', price: 42500, quantity: 1, image: '/images/maternity/slide3.jpg' },
+    { id: 2, name: 'Statement Necklace - Pearl', sku: 'YEB-SN-010-PL', price: 12500, quantity: 1, image: '/images/haute_accessories.jpg' },
+    { id: 3, name: 'Embellished Heels - Nude', sku: 'YEB-EH-012-ND-7', price: 18500, quantity: 1, image: '/images/western_chic.jpg' },
   ],
   timeline: [
     { action: 'Order Placed', timestamp: '2026-07-30T14:23:00', user: 'Priya Sharma', note: '' },

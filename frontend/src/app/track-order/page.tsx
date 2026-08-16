@@ -30,12 +30,12 @@ const MOCK_ORDER = {
   trackingNumber: 'BD-987654321IN',
   status: 'In Transit - On schedule for doorstep delivery',
   item: {
-    name: 'Embroidered Royal Zardozi Silk Gown',
+    name: 'Cotton Casual Feeding Kurti',
     size: 'M',
-    color: 'Royal Gold',
+    color: 'Peach Floral',
     quantity: 1,
-    price: 18999,
-    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=800&auto=format&fit=crop',
+    price: 1899,
+    image: '/images/categories/maternity-kurtis.jpg',
   },
   shippingAddress: {
     name: 'Priya Sharma',

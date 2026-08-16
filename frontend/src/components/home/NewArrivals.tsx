@@ -10,14 +10,18 @@ import { CATALOG_PRODUCTS, CatalogProduct } from '@/data/products';
 import { api } from '@/lib/api';
 import { getSafeProductImage, getSafeImageUrl } from '@/lib/utils';
 
+import { ProductCardSkeleton } from '@/components/ui/Skeleton';
+
 export default function NewArrivals() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [items, setItems] = useState<CatalogProduct[]>(CATALOG_PRODUCTS);
+  const [items, setItems] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: '-60px' });
 
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
     api.getProducts({ isNew: true, limit: 12 })
       .then((res) => {
         if (res && res.data && res.data.length > 0 && isMounted) {
@@ -60,9 +64,16 @@ export default function NewArrivals() {
             } as unknown as CatalogProduct;
           });
           setItems(mapped);
+        } else if (isMounted) {
+          setItems([]);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isMounted) setItems([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
 
     return () => {
       isMounted = false;
@@ -117,35 +128,43 @@ export default function NewArrivals() {
           </div>
         </div>
 
-        <div
-          ref={ref}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {filteredProducts.slice(0, 6).map((product, i) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 24 }}
-              animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-              transition={{ delay: i * 0.08, duration: 0.5, ease: 'easeOut' }}
-            >
-              <ProductCard
-                id={product.id}
-                name={product.name}
-                category={product.categoryName}
-                price={product.price}
-                comparePrice={product.compareAtPrice}
-                rating={String(product.rating)}
-                reviews={product.reviewCount}
-                image={getSafeProductImage(product, 0)}
-                hoverImage={getSafeProductImage(product, 1)}
-                colors={product.colors}
-                sizes={product.sizes}
-                discount={product.discountPercentage}
-                stock={product.stock}
-              />
-            </motion.div>
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((skel) => (
+              <ProductCardSkeleton key={skel} />
+            ))}
+          </div>
+        ) : (
+          <div
+            ref={ref}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            {filteredProducts.slice(0, 6).map((product, i) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 24 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+                transition={{ delay: i * 0.08, duration: 0.5, ease: 'easeOut' }}
+              >
+                <ProductCard
+                  id={product.id}
+                  name={product.name}
+                  category={product.categoryName}
+                  price={product.price}
+                  comparePrice={product.compareAtPrice}
+                  rating={String(product.rating)}
+                  reviews={product.reviewCount}
+                  image={getSafeProductImage(product, 0)}
+                  hoverImage={getSafeProductImage(product, 1)}
+                  colors={product.colors}
+                  sizes={product.sizes}
+                  discount={product.discountPercentage}
+                  stock={product.stock}
+                />
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-12 text-center">
           <Link

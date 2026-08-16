@@ -11,28 +11,28 @@ const TRENDS = [
     title: 'Peplum Tops & Waist Tunics',
     description: 'Sculpted silhouettes redefining modern casual glam',
     slug: '/category/peplum-tops',
-    image: 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/western_chic.jpg',
   },
   {
     id: 2,
     title: 'Casuals & Feeding Edit',
     description: 'Effortlessly fluid matching ensembles with hidden nursing zips',
     slug: '/category/casuals/feeding',
-    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/categories/maternity-kurtis.jpg',
   },
   {
     id: 3,
     title: 'Party Wear & Festive Gowns',
     description: 'Sharp tailoring & gold embellishments for celebrations',
     slug: '/category/party-wear',
-    image: 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/maternity/slide3.jpg',
   },
   {
     id: 4,
     title: 'Hand-Woven Ethnic Sarees',
     description: 'Ethereal sheer drapes embellished with gold zari motifs',
     slug: '/category/ethnic-wear',
-    image: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/ethnic_luxe.jpg',
   },
 ];
 

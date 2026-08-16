@@ -238,23 +238,15 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
             } as unknown as CatalogProduct;
           });
 
-          const typeFilter = selectedProductType !== 'all' ? selectedProductType : undefined;
           const deletedIds = getDeletedProductIds();
-          const localProds = getProductsByCategory(slug, typeFilter);
-          const combined = mapped.filter((p: any) => p.status === 'published' && !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
-
-          for (const lp of localProds) {
-            if (!deletedIds.includes(lp.id) && !deletedIds.includes(lp.slug) && !combined.some((p) => p.id === lp.id || p.slug === lp.slug)) {
-              combined.unshift(lp);
-            }
-          }
-
-          setDbProducts(combined);
+          const livePublished = mapped.filter((p: any) => p.status === 'published' && !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
+          setDbProducts(livePublished);
+        } else if (isMounted) {
+          setDbProducts([]);
         }
       } catch (err) {
-        console.warn('Backend API connection warning, using fallback category data:', err);
-        const typeFilter = selectedProductType !== 'all' ? selectedProductType : undefined;
-        setDbProducts(getProductsByCategory(slug, typeFilter));
+        console.warn('Backend API connection warning:', err);
+        if (isMounted) setDbProducts([]);
       } finally {
         if (isMounted) setLoading(false);
       }

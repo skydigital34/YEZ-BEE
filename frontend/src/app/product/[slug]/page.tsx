@@ -147,16 +147,49 @@ function GalleryMobileThumbnailItem({
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const slug = (params.slug as string) || 'floral-anarkali-maternity-feeding-kurti';
+  const slug = (params.slug as string) || '';
 
   const [dbProduct, setDbProduct] = useState<CatalogProduct | null>(null);
+  const [relatedItems, setRelatedItems] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
-  // Fetch product from MongoDB Atlas Backend API
+  // Active gallery image & image loading state
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [mainImageLoaded, setMainImageLoaded] = useState(false);
+  const [mainImageError, setMainImageError] = useState(false);
+
+  // Color & Size State
+  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedSize, setSelectedSize] = useState<string>('');
+  const [sizeError, setSizeError] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [showSizeChart, setShowSizeChart] = useState(false);
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+  const [added, setAdded] = useState(false);
+
+  // Fetch product from MongoDB Backend API with strict lifecycle reset
   useEffect(() => {
     let isMounted = true;
+    
+    // Immediately reset all product and image states on slug change
+    setDbProduct(null);
+    setActiveImageIndex(0);
+    setMainImageLoaded(false);
+    setMainImageError(false);
+    setSelectedColor('');
+    setSelectedSize('');
+    setQuantity(1);
+    setNotFound(false);
+    setLoading(true);
+
+    if (!slug) {
+      setLoading(false);
+      setNotFound(true);
+      return;
+    }
+
     const fetchProduct = async () => {
-      setLoading(true);
       try {
         const res = await api.getProduct(slug);
         if (res && res.data && isMounted) {
@@ -172,24 +205,16 @@ export default function ProductDetailPage() {
 
           let cleanImages = rawImages
             .map((img: any) => getSafeImageUrl(img, ''))
-            .filter((u: string) => {
-              if (!u || !u.trim()) return false;
-              if (u.includes('slide1.jpg') || u.includes('slide2.jpg') || u.includes('slide3.jpg')) {
-                return false;
-              }
-              return true;
-            });
+            .filter((u: string) => Boolean(u && u.trim()));
 
           cleanImages = Array.from(new Set(cleanImages));
 
-          if (cleanImages.length === 0) {
+          if (cleanImages.length === 0 && p.thumbnail) {
             const thumbUrl = getSafeImageUrl(p.thumbnail, '');
-            if (thumbUrl && !thumbUrl.includes('slide1') && !thumbUrl.includes('slide2') && !thumbUrl.includes('slide3')) {
+            if (thumbUrl) {
               cleanImages.push(thumbUrl);
             }
           }
-
-          const imageList = cleanImages;
 
           const mapped = {
             id: p._id || p.id,
@@ -212,9 +237,9 @@ export default function ProductDetailPage() {
               : (p.careInstructions || 'Machine wash cold with gentle detergent.'),
             status: (p.status || 'published').toLowerCase() as any,
             stock: totalStock,
-            thumbnail: getSafeImageUrl(p.images?.[0] || p.thumbnail) || imageList[0],
-            images: imageList,
-            galleryImages: imageList,
+            thumbnail: cleanImages[0] || getSafeImageUrl(p.thumbnail, '') || '',
+            images: cleanImages,
+            galleryImages: cleanImages,
             colors: p.variants && p.variants.length > 0
               ? Array.from(new Set(p.variants.map((v: any) => v.color))).map((name: any) => ({
                   name: name || 'Standard',
@@ -241,11 +266,40 @@ export default function ProductDetailPage() {
           } as unknown as CatalogProduct;
 
           setDbProduct(mapped);
+
+          // Fetch real related products in the same category
+          api.getProducts({ category: mapped.category, limit: 5 })
+            .then((relRes) => {
+              if (relRes && relRes.data && isMounted) {
+                const filtered = relRes.data
+                  .filter((rp: any) => (rp._id || rp.id) !== mapped.id && rp.slug !== mapped.slug)
+                  .slice(0, 4)
+                  .map((rp: any) => {
+                    const rawImgs = Array.isArray(rp.images) ? rp.images.map((i: any) => getSafeImageUrl(i, '')).filter(Boolean) : [];
+                    const thumb = getSafeImageUrl(rp.thumbnail || rawImgs[0], '');
+                    return {
+                      id: rp._id || rp.id,
+                      name: rp.name,
+                      categoryName: rp.category?.name || rp.subcategory || 'CASUALS',
+                      price: rp.price || 0,
+                      compareAtPrice: rp.compareAtPrice,
+                      rating: rp.ratings?.average || rp.rating || 4.8,
+                      reviewCount: rp.ratings?.count || rp.reviewCount || 0,
+                      thumbnail: thumb,
+                      images: rawImgs.length > 0 ? rawImgs : (thumb ? [thumb] : []),
+                      sizes: rp.variants ? Array.from(new Set(rp.variants.map((v: any) => v.size))) : ['S', 'M', 'L'],
+                    } as unknown as CatalogProduct;
+                  });
+                setRelatedItems(filtered);
+              }
+            })
+            .catch(() => {});
+        } else if (isMounted) {
+          setNotFound(true);
         }
       } catch (err) {
-        console.warn('API getProduct error, using fallback product:', err);
-        const fallback = getProductBySlug(slug) || CATALOG_PRODUCTS[0];
-        setDbProduct(fallback);
+        console.warn('API getProduct error:', err);
+        if (isMounted) setNotFound(true);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -257,26 +311,21 @@ export default function ProductDetailPage() {
     };
   }, [slug]);
 
-  // Active product reference
-  const product: CatalogProduct = useMemo(() => {
-    return dbProduct || getProductBySlug(slug) || CATALOG_PRODUCTS[0];
-  }, [dbProduct, slug]);
+  // Active product reference — STRICT: only real dbProduct or null
+  const product: CatalogProduct | null = dbProduct;
 
-  // Color & Size State
-  const [selectedColor, setSelectedColor] = useState<string>('');
-  const [selectedSize, setSelectedSize] = useState<string>('');
-  const [sizeError, setSizeError] = useState(false);
-  const [quantity, setQuantity] = useState(1);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [mainImageError, setMainImageError] = useState(false);
-  const [showSizeChart, setShowSizeChart] = useState(false);
-  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
-  const [added, setAdded] = useState(false);
-
-  // Reset main image error state on active image or product change
+  // Reset main image loaded & error state on active image or product change
   useEffect(() => {
+    setMainImageLoaded(false);
     setMainImageError(false);
-  }, [activeImageIndex, product]);
+  }, [activeImageIndex, product?.id]);
+
+  // Sync color selection when product loads
+  useEffect(() => {
+    if (product && product.colors && product.colors.length > 0 && !selectedColor) {
+      setSelectedColor(typeof product.colors[0] === 'string' ? product.colors[0] : product.colors[0]?.name || '');
+    }
+  }, [product, selectedColor]);
 
   // Sync color selection when product loads
   useEffect(() => {
@@ -310,16 +359,81 @@ export default function ProductDetailPage() {
 
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+
+  // Full-page luxury neutral skeleton when loading / switching products
+  if (loading || !product) {
+    if (!loading && notFound) {
+      return (
+        <div className="min-h-screen bg-[var(--color-warm-white)] flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-[var(--color-champagne)]/30 flex items-center justify-center text-[var(--color-primary-gold)] mb-4">
+            <Package size={32} />
+          </div>
+          <h1 className="font-display text-2xl font-bold text-[var(--color-dark)] mb-2">Product Not Found</h1>
+          <p className="text-sm text-gray-500 max-w-md mb-6">
+            The item you are searching for might have been moved, renamed, or is currently unavailable in our catalog.
+          </p>
+          <Link
+            href="/category/all"
+            className="px-8 py-3.5 bg-[var(--color-primary-gold)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[var(--color-gold-light)] transition-all font-semibold shadow-gold-sm"
+          >
+            Browse All Collections
+          </Link>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-[var(--color-warm-white)] pb-24 lg:pb-16 animate-pulse">
+        {/* Contextual Breadcrumb Skeleton */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+          <div className="h-4 w-56 bg-gray-200/80 rounded-md" />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+            {/* Gallery Skeleton */}
+            <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
+              <div className="hidden md:flex flex-col gap-3 shrink-0 w-20">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="aspect-[3/4] w-20 rounded-xl bg-gray-200/70" />
+                ))}
+              </div>
+              <div className="relative flex-1 aspect-[3/4] rounded-3xl bg-[#F7F4EE] border border-[var(--color-champagne)]/60 flex items-center justify-center">
+                <ImageIcon size={48} className="opacity-20 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Info Card Skeleton */}
+            <div className="lg:col-span-5 flex flex-col gap-6 bg-white p-6 sm:p-8 rounded-3xl border border-[var(--color-champagne)]/70 shadow-soft-sm">
+              <div className="space-y-2">
+                <div className="h-3 w-28 bg-gray-200 rounded" />
+                <div className="h-8 w-3/4 bg-gray-200 rounded" />
+                <div className="h-4 w-40 bg-gray-200 rounded mt-2" />
+              </div>
+              <div className="h-20 bg-gray-100/80 rounded-2xl" />
+              <div className="h-12 bg-gray-100/80 rounded-xl" />
+              <div className="h-14 bg-gray-200/80 rounded-2xl" />
+              <div className="space-y-3 mt-4">
+                <div className="h-10 bg-gray-50 rounded-xl" />
+                <div className="h-10 bg-gray-50 rounded-xl" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const isWishlisted = isInWishlist(product.id);
 
   // ── Color-dependent Size Availability ────────────────────────────────────
   const availableVariantsForColor = useMemo(() => {
-    return product.variants.filter((v) => v.color === selectedColor);
+    return (product.variants || []).filter((v) => v.color === selectedColor);
   }, [product.variants, selectedColor]);
 
   // Derive size options for selected color
   const sizeAvailability = useMemo(() => {
-    return product.sizes.map((sizeName) => {
+    return (product.sizes || []).map((sizeName) => {
       const variant = availableVariantsForColor.find((v) => v.size === sizeName);
       const stock = variant ? variant.stock : 0;
       return {
@@ -341,7 +455,7 @@ export default function ProductDetailPage() {
   // Handle color change (resets invalid size)
   const handleColorChange = (colorName: string) => {
     setSelectedColor(colorName);
-    const newColorVariants = product.variants.filter((v) => v.color === colorName);
+    const newColorVariants = (product.variants || []).filter((v) => v.color === colorName);
     const newVariant = newColorVariants.find((v) => v.size === selectedSize);
     if (!newVariant || newVariant.stock === 0) {
       setSelectedSize('');
@@ -426,10 +540,7 @@ export default function ProductDetailPage() {
     setOpenAccordions((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Related products in category
-  const relatedProducts = useMemo(() => {
-    return CATALOG_PRODUCTS.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
-  }, [product]);
+  const mainImageUrl = getSafeImageUrl(product.images?.[activeImageIndex] || product.thumbnail, '');
 
   return (
     <div className="min-h-screen bg-[var(--color-warm-white)] pb-24 lg:pb-16">
@@ -463,28 +574,47 @@ export default function ProductDetailPage() {
           <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4 sticky top-24">
 
             {/* Vertical Thumbnail Rail (Desktop Left) */}
-            <div className="hidden md:flex flex-col gap-3 shrink-0 w-20">
-              {product.images.map((img, index) => (
-                <GalleryThumbnailItem
-                  key={index}
-                  imgUrl={img}
-                  index={index}
-                  isActive={activeImageIndex === index}
-                  onClick={() => setActiveImageIndex(index)}
-                />
-              ))}
-            </div>
+            {product.images.length > 1 && (
+              <div className="hidden md:flex flex-col gap-3 shrink-0 w-20">
+                {product.images.map((img, index) => (
+                  <GalleryThumbnailItem
+                    key={index}
+                    imgUrl={img}
+                    index={index}
+                    isActive={activeImageIndex === index}
+                    onClick={() => {
+                      setActiveImageIndex(index);
+                      setMainImageLoaded(false);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Dominant Primary Image Frame */}
-            <div className="relative flex-1 aspect-[3/4] rounded-3xl overflow-hidden bg-white shadow-soft-lg border border-[var(--color-champagne)]/60 group flex items-center justify-center">
-              {getSafeImageUrl(product.images[activeImageIndex] || product.thumbnail) && !mainImageError ? (
+            <div className="relative flex-1 aspect-[3/4] rounded-3xl overflow-hidden bg-[#F7F4EE] shadow-soft-lg border border-[var(--color-champagne)]/60 group flex items-center justify-center">
+              {/* Neutral Skeleton (visible while real image is loading) */}
+              {!mainImageLoaded && mainImageUrl && !mainImageError && (
+                <div
+                  className="absolute inset-0 z-0 bg-[#F7F4EE] animate-pulse"
+                  style={{
+                    background: 'linear-gradient(90deg, #F7F4EE 0%, #EDE8DE 50%, #F7F4EE 100%)',
+                    backgroundSize: '200% 100%',
+                  }}
+                />
+              )}
+
+              {mainImageUrl && !mainImageError ? (
                 <Image
-                  src={getSafeImageUrl(product.images[activeImageIndex] || product.thumbnail)}
+                  src={mainImageUrl}
                   alt={`${product.name} - View ${activeImageIndex + 1}`}
                   fill
                   priority
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                  className={`object-cover object-center transition-all duration-500 group-hover:scale-105 ${
+                    mainImageLoaded ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  onLoad={() => setMainImageLoaded(true)}
                   onError={() => setMainImageError(true)}
                 />
               ) : (
@@ -514,32 +644,42 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Fullscreen Expand Trigger */}
-              <button
-                onClick={() => setShowFullscreenModal(true)}
-                className="absolute top-4 right-4 z-10 p-2.5 rounded-full bg-white/80 backdrop-blur-md text-[var(--color-dark)] hover:bg-[var(--color-primary-gold)] transition-colors shadow-sm"
-                aria-label="View Fullscreen"
-                title="Fullscreen"
-              >
-                <Maximize2 size={16} />
-              </button>
+              {mainImageUrl && !mainImageError && (
+                <button
+                  onClick={() => setShowFullscreenModal(true)}
+                  className="absolute top-4 right-4 z-10 p-2.5 rounded-full bg-white/80 backdrop-blur-md text-[var(--color-dark)] hover:bg-[var(--color-primary-gold)] transition-colors shadow-sm"
+                  aria-label="View Fullscreen"
+                  title="Fullscreen"
+                >
+                  <Maximize2 size={16} />
+                </button>
+              )}
 
               {/* Image Counter Badge (Bottom Right) */}
-              <div className="absolute bottom-4 right-4 z-10 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-mono font-bold">
-                0{activeImageIndex + 1} / 0{product.images.length}
-              </div>
+              {product.images.length > 1 && (
+                <div className="absolute bottom-4 right-4 z-10 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-mono font-bold">
+                  0{activeImageIndex + 1} / 0{product.images.length}
+                </div>
+              )}
 
               {/* Next / Prev Controls */}
               {product.images.length > 1 && (
                 <>
                   <button
-                    onClick={() => setActiveImageIndex((prev) => (prev === 0 ? product.images.length - 1 : prev - 1))}
+                    onClick={() => {
+                      setActiveImageIndex((prev) => (prev === 0 ? product.images.length - 1 : prev - 1));
+                      setMainImageLoaded(false);
+                    }}
                     className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-[var(--color-dark)] hover:bg-[var(--color-primary-gold)] transition-colors shadow-sm opacity-0 group-hover:opacity-100"
                     aria-label="Previous photo"
                   >
                     <ChevronLeft size={20} />
                   </button>
                   <button
-                    onClick={() => setActiveImageIndex((prev) => (prev === product.images.length - 1 ? 0 : prev + 1))}
+                    onClick={() => {
+                      setActiveImageIndex((prev) => (prev === product.images.length - 1 ? 0 : prev + 1));
+                      setMainImageLoaded(false);
+                    }}
                     className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-[var(--color-dark)] hover:bg-[var(--color-primary-gold)] transition-colors shadow-sm opacity-0 group-hover:opacity-100"
                     aria-label="Next photo"
                   >
@@ -550,17 +690,22 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Horizontal Mobile Thumbnail Carousel */}
-            <div className="flex md:hidden gap-2 overflow-x-auto pb-2">
-              {product.images.map((img, index) => (
-                <GalleryMobileThumbnailItem
-                  key={index}
-                  imgUrl={img}
-                  index={index}
-                  isActive={activeImageIndex === index}
-                  onClick={() => setActiveImageIndex(index)}
-                />
-              ))}
-            </div>
+            {product.images.length > 1 && (
+              <div className="flex md:hidden gap-2 overflow-x-auto pb-2">
+                {product.images.map((img, index) => (
+                  <GalleryMobileThumbnailItem
+                    key={index}
+                    imgUrl={img}
+                    index={index}
+                    isActive={activeImageIndex === index}
+                    onClick={() => {
+                      setActiveImageIndex(index);
+                      setMainImageLoaded(false);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
 
           </div>
 
@@ -1065,13 +1210,13 @@ export default function ProductDetailPage() {
       </div>
 
       {/* ── YOU MAY ALSO LIKE (RECOMMENDATIONS) ── */}
-      {relatedProducts.length > 0 && (
+      {relatedItems.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <h2 className="font-display text-2xl font-bold text-[var(--color-dark)] mb-6">
             You May Also Like in {product.categoryName}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {relatedProducts.map((p) => (
+            {relatedItems.map((p) => (
               <ProductCard
                 key={p.id}
                 id={p.id}
@@ -1168,12 +1313,14 @@ export default function ProductDetailPage() {
               className="fixed inset-4 z-50 flex items-center justify-center pointer-events-none"
             >
               <div className="relative w-full max-w-4xl h-full max-h-[90vh] pointer-events-auto flex items-center justify-center">
-                <Image
-                  src={getSafeImageUrl(product.images[activeImageIndex] || product.thumbnail)}
-                  alt={product.name}
-                  fill
-                  className="object-contain"
-                />
+                {mainImageUrl ? (
+                  <Image
+                    src={mainImageUrl}
+                    alt={product.name}
+                    fill
+                    className="object-contain"
+                  />
+                ) : null}
                 <button
                   onClick={() => setShowFullscreenModal(false)}
                   className="absolute top-4 right-4 p-3 rounded-full bg-white/20 text-white hover:bg-white hover:text-black transition-colors"

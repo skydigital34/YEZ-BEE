@@ -160,14 +160,8 @@ export default function AdminProductsPage() {
         });
 
         const deletedIds = getDeletedProductIds();
-        const localProds = getAllProducts();
-        const combinedProducts = mappedProducts.filter((p: any) => !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
-        for (const lp of localProds) {
-          if (!deletedIds.includes(lp.id) && !deletedIds.includes(lp.slug) && !combinedProducts.some((p) => p.id === lp.id || p.slug === lp.slug)) {
-            combinedProducts.unshift(lp);
-          }
-        }
-        setProducts(combinedProducts);
+        const liveProducts = mappedProducts.filter((p: any) => !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
+        setProducts(liveProducts);
       }
 
       // 2. Fetch live database stats
@@ -176,8 +170,8 @@ export default function AdminProductsPage() {
         setDbStats(statsRes.data);
       }
     } catch (err: any) {
-      console.warn('Backend API sync offline, loading local catalog:', err);
-      setProducts(getAllProducts());
+      console.warn('Backend API sync offline:', err);
+      setProducts([]);
     } finally {
       setLoading(false);
     }

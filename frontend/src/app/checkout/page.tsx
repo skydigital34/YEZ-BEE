@@ -320,20 +320,28 @@ export default function CheckoutPage() {
               </h3>
 
               <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                {(items.length > 0 ? items : [
-                  { id: 'm1', name: 'Embroidered Royal Zardozi Silk Gown', price: 18999, quantity: 1, image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=400&auto=format&fit=crop' }
-                ]).map((item) => (
-                  <div key={item.id} className="flex gap-3 items-center">
-                    <div className="relative aspect-[3/4] w-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      <Image src={item.image} alt={item.name} fill sizes="60px" className="object-cover" />
+                {items.length === 0 ? (
+                  <p className="text-xs text-gray-500 py-4 text-center">Your bag is empty.</p>
+                ) : (
+                  items.map((item) => (
+                    <div key={item.id} className="flex gap-3 items-center">
+                      <div className="relative aspect-[3/4] w-12 rounded-lg overflow-hidden bg-[#F7F4EE] flex-shrink-0">
+                        {item.image ? (
+                          <Image src={item.image} alt={item.name} fill sizes="60px" className="object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-[8px] font-bold uppercase">
+                            YEZ BEE
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-[var(--color-dark)] line-clamp-1">{item.name}</p>
+                        <p className="text-[11px] text-gray-400">Qty: {item.quantity}</p>
+                      </div>
+                      <span className="text-xs font-bold text-[var(--color-dark)]">₹{(item.price * item.quantity).toLocaleString()}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-[var(--color-dark)] line-clamp-1">{item.name}</p>
-                      <p className="text-[11px] text-gray-400">Qty: {item.quantity}</p>
-                    </div>
-                    <span className="text-xs font-bold text-[var(--color-dark)]">₹{(item.price * item.quantity).toLocaleString()}</span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               <div className="pt-4 border-t border-[var(--color-champagne)] space-y-2 text-xs font-semibold text-gray-600">

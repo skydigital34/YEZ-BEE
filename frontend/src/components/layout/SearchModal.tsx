@@ -33,28 +33,28 @@ const RECENT_SEARCHES = [
 
 const POPULAR_PRODUCTS = [
   {
-    name: 'Embroidered Royal Zardozi Silk Gown',
-    price: '₹18,999',
-    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=400&auto=format&fit=crop',
-    href: '/product/1',
+    name: 'Floral Cotton Casual Kurti',
+    price: '₹1,899',
+    image: '/images/categories/maternity-kurtis.jpg',
+    href: '/category/casuals',
   },
   {
-    name: 'Midnight Sequin Evening Gown',
-    price: '₹14,499',
-    image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?q=80&w=400&auto=format&fit=crop',
-    href: '/product/2',
+    name: 'Festive Gown & Party Wear',
+    price: '₹2,499',
+    image: '/images/maternity/slide3.jpg',
+    href: '/category/party-wear',
   },
   {
-    name: 'Banarasi Hand-woven Silk Saree',
-    price: '₹16,999',
-    image: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?q=80&w=400&auto=format&fit=crop',
-    href: '/product/3',
+    name: 'Ethnic Wear Kurti Set',
+    price: '₹2,199',
+    image: '/images/ethnic_luxe.jpg',
+    href: '/category/ethnic-wear',
   },
   {
-    name: 'Structured Champagne Satin Blazer',
-    price: '₹9,999',
-    image: 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=400&auto=format&fit=crop',
-    href: '/product/4',
+    name: 'Peplum Tops & Tunics',
+    price: '₹1,499',
+    image: '/images/western_chic.jpg',
+    href: '/category/peplum-tops',
   },
 ];
 

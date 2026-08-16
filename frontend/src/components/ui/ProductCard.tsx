@@ -59,6 +59,7 @@ export default function ProductCard({
   const [isHovered, setIsHovered] = useState(false);
   const [selectedColor, setSelectedColor] = useState(0);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
   const { addToCart } = useCart();
@@ -70,7 +71,7 @@ export default function ProductCard({
   const primaryImage = getSafeImageUrl(
     image || thumbnail || (Array.isArray(images) ? images[0] : images) || rest.galleryImages?.[0] || ''
   );
-  const secondaryImage = hoverImage ? getSafeImageUrl(hoverImage, '') : primaryImage;
+  const secondaryImage = hoverImage ? getSafeImageUrl(hoverImage, '') : '';
 
   const isWishlisted = isInWishlist(id);
   const numRating = typeof rating === 'string' ? parseFloat(rating) : rating;
@@ -80,6 +81,7 @@ export default function ProductCard({
   const displayImage = imgError ? '' : rawImage;
 
   useEffect(() => {
+    setImgLoaded(false);
     setImgError(false);
   }, [rawImage]);
 
@@ -118,23 +120,38 @@ export default function ProductCard({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Image Container with 3:4 Luxury Portrait Aspect Ratio */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--color-warm-white)]">
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#F7F4EE]">
         <Link href={`/product/${id}`} className="relative block h-full w-full">
+          {/* Neutral Skeleton Shimmer while image loads */}
+          {displayImage && !imgLoaded && (
+            <div
+              className="absolute inset-0 z-0 bg-[#F7F4EE] animate-pulse"
+              style={{
+                background: 'linear-gradient(90deg, #F7F4EE 0%, #EDE8DE 50%, #F7F4EE 100%)',
+                backgroundSize: '200% 100%',
+              }}
+            />
+          )}
+
           {displayImage ? (
             <Image
               src={displayImage}
               alt={name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+              className={cn(
+                'object-cover object-center transition-all duration-500 ease-out group-hover:scale-105',
+                imgLoaded ? 'opacity-100' : 'opacity-0'
+              )}
               loading="lazy"
               unoptimized={displayImage.startsWith('blob:') || displayImage.startsWith('data:')}
+              onLoad={() => setImgLoaded(true)}
               onError={() => setImgError(true)}
             />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100/80 text-gray-400 gap-1.5 p-4 text-center">
-              <ImageIcon size={30} className="opacity-40" />
-              <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">No Image</span>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#F7F4EE] text-gray-400 gap-1.5 p-4 text-center select-none">
+              <ImageIcon size={30} className="opacity-35 text-gray-500" />
+              <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400/80">No Image</span>
             </div>
           )}
         </Link>

@@ -149,7 +149,8 @@ export function getSafeImageUrl(
   if (
     trimmed === 'undefined' ||
     trimmed === 'null' ||
-    trimmed === '[object Object]'
+    trimmed === '[object Object]' ||
+    trimmed === 'none'
   ) {
     return fallback;
   }
@@ -198,17 +199,17 @@ export function getSafeProductImage(
       : [];
 
     if (imagesArray.length > index && imagesArray[index]) {
-      const candidate = getSafeImageUrl(imagesArray[index], fallback);
+      const candidate = getSafeImageUrl(imagesArray[index], '');
       if (candidate) return candidate;
     }
 
     if (input.thumbnail) {
-      const candidate = getSafeImageUrl(input.thumbnail, fallback);
+      const candidate = getSafeImageUrl(input.thumbnail, '');
       if (candidate) return candidate;
     }
 
     if (imagesArray.length > 0 && imagesArray[0]) {
-      const candidate = getSafeImageUrl(imagesArray[0], fallback);
+      const candidate = getSafeImageUrl(imagesArray[0], '');
       if (candidate) return candidate;
     }
 
@@ -218,11 +219,11 @@ export function getSafeProductImage(
   // Case 2: Input is an Array
   if (Array.isArray(input)) {
     if (input.length > index && input[index]) {
-      const candidate = getSafeImageUrl(input[index], fallback);
+      const candidate = getSafeImageUrl(input[index], '');
       if (candidate) return candidate;
     }
     if (input.length > 0 && input[0]) {
-      const candidate = getSafeImageUrl(input[0], fallback);
+      const candidate = getSafeImageUrl(input[0], '');
       if (candidate) return candidate;
     }
     return fallback;

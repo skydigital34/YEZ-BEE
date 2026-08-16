@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useMemo, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag, Sparkles, Filter, ChevronRight, Clock, Percent } from 'lucide-react';
 import ProductCard from '@/components/ui/ProductCard';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
+import { api } from '@/lib/api';
+import { getSafeImageUrl } from '@/lib/utils';
+import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 
 const ALL_SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL'] as const;
 
@@ -15,54 +18,64 @@ const SALE_TARGET_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000);
 const SALE_CATEGORIES = [
   { id: 'all', label: 'All Sale' },
   { id: '50-off', label: 'Flat 50% OFF' },
-  { id: 'under-10k', label: 'Under ₹10,000' },
-  { id: 'clearance', label: 'Last Chance Clearance' },
+  { id: 'under-10k', label: 'Under ₹2,000' },
+  { id: 'clearance', label: 'Clearance' },
 ];
-
-const MOCK_SALE_PRODUCTS = Array.from({ length: 16 }, (_, i) => {
-  const images = [
-    '/images/flash_sale.jpg',
-    '/images/ethnic_luxe.jpg',
-    '/images/western_chic.jpg',
-    '/images/luxury_featured_collection.jpg',
-    '/images/haute_accessories.jpg',
-  ];
-
-  const originalPrice = 12999 + i * 1500;
-  const discountPercent = i % 2 === 0 ? 50 : 35;
-  const salePrice = Math.round(originalPrice * (1 - discountPercent / 100));
-  const savings = originalPrice - salePrice;
-
-  const sizeVariants = [
-    ['S', 'M', 'L', 'XL'],
-    ['M', 'L', 'XL', '2XL'],
-    ['S', 'M', 'XL', '3XL'],
-    ['M', 'L', '2XL'],
-  ][i % 4];
-
-  return {
-    id: `sale-prod-${i + 1}`,
-    name: `Luxe ${['Royal Zardozi Lehenga', 'Silk Evening Gown', 'Structured Satin Blazer', 'Handwoven Banarasi Saree', 'Embellished Corset Set', 'Pure Silk Anarkali'][i % 6]}`,
-    category: ['Ethnic Luxe', 'Haute Couture', 'Western Chic', 'Jewellery & Bags'][i % 4],
-    price: salePrice,
-    comparePrice: originalPrice,
-    discount: discountPercent,
-    savings,
-    rating: (4.7 + (i % 3) * 0.1).toFixed(1),
-    reviews: Math.floor(30 + i * 8),
-    image: images[i % images.length],
-    hoverImage: images[(i + 1) % images.length],
-    sizes: sizeVariants,
-    stock: i % 3 === 0 ? 2 : Math.floor(3 + i % 6),
-    isClearance: i % 4 === 0,
-    isFlat50: discountPercent === 50,
-  };
-});
 
 function SalePageContent() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState<number>(30000);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    api.getProducts({ limit: 30 })
+      .then((res) => {
+        if (res && res.data && isMounted) {
+          const mapped = res.data.map((p: any) => {
+            const rawImages = p.images?.map((i: any) => getSafeImageUrl(i)).filter(Boolean) || [];
+            const thumbnail = getSafeImageUrl(p.thumbnail || rawImages[0], '');
+            const minPrice = p.price || (p.variants || []).reduce((min: number, v: any) => Math.min(min, v.price || Infinity), Infinity) || 0;
+            const maxCompare = p.compareAtPrice || (p.variants || []).reduce((max: number, v: any) => Math.max(max, v.compareAtPrice || 0), 0);
+            const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
+
+            return {
+              id: p._id || p.id,
+              name: p.name,
+              category: p.category?.name || p.subcategory || 'CASUALS',
+              price: minPrice,
+              comparePrice: maxCompare > minPrice ? maxCompare : undefined,
+              discount: discountPct,
+              rating: String(p.ratings?.average || p.rating || 4.8),
+              reviews: p.ratings?.count || p.reviewCount || 0,
+              image: thumbnail,
+              hoverImage: rawImages[1] || '',
+              sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) : ['S', 'M', 'L'],
+              stock: (p.variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
+              isFlat50: discountPct >= 50,
+              isClearance: discountPct >= 30,
+            };
+          });
+          const saleItems = mapped.filter((p: any) => p.discount > 0);
+          setProducts(saleItems.length > 0 ? saleItems : mapped);
+        } else if (isMounted) {
+          setProducts([]);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setProducts([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const toggleSize = (size: string) => {
     setSelectedSizes((prev) =>
@@ -71,15 +84,15 @@ function SalePageContent() {
   };
 
   const filteredProducts = useMemo(() => {
-    return MOCK_SALE_PRODUCTS.filter((p) => {
+    return products.filter((p) => {
       if (p.price > maxPrice) return false;
       if (selectedCategory === '50-off' && !p.isFlat50) return false;
-      if (selectedCategory === 'under-10k' && p.price >= 10000) return false;
+      if (selectedCategory === 'under-10k' && p.price >= 2000) return false;
       if (selectedCategory === 'clearance' && !p.isClearance) return false;
-      if (selectedSizes.length && !p.sizes.some((s) => selectedSizes.includes(s))) return false;
+      if (selectedSizes.length && !p.sizes.some((s: string) => selectedSizes.includes(s))) return false;
       return true;
     });
-  }, [selectedCategory, selectedSizes, maxPrice]);
+  }, [products, selectedCategory, selectedSizes, maxPrice]);
 
   return (
     <div className="min-h-screen bg-[var(--color-warm-white)]">
@@ -95,7 +108,6 @@ function SalePageContent() {
 
       {/* Sale Hero Banner */}
       <div className="relative bg-[var(--color-darker)] text-white overflow-hidden py-12 md:py-16">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-30" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-transparent z-10" />
 
         <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
@@ -200,7 +212,13 @@ function SalePageContent() {
         </div>
 
         {/* Product Grid */}
-        {filteredProducts.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((skel) => (
+              <ProductCardSkeleton key={skel} />
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="py-20 text-center bg-white rounded-3xl border border-[var(--color-champagne)]">
             <Tag size={40} className="mx-auto text-gray-300 mb-3" />
             <h3 className="font-display text-xl font-bold text-[var(--color-dark)] mb-2">No Sale Items Matched</h3>
