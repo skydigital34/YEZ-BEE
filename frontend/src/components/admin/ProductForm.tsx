@@ -36,7 +36,7 @@ import {
 import { YEZBEE_CATEGORIES, CATEGORY_CONFIG } from '@/data/categories';
 import { slugify, saveOrUpdateProduct } from '@/data/products';
 import { api } from '@/lib/api';
-import { getSafeImageUrl } from '@/lib/utils';
+import { getSafeImageUrl, extractErrorMessage } from '@/lib/utils';
 import ProductPreviewModal, { ProductPreviewData } from './ProductPreviewModal';
 import ProductMediaSortable from './ProductMediaSortable';
 
@@ -188,8 +188,11 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
   const [loading, setLoading] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setFeedbackToast({ message, type });
+  const showToast = (message: any, type: 'success' | 'error' = 'success') => {
+    const cleanMsg = typeof message === 'string'
+      ? (message.includes('[object Object]') ? extractErrorMessage(message, 'Operation completed.') : message)
+      : extractErrorMessage(message, 'Operation completed.');
+    setFeedbackToast({ message: cleanMsg, type });
     setTimeout(() => setFeedbackToast(null), 4000);
   };
 
@@ -735,7 +738,7 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
       }, 700);
     } catch (err: any) {
       console.error('Product save error:', err);
-      const errorMsg = err?.response?.data?.message || err?.message || 'Database connection error';
+      const errorMsg = extractErrorMessage(err, 'Backend sync offline');
       showToast(`Error: ${errorMsg}. Local update saved.`, 'error');
 
       saveOrUpdateProduct({

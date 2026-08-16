@@ -40,7 +40,7 @@ import {
 } from '@/data/products';
 import { YEZBEE_CATEGORIES } from '@/data/categories';
 import { api } from '@/lib/api';
-import { getSafeImageUrl } from '@/lib/utils';
+import { getSafeImageUrl, extractErrorMessage } from '@/lib/utils';
 import { ImageIcon } from 'lucide-react';
 
 function AdminThumbnail({ src, alt }: { src: string; alt: string }) {
@@ -187,8 +187,11 @@ export default function AdminProductsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
+  const showToast = (msg: any) => {
+    const cleanMsg = typeof msg === 'string'
+      ? (msg.includes('[object Object]') ? extractErrorMessage(msg, 'Action completed.') : msg)
+      : extractErrorMessage(msg, 'Action completed.');
+    setToastMessage(cleanMsg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 

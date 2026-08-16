@@ -273,3 +273,44 @@ export function clamp(value: number, min: number, max: number): number {
 export function range(start: number, end: number): number[] {
   return Array.from({ length: end - start }, (_, i) => start + i);
 }
+
+export function extractErrorMessage(err: any, fallback: string = 'Database connection error'): string {
+  if (!err) return fallback;
+  if (typeof err === 'string') {
+    return err.includes('[object Object]') ? fallback : err;
+  }
+
+  // Handle Axios or Fetch error structure
+  const data = err?.response?.data;
+  if (data) {
+    if (typeof data === 'string' && !data.includes('[object Object]')) return data;
+    if (typeof data.message === 'string' && data.message.trim() && !data.message.includes('[object Object]')) {
+      return data.message;
+    }
+    if (typeof data.error === 'string' && data.error.trim() && !data.error.includes('[object Object]')) {
+      return data.error;
+    }
+    if (typeof data.message === 'object') {
+      const nested = extractErrorMessage(data.message, '');
+      if (nested) return nested;
+    }
+    if (typeof data.error === 'object') {
+      const nested = extractErrorMessage(data.error, '');
+      if (nested) return nested;
+    }
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      const nested = extractErrorMessage(data.errors[0], '');
+      if (nested) return nested;
+    }
+  }
+
+  if (typeof err.message === 'string' && err.message.trim() && !err.message.includes('[object Object]')) {
+    return err.message;
+  }
+
+  if (typeof err.error === 'string' && err.error.trim() && !err.error.includes('[object Object]')) {
+    return err.error;
+  }
+
+  return fallback;
+}

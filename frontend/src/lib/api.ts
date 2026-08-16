@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { extractErrorMessage } from './utils';
 
 export const getBaseApiUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
@@ -92,8 +93,8 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     // Extract human-readable error message from API response
-    const serverMessage = error.response?.data?.message || error.response?.data?.error;
-    if (serverMessage) {
+    const serverMessage = extractErrorMessage(error.response?.data) || extractErrorMessage(error, '');
+    if (serverMessage && typeof serverMessage === 'string' && !serverMessage.includes('[object Object]')) {
       error.message = serverMessage;
     }
 
