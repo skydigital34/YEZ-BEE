@@ -18,6 +18,7 @@ import {
   Lock,
   Sparkles,
   Check,
+  ImageIcon,
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { getSafeImageUrl } from '@/lib/utils';
@@ -121,8 +122,12 @@ export default function CartPage() {
                       className="flex gap-4 sm:gap-6 p-4 sm:p-5 bg-white rounded-2xl border border-[var(--color-champagne)]/60 shadow-soft-sm items-center"
                     >
                       {/* Item Photo */}
-                      <div className="relative aspect-[3/4] w-24 sm:w-28 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                        <Image src={getSafeImageUrl(item.image)} alt={item.name} fill sizes="120px" className="object-cover object-center" />
+                      <div className="relative aspect-[3/4] w-24 sm:w-28 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                        {getSafeImageUrl(item.image) ? (
+                          <Image src={getSafeImageUrl(item.image)} alt={item.name} fill sizes="120px" className="object-cover object-center" />
+                        ) : (
+                          <ImageIcon size={24} className="text-gray-400 opacity-50" />
+                        )}
                       </div>
 
                       {/* Item Meta */}

@@ -41,7 +41,7 @@ export default function Bestsellers() {
             status: (p.status || 'published').toLowerCase(),
             stock: (p.variants || []).reduce((acc: number, v: any) => acc + (v.stock || 0), 0),
             sku: p.variants?.[0]?.sku || p._id,
-            thumbnail: p.images?.[0]?.url || '/images/categories/maternity-kurtis.jpg',
+            thumbnail: p.images?.[0]?.url || '',
             galleryImages: p.images?.map((i: any) => i.url) || [],
             colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))).map(name => ({ name, hex: '#000000' })) as any : [],
             sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) as any : [],

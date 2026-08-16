@@ -278,7 +278,7 @@ export const refreshToken = async (
     });
   } catch (error) {
     if ((error as { name?: string }).name === 'JsonWebTokenError' ||
-        (error as { name?: string }).name === 'TokenExpiredError') {
+      (error as { name?: string }).name === 'TokenExpiredError') {
       next(new AppError('Invalid or expired refresh token', 401));
       return;
     }

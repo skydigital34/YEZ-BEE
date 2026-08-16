@@ -98,6 +98,7 @@ export interface IProductDocument extends Document {
   featuredOrder: number;
   returnPolicy: string;
   shippingInfo: IShippingInfo;
+  taxRate?: number;
   imageUrl?: string;
   imagePublicId?: string;
   isPublished?: boolean;

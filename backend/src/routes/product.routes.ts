@@ -61,7 +61,14 @@ router.patch(
 );
 
 router.get(
+  '/id/:id',
+  optionalAuth,
+  productController.getProductById
+);
+
+router.get(
   '/:slug',
+  optionalAuth,
   validate([
     param('slug').isString().trim().notEmpty().withMessage('Slug is required'),
   ]),

@@ -222,9 +222,13 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
               image: getSafeImageUrl(p.images?.[0] || p.thumbnail),
               thumbnail: getSafeImageUrl(p.images?.[0] || p.thumbnail),
               hoverImage: getSafeImageUrl(p.images?.[1] || p.images?.[0] || p.thumbnail),
-              galleryImages: p.images?.map((img: any) => getSafeImageUrl(img)) || [],
-              colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))) : ['Standard'],
-              sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) : ['S', 'M', 'L'],
+              colors: p.variants && p.variants.length > 0
+                ? Array.from(new Set(p.variants.map((v: any) => v.color))).map((name: any) => ({
+                    name: name || 'Standard',
+                    hex: p.variants.find((v: any) => v.color === name)?.colorHex || '#000000',
+                  }))
+                : [{ name: 'Standard', hex: '#000000' }],
+              sizes: p.variants && p.variants.length > 0 ? Array.from(new Set(p.variants.map((v: any) => v.size))) : ['S', 'M', 'L'],
               variants: p.variants || [],
               featured: Boolean(p.featured || p.isFeatured),
               bestseller: Boolean(p.bestSeller || p.isBestSeller),

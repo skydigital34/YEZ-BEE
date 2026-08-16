@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingBag, Eye, Star, Check } from 'lucide-react';
+import { Heart, ShoppingBag, Eye, Star, Check, ImageIcon } from 'lucide-react';
 import { cn, getSafeImageUrl } from '@/lib/utils';
 import { useCart } from '@/providers/CartProvider';
 import { useWishlist } from '@/providers/WishlistProvider';
@@ -36,17 +36,17 @@ export interface ProductCardProps {
 export default function ProductCard({
   id,
   name,
-  category = 'CASUALS',
+  category = 'Collection',
   productType,
   price,
   comparePrice,
   rating = 4.8,
-  reviews = 42,
+  reviews = 18,
   image,
   thumbnail,
   images,
   hoverImage,
-  colors = [],
+  colors = [{ name: 'Default', hex: '#C9A84C' }],
   sizes = ['S', 'M', 'L', 'XL'],
   isNew = false,
   isBestSeller = false,
@@ -59,18 +59,29 @@ export default function ProductCard({
   const [isHovered, setIsHovered] = useState(false);
   const [selectedColor, setSelectedColor] = useState(0);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
+  const safeColors = Array.isArray(colors) && colors.length > 0 ? colors : [{ name: 'Default', hex: '#C9A84C' }];
+  const safeSizes = Array.isArray(sizes) && sizes.length > 0 ? sizes : ['M'];
+
   const primaryImage = getSafeImageUrl(
-    image || thumbnail || (Array.isArray(images) ? images[0] : images) || rest.galleryImages?.[0]
+    image || thumbnail || (Array.isArray(images) ? images[0] : images) || rest.galleryImages?.[0] || ''
   );
-  const secondaryImage = hoverImage || primaryImage;
+  const secondaryImage = hoverImage ? getSafeImageUrl(hoverImage, '') : primaryImage;
 
   const isWishlisted = isInWishlist(id);
   const numRating = typeof rating === 'string' ? parseFloat(rating) : rating;
   const calcDiscount = discount || (comparePrice && comparePrice > price ? Math.round(((comparePrice - price) / comparePrice) * 100) : 0);
+
+  const rawImage = isHovered && secondaryImage ? secondaryImage : primaryImage;
+  const displayImage = imgError ? '' : rawImage;
+
+  useEffect(() => {
+    setImgError(false);
+  }, [rawImage]);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -80,8 +91,8 @@ export default function ProductCard({
       name,
       price,
       image: primaryImage,
-      color: colors[selectedColor]?.name || 'Default',
-      size: sizes[0] || 'M',
+      color: safeColors[selectedColor]?.name || 'Default',
+      size: safeSizes[0] || 'M',
       quantity: 1,
     });
     setAddedToCart(true);
@@ -100,15 +111,6 @@ export default function ProductCard({
     });
   };
 
-  const [imgError, setImgError] = useState(false);
-  const defaultImage = '/images/luxury_featured_collection.jpg';
-  const rawImage = isHovered ? (hoverImage || primaryImage) : primaryImage;
-  const displayImage = imgError ? defaultImage : getSafeImageUrl(rawImage, defaultImage);
-
-  useEffect(() => {
-    setImgError(false);
-  }, [rawImage]);
-
   return (
     <div
       className={cn('group relative flex flex-col h-full overflow-hidden rounded-xl bg-white transition-all duration-500 hover:shadow-gold-md hover:-translate-y-1 border border-[var(--color-champagne)]/40', className)}
@@ -118,16 +120,23 @@ export default function ProductCard({
       {/* Image Container with 3:4 Luxury Portrait Aspect Ratio */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--color-warm-white)]">
         <Link href={`/product/${id}`} className="relative block h-full w-full">
-          <Image
-            src={displayImage}
-            alt={name}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            loading="lazy"
-            unoptimized={displayImage.startsWith('blob:') || displayImage.startsWith('data:')}
-            onError={() => setImgError(true)}
-          />
+          {displayImage ? (
+            <Image
+              src={displayImage}
+              alt={name}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+              loading="lazy"
+              unoptimized={displayImage.startsWith('blob:') || displayImage.startsWith('data:')}
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100/80 text-gray-400 gap-1.5 p-4 text-center">
+              <ImageIcon size={30} className="opacity-40" />
+              <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">No Image</span>
+            </div>
+          )}
         </Link>
 
         {/* Floating Badges */}

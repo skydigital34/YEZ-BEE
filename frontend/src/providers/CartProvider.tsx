@@ -35,26 +35,28 @@ const CartContext = createContext<CartContextValue | null>(null);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const store = useCartStore();
   const addNotification = useNotificationStore((s) => s.addNotification);
-  const [localCart, setLocalCart] = useState<LocalCartItem[]>([
-    {
-      id: 'prod-cart-1',
-      name: 'Embroidered Royal Zardozi Silk Gown',
-      price: 18999,
-      image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=800&auto=format&fit=crop',
-      color: 'Royal Gold',
-      size: 'M',
-      quantity: 1,
-    },
-    {
-      id: 'prod-cart-2',
-      name: 'Structured Satin Blazer Set',
-      price: 9999,
-      image: 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=800&auto=format&fit=crop',
-      color: 'Champagne Gold',
-      size: 'S',
-      quantity: 1,
-    },
-  ]);
+  const [localCart, setLocalCart] = useState<LocalCartItem[]>([]);
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('yezbee_cart');
+      if (saved) {
+        setLocalCart(JSON.parse(saved));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Save cart to localStorage on change
+  useEffect(() => {
+    try {
+      localStorage.setItem('yezbee_cart', JSON.stringify(localCart));
+    } catch {
+      // ignore
+    }
+  }, [localCart]);
 
   const addToCart = useCallback(
     (item: LocalCartItem) => {

@@ -18,7 +18,7 @@ async function testConnection() {
     });
     console.log('SUCCESS: Connected to MongoDB successfully!');
     console.log('Database state:', mongoose.connection.readyState);
-    const collections = await mongoose.connection.db.listCollections().toArray();
+    const collections = mongoose.connection.db ? await mongoose.connection.db.listCollections().toArray() : [];
     console.log('Collections in database:', collections.map(c => c.name));
     await mongoose.disconnect();
     process.exit(0);

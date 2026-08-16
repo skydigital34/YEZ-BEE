@@ -6,72 +6,19 @@ import { Heart, ShoppingBag, ArrowLeft, Sparkles, Share2 } from 'lucide-react';
 import ProductCard from '@/components/ui/ProductCard';
 import { useWishlist } from '@/providers/WishlistProvider';
 
-const MOCK_FALLBACK_WISHLIST = [
-  {
-    id: 'wl-1',
-    name: 'Embroidered Royal Zardozi Lehenga Set',
-    category: 'Ethnic Luxe',
-    price: 18999,
-    comparePrice: 24999,
-    rating: 4.9,
-    reviews: 58,
-    isNew: true,
-    discount: 24,
-    stock: 4,
-    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=800&auto=format&fit=crop',
-    hoverImage: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?q=80&w=800&auto=format&fit=crop',
-    colors: [{ name: 'Gold Zardozi', hex: '#C9A84C' }],
-    sizes: ['S', 'M', 'L'],
-  },
-  {
-    id: 'wl-2',
-    name: 'Midnight Sequin Evening Ball Gown',
-    category: 'Haute Couture',
-    price: 14499,
-    comparePrice: 18999,
-    rating: 4.8,
-    reviews: 34,
-    isNew: true,
-    discount: 23,
-    stock: 2,
-    image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?q=80&w=800&auto=format&fit=crop',
-    hoverImage: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop',
-    colors: [{ name: 'Obsidian Black', hex: '#0D0D0D' }],
-    sizes: ['S', 'M'],
-  },
-  {
-    id: 'wl-3',
-    name: 'Hand-woven Pure Silk Banarasi Saree',
-    category: 'Ethnic Luxe',
-    price: 16999,
-    comparePrice: 21999,
-    rating: 5.0,
-    reviews: 82,
-    isNew: true,
-    discount: 22,
-    stock: 3,
-    image: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?q=80&w=800&auto=format&fit=crop',
-    hoverImage: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=800&auto=format&fit=crop',
-    colors: [{ name: 'Ruby Red', hex: '#E74C3C' }],
-    sizes: ['Free Size'],
-  },
-];
-
 export default function WishlistPage() {
   const { items } = useWishlist();
 
-  const wishlistProducts = items.length > 0
-    ? items.map((i) => ({
-        id: i.id,
-        name: i.name,
-        category: i.category || 'Luxury Wear',
-        price: i.price,
-        image: i.image,
-        hoverImage: i.image,
-        colors: [{ name: 'Gold', hex: '#C9A84C' }],
-        sizes: ['S', 'M', 'L'],
-      }))
-    : MOCK_FALLBACK_WISHLIST;
+  const wishlistProducts = items.map((i) => ({
+    id: i.id,
+    name: i.name,
+    category: i.category || 'Luxury Wear',
+    price: i.price,
+    image: i.image,
+    hoverImage: i.image,
+    colors: [{ name: 'Gold', hex: '#C9A84C' }],
+    sizes: ['S', 'M', 'L'],
+  }));
 
   const copyWishlistLink = async () => {
     try {

@@ -135,12 +135,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return corsResponse({
         success: true,
         data: [
-          { _id: 'cat-1', name: 'Maternity Kurtis', slug: 'maternity-kurtis', hasFeedingSplit: true },
-          { _id: 'cat-2', name: 'Feed Maternity Maxis', slug: 'feed-maternity-maxis', hasFeedingSplit: true },
-          { _id: 'cat-3', name: 'Maternity Bottom Wear', slug: 'maternity-bottom-wear', hasFeedingSplit: false },
-          { _id: 'cat-4', name: 'Feeding Tops & Shirts', slug: 'feeding-tops-shirts', hasFeedingSplit: true },
-          { _id: 'cat-5', name: 'Nursing Wear', slug: 'nursing-wear', hasFeedingSplit: true },
-          { _id: 'cat-6', name: 'Kids Wear', slug: 'kids-wear', hasFeedingSplit: false },
+          { _id: 'cat-1', name: 'CASUALS', slug: 'casuals', hasFeedingSplit: true },
+          { _id: 'cat-2', name: 'PARTY WEAR', slug: 'party-wear', hasFeedingSplit: true },
+          { _id: 'cat-3', name: 'ETHNIC WEAR', slug: 'ethnic-wear', hasFeedingSplit: true },
+          { _id: 'cat-4', name: 'LOUNGE WEAR', slug: 'lounge-wear', hasFeedingSplit: false },
+          { _id: 'cat-5', name: 'PEPLUM TOPS', slug: 'peplum-tops', hasFeedingSplit: true },
+          { _id: 'cat-6', name: 'KIDS WEAR', slug: 'kids-wear', hasFeedingSplit: false },
         ],
       });
     }
@@ -157,16 +157,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // 5. GET /api/v1/products/:slugOrId
     if (path.startsWith('products/')) {
-      const idOrSlug = path.replace('products/', '');
+      const idOrSlug = path.replace('products/', '').replace('id/', '');
       const mongoose = getMongoose();
-      const item = Product
-        ? (await Product.findOne({ slug: idOrSlug }).lean()) ||
-          (mongoose && mongoose.Types.ObjectId.isValid(idOrSlug) ? await Product.findById(idOrSlug).lean() : null)
-        : null;
+      let item = null;
+      if (Product) {
+        if (mongoose && mongoose.Types.ObjectId.isValid(idOrSlug)) {
+          item = await Product.findById(idOrSlug).lean();
+        }
+        if (!item) {
+          item = await Product.findOne({ slug: idOrSlug }).lean();
+        }
+      }
       if (!item) {
         return corsResponse({ success: false, message: 'Product not found' }, 404);
       }
-      return corsResponse({ success: true, data: item });
+      return corsResponse({ success: true, data: item, product: item });
     }
 
     return corsResponse({ success: true, message: 'API V1 Active' });
@@ -193,6 +198,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           const base64 = `data:${file.type || 'image/jpeg'};base64,${buffer.toString('base64')}`;
           return corsResponse({
             success: true,
+            message: 'Image uploaded successfully',
             data: {
               url: base64,
               secure_url: base64,
@@ -201,17 +207,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             },
           });
         }
-      } catch {
-        // Fallback for JSON base64 upload
+      } catch (e: any) {
+        console.warn('FormData parse error in upload route:', e);
       }
       return corsResponse({
-        success: true,
-        data: {
-          url: '/images/categories/maternity-kurtis.jpg',
-          secure_url: '/images/categories/maternity-kurtis.jpg',
-          publicId: `img-${Date.now()}`,
-        },
-      });
+        success: false,
+        message: 'No image file provided for upload',
+      }, 400);
     }
 
     // 2. POST /api/v1/products (Create Product)

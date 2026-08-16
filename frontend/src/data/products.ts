@@ -823,9 +823,9 @@ function saveProductsToStorage(products: CatalogProduct[]) {
       const stripped = products.map((p) => ({
         ...p,
         images: Array.isArray(p.images)
-          ? p.images.map((img: any) => (typeof img === 'string' && img.startsWith('data:') ? '/images/categories/maternity-kurtis.jpg' : img))
-          : ['/images/categories/maternity-kurtis.jpg'],
-        thumbnail: typeof p.thumbnail === 'string' && p.thumbnail.startsWith('data:') ? '/images/categories/maternity-kurtis.jpg' : p.thumbnail,
+          ? p.images.map((img: any) => (typeof img === 'string' && img.startsWith('data:') ? '' : img)).filter(Boolean)
+          : [],
+        thumbnail: typeof p.thumbnail === 'string' && p.thumbnail.startsWith('data:') ? '' : p.thumbnail,
       }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
       window.dispatchEvent(new Event('yezbee_products_updated'));
@@ -903,7 +903,7 @@ export function getProductsByCategory(categorySlug: string, productType?: 'FEEDI
 
 // ── Admin Store Operations ───────────────────────────────────────────────────
 
-function safeImg(url: any, fallback: string = '/images/categories/maternity-kurtis.jpg'): string {
+function safeImg(url: any, fallback: string = ''): string {
   if (!url) return fallback;
   let raw: any = url;
   if (typeof raw === 'object' && raw !== null) {
@@ -969,7 +969,7 @@ export function saveOrUpdateProduct(productData: Partial<CatalogProduct>): Catal
     currency: productData.currency || 'INR',
     images: (productData.images && productData.images.length > 0)
       ? productData.images.map((img: any) => safeImg(img)).filter(Boolean)
-      : ['/images/categories/maternity-kurtis.jpg'],
+      : [],
     thumbnail: safeImg(productData.thumbnail || (productData.images && productData.images[0])),
     colors: productData.colors || [{ name: 'Default', hex: '#000000' }],
     variants: productData.variants || [],

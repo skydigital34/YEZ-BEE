@@ -41,23 +41,28 @@ import {
 import { YEZBEE_CATEGORIES } from '@/data/categories';
 import { api } from '@/lib/api';
 import { getSafeImageUrl } from '@/lib/utils';
+import { ImageIcon } from 'lucide-react';
 
 function AdminThumbnail({ src, alt }: { src: string; alt: string }) {
   const [imgError, setImgError] = useState(false);
-  const defaultImage = '/images/categories/maternity-kurtis.jpg';
-  const displaySrc = imgError ? defaultImage : getSafeImageUrl(src, defaultImage);
+  const safeSrc = getSafeImageUrl(src, '');
+  const showImage = Boolean(safeSrc && !imgError);
 
   return (
-    <div className="relative w-12 h-14 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-      <Image
-        src={displaySrc}
-        alt={alt}
-        fill
-        className="object-cover"
-        sizes="48px"
-        unoptimized={displaySrc.startsWith('blob:') || displaySrc.startsWith('data:')}
-        onError={() => setImgError(true)}
-      />
+    <div className="relative w-12 h-14 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+      {showImage ? (
+        <Image
+          src={safeSrc}
+          alt={alt || 'Product thumbnail'}
+          fill
+          className="object-cover"
+          sizes="48px"
+          unoptimized={safeSrc.startsWith('blob:') || safeSrc.startsWith('data:')}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <ImageIcon size={18} className="opacity-40" />
+      )}
     </div>
   );
 }

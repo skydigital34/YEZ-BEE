@@ -184,6 +184,9 @@ export const api = {
   getProduct: (slug: string) =>
     apiClient.get<ApiResponse<any>>(`/products/${slug}`).then((r) => r.data),
 
+  getProductById: (id: string) =>
+    apiClient.get<ApiResponse<any>>(`/products/id/${id}`).catch(() => apiClient.get<ApiResponse<any>>(`/products/${id}`)).then((r) => r.data),
+
   searchProducts: (query: string, filters?: ProductFilters) =>
     apiClient
       .get<PaginatedResponse<any>>('/products/search', { params: { q: query, ...filters } })

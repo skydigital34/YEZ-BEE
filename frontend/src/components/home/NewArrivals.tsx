@@ -23,8 +23,8 @@ export default function NewArrivals() {
         if (res && res.data && res.data.length > 0 && isMounted) {
           const mapped = res.data.map((p: any) => {
             const rawImages = p.images?.map((i: any) => getSafeImageUrl(i)).filter((u: string) => Boolean(u && u.trim())) || [];
-            const thumbnail = getSafeImageUrl(p.thumbnail || rawImages[0]);
-            const imagesList = rawImages.length > 0 ? rawImages : [thumbnail];
+            const thumbnail = getSafeImageUrl(p.thumbnail || rawImages[0], '');
+            const imagesList = rawImages.length > 0 ? rawImages : (thumbnail ? [thumbnail] : []);
 
             return {
               id: p._id || p.id,

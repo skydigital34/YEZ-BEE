@@ -114,3 +114,33 @@ export const REFERRAL_CODE_LENGTH = 8;
 
 export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 export const JWT_REFRESH_EXPIRES_IN = '30d';
+
+export const CATEGORY_CONFIG = {
+  casuals: {
+    label: 'Casuals',
+    subcategories: ['feeding', 'non-feeding'],
+  },
+  'party-wear': {
+    label: 'Party Wear',
+    subcategories: ['feeding', 'non-feeding'],
+  },
+  'ethnic-wear': {
+    label: 'Ethnic Wear',
+    subcategories: ['feeding', 'non-feeding'],
+  },
+  'lounge-wear': {
+    label: 'Lounge Wear',
+    subcategories: [],
+  },
+  'peplum-tops': {
+    label: 'Peplum Tops',
+    subcategories: ['feeding', 'non-feeding'],
+  },
+  'kids-wear': {
+    label: 'Kids Wear',
+    subcategories: [],
+  },
+} as const;
+
+export type CategorySlug = keyof typeof CATEGORY_CONFIG;
+

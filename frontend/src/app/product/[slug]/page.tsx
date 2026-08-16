@@ -33,6 +33,7 @@ import {
   ThumbsUp,
   Eye,
   CheckCircle2,
+  ImageIcon,
 } from 'lucide-react';
 import ProductCard from '@/components/ui/ProductCard';
 import { useCart } from '@/providers/CartProvider';
@@ -62,6 +63,86 @@ function getEstimatedDeliveryDate(daysToAdd: number = 3): string {
 }
 
 import { api } from '@/lib/api';
+
+function GalleryThumbnailItem({
+  imgUrl,
+  index,
+  isActive,
+  onClick,
+}: {
+  imgUrl: string;
+  index: number;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const src = getSafeImageUrl(imgUrl, '');
+
+  return (
+    <button
+      onClick={onClick}
+      className={`relative aspect-[3/4] w-20 rounded-xl overflow-hidden border-2 transition-all flex items-center justify-center bg-gray-50 ${
+        isActive
+          ? 'border-[var(--color-primary-gold)] shadow-gold-sm scale-105'
+          : 'border-gray-200 opacity-70 hover:opacity-100'
+      }`}
+      aria-label={`View photo ${index + 1}`}
+    >
+      {src && !hasError ? (
+        <Image
+          src={src}
+          alt=""
+          fill
+          sizes="80px"
+          className="object-cover object-center"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center text-gray-400 p-2">
+          <ImageIcon size={22} className="opacity-40" />
+        </div>
+      )}
+    </button>
+  );
+}
+
+function GalleryMobileThumbnailItem({
+  imgUrl,
+  index,
+  isActive,
+  onClick,
+}: {
+  imgUrl: string;
+  index: number;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const src = getSafeImageUrl(imgUrl, '');
+
+  return (
+    <button
+      onClick={onClick}
+      className={`relative aspect-[3/4] w-16 shrink-0 rounded-xl overflow-hidden border-2 flex items-center justify-center bg-gray-50 ${
+        isActive ? 'border-[var(--color-primary-gold)]' : 'border-transparent opacity-70'
+      }`}
+      aria-label={`View photo ${index + 1}`}
+    >
+      {src && !hasError ? (
+        <Image
+          src={src}
+          alt=""
+          fill
+          sizes="64px"
+          className="object-cover"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <ImageIcon size={18} className="text-gray-400 opacity-40" />
+      )}
+    </button>
+  );
+}
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -105,8 +186,6 @@ export default function ProductDetailPage() {
             const thumbUrl = getSafeImageUrl(p.thumbnail, '');
             if (thumbUrl && !thumbUrl.includes('slide1') && !thumbUrl.includes('slide2') && !thumbUrl.includes('slide3')) {
               cleanImages.push(thumbUrl);
-            } else {
-              cleanImages.push('/images/categories/maternity-kurtis.jpg');
             }
           }
 
@@ -189,9 +268,15 @@ export default function ProductDetailPage() {
   const [sizeError, setSizeError] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [mainImageError, setMainImageError] = useState(false);
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
   const [added, setAdded] = useState(false);
+
+  // Reset main image error state on active image or product change
+  useEffect(() => {
+    setMainImageError(false);
+  }, [activeImageIndex, product]);
 
   // Sync color selection when product loads
   useEffect(() => {
@@ -380,31 +465,34 @@ export default function ProductDetailPage() {
             {/* Vertical Thumbnail Rail (Desktop Left) */}
             <div className="hidden md:flex flex-col gap-3 shrink-0 w-20">
               {product.images.map((img, index) => (
-                <button
+                <GalleryThumbnailItem
                   key={index}
+                  imgUrl={img}
+                  index={index}
+                  isActive={activeImageIndex === index}
                   onClick={() => setActiveImageIndex(index)}
-                  className={`relative aspect-[3/4] rounded-xl overflow-hidden border-2 transition-all ${
-                    activeImageIndex === index
-                      ? 'border-[var(--color-primary-gold)] shadow-gold-sm scale-105'
-                      : 'border-gray-200 opacity-70 hover:opacity-100'
-                  }`}
-                  aria-label={`View photo ${index + 1}`}
-                >
-                  <Image src={getSafeImageUrl(img)} alt={`${product.name} angle ${index + 1}`} fill sizes="80px" className="object-cover object-center" />
-                </button>
+                />
               ))}
             </div>
 
             {/* Dominant Primary Image Frame */}
-            <div className="relative flex-1 aspect-[3/4] rounded-3xl overflow-hidden bg-white shadow-soft-lg border border-[var(--color-champagne)]/60 group">
-              <Image
-                src={getSafeImageUrl(product.images[activeImageIndex] || product.thumbnail)}
-                alt={`${product.name} - View ${activeImageIndex + 1}`}
-                fill
-                priority
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
-              />
+            <div className="relative flex-1 aspect-[3/4] rounded-3xl overflow-hidden bg-white shadow-soft-lg border border-[var(--color-champagne)]/60 group flex items-center justify-center">
+              {getSafeImageUrl(product.images[activeImageIndex] || product.thumbnail) && !mainImageError ? (
+                <Image
+                  src={getSafeImageUrl(product.images[activeImageIndex] || product.thumbnail)}
+                  alt={`${product.name} - View ${activeImageIndex + 1}`}
+                  fill
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                  onError={() => setMainImageError(true)}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-gray-400 gap-2 p-8 text-center">
+                  <ImageIcon size={44} className="opacity-40" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">No Image Uploaded</span>
+                </div>
+              )}
 
               {/* Product Badges (Top Left) */}
               <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
@@ -464,15 +552,13 @@ export default function ProductDetailPage() {
             {/* Horizontal Mobile Thumbnail Carousel */}
             <div className="flex md:hidden gap-2 overflow-x-auto pb-2">
               {product.images.map((img, index) => (
-                <button
+                <GalleryMobileThumbnailItem
                   key={index}
+                  imgUrl={img}
+                  index={index}
+                  isActive={activeImageIndex === index}
                   onClick={() => setActiveImageIndex(index)}
-                  className={`relative aspect-[3/4] w-16 shrink-0 rounded-xl overflow-hidden border-2 ${
-                    activeImageIndex === index ? 'border-[var(--color-primary-gold)]' : 'border-transparent opacity-70'
-                  }`}
-                >
-                  <Image src={getSafeImageUrl(img)} alt="" fill className="object-cover" />
-                </button>
+                />
               ))}
             </div>
 

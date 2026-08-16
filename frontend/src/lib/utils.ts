@@ -119,7 +119,7 @@ export function getImageUrl(
   path: string | null | undefined,
   size?: 'sm' | 'md' | 'lg'
 ): string {
-  if (!path || typeof path !== 'string' || path.trim() === '') return '/images/categories/maternity-kurtis.jpg';
+  if (!path || typeof path !== 'string' || path.trim() === '') return '';
   if (path.startsWith('http') || path.startsWith('/')) return path;
 
   const sizes = { sm: '150x150', md: '400x400', lg: '800x800' };
@@ -129,7 +129,7 @@ export function getImageUrl(
 
 export function getSafeImageUrl(
   url?: any,
-  fallback: string = '/images/categories/maternity-kurtis.jpg'
+  fallback: string = ''
 ): string {
   if (!url) return fallback;
 
@@ -145,7 +145,16 @@ export function getSafeImageUrl(
 
   let trimmed = raw.trim();
 
-  // Revoked blob URLs from previous page sessions cannot be loaded; use fallback
+  // Invalid literal strings
+  if (
+    trimmed === 'undefined' ||
+    trimmed === 'null' ||
+    trimmed === '[object Object]'
+  ) {
+    return fallback;
+  }
+
+  // Revoked blob URLs from previous page sessions cannot be loaded; return fallback
   if (trimmed.startsWith('blob:')) {
     return fallback;
   }
@@ -160,9 +169,12 @@ export function getSafeImageUrl(
     !trimmed.startsWith('http://') &&
     !trimmed.startsWith('https://') &&
     !trimmed.startsWith('/') &&
-    !trimmed.startsWith('blob:') &&
     !trimmed.startsWith('data:')
   ) {
+    // Reject strings containing spaces or invalid public ID characters (e.g. "1 angle 2")
+    if (/\s/.test(trimmed) || !/^[a-zA-Z0-9\-\.\/_]+$/.test(trimmed)) {
+      return fallback;
+    }
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'smpyi8aw';
     trimmed = `https://res.cloudinary.com/${cloudName}/image/upload/${trimmed}`;
   }
@@ -173,7 +185,7 @@ export function getSafeImageUrl(
 export function getSafeProductImage(
   input: any,
   index: number = 0,
-  fallback: string = '/images/categories/maternity-kurtis.jpg'
+  fallback: string = ''
 ): string {
   if (!input) return fallback;
 
@@ -185,16 +197,19 @@ export function getSafeProductImage(
       ? input.galleryImages
       : [];
 
-    if (imagesArray.length > index) {
-      return getSafeImageUrl(imagesArray[index], fallback);
+    if (imagesArray.length > index && imagesArray[index]) {
+      const candidate = getSafeImageUrl(imagesArray[index], fallback);
+      if (candidate) return candidate;
     }
 
     if (input.thumbnail) {
-      return getSafeImageUrl(input.thumbnail, fallback);
+      const candidate = getSafeImageUrl(input.thumbnail, fallback);
+      if (candidate) return candidate;
     }
 
-    if (imagesArray.length > 0) {
-      return getSafeImageUrl(imagesArray[0], fallback);
+    if (imagesArray.length > 0 && imagesArray[0]) {
+      const candidate = getSafeImageUrl(imagesArray[0], fallback);
+      if (candidate) return candidate;
     }
 
     return fallback;
@@ -202,11 +217,13 @@ export function getSafeProductImage(
 
   // Case 2: Input is an Array
   if (Array.isArray(input)) {
-    if (input.length > index) {
-      return getSafeImageUrl(input[index], fallback);
+    if (input.length > index && input[index]) {
+      const candidate = getSafeImageUrl(input[index], fallback);
+      if (candidate) return candidate;
     }
-    if (input.length > 0) {
-      return getSafeImageUrl(input[0], fallback);
+    if (input.length > 0 && input[0]) {
+      const candidate = getSafeImageUrl(input[0], fallback);
+      if (candidate) return candidate;
     }
     return fallback;
   }

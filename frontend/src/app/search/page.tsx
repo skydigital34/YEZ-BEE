@@ -1,48 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   Search,
-  Grid3X3,
-  List,
-  Star,
   Sparkles,
-  SlidersHorizontal,
+  Package,
 } from 'lucide-react';
 import ProductCard from '@/components/ui/ProductCard';
-
-const FASHION_PHOTOS = [
-  'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1583391733956-6c78276477e2?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1566174053879-31528523f8ae?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=800&auto=format&fit=crop',
-];
-
-const MOCK_RESULTS = Array.from({ length: 16 }, (_, i) => ({
-  id: `search-${i + 1}`,
-  name: `Luxe ${['Royal Zardozi Gown', 'Banarasi Silk Saree', 'Sequin Cocktail Dress', 'Structured Satin Blazer', 'Pearl Choker Set', 'Velvet Evening Gown', 'Designer Anarkali', 'Italian Leather Clutch'][i % 8]}`,
-  category: ['Ethnic Luxe', 'Western Chic', 'Accessories', 'Haute Couture'][i % 4],
-  price: 4999 + i * 1500,
-  comparePrice: 7999 + i * 1500,
-  rating: (4.2 + (i % 8) * 0.1).toFixed(1),
-  reviews: Math.floor(Math.random() * 120) + 15,
-  image: FASHION_PHOTOS[i % FASHION_PHOTOS.length],
-  hoverImage: FASHION_PHOTOS[(i + 1) % FASHION_PHOTOS.length],
-  isNew: i < 4,
-  discount: 20 + (i % 3) * 5,
-  colors: [{ name: 'Gold', hex: '#C9A84C' }],
-  sizes: ['S', 'M', 'L'],
-}));
-
-const TRENDING_SEARCHES = ['Evening Gowns', 'Silk Sarees', 'Velvet Blazers', 'Zardozi Lehengas', 'Gold Jewellery', 'Designer Kurtas'];
+import { getAllProducts, CatalogProduct } from '@/data/products';
+import { api } from '@/lib/api';
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
@@ -50,10 +20,66 @@ export default function SearchPage() {
   const query = searchParams.get('q') || '';
 
   const [searchInput, setSearchInput] = useState(query);
-  const [sortBy, setSortBy] = useState('relevance');
+  const [dbProducts, setDbProducts] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setSearchInput(query);
+  }, [query]);
+
+  // Load products matching query
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
+    api.getProducts({ search: query || undefined, limit: 40 })
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && res.data && res.data.length > 0) {
+          setDbProducts(res.data);
+        } else {
+          // Fallback to local catalog filter
+          const local = getAllProducts();
+          if (!query.trim()) {
+            setDbProducts(local);
+          } else {
+            const q = query.toLowerCase().trim();
+            setDbProducts(
+              local.filter(
+                (p) =>
+                  p.name.toLowerCase().includes(q) ||
+                  (p.categoryName && p.categoryName.toLowerCase().includes(q)) ||
+                  (p.category && p.category.toLowerCase().includes(q)) ||
+                  (p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
+              )
+            );
+          }
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        const local = getAllProducts();
+        if (!query.trim()) {
+          setDbProducts(local);
+        } else {
+          const q = query.toLowerCase().trim();
+          setDbProducts(
+            local.filter(
+              (p) =>
+                p.name.toLowerCase().includes(q) ||
+                (p.categoryName && p.categoryName.toLowerCase().includes(q)) ||
+                (p.category && p.category.toLowerCase().includes(q))
+            )
+          );
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [query]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -73,7 +99,7 @@ export default function SearchPage() {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search for gowns, sarees, blazers, accessories..."
+            placeholder="Search for kurtis, casuals, party wear, ethnic, feeding tops..."
             suppressHydrationWarning
             className="w-full pl-12 pr-28 py-4 bg-white border border-[var(--color-champagne)] rounded-2xl text-xs sm:text-sm font-semibold outline-none focus:border-[var(--color-primary-gold)] shadow-soft-sm text-[var(--color-dark)]"
           />
@@ -92,32 +118,48 @@ export default function SearchPage() {
             <div className="flex items-center gap-2 mb-1">
               <Sparkles size={14} className="text-[var(--color-primary-gold)]" />
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-primary-gold)]">
-                ATELIER SEARCH RESULTS
+                YEZ BEE CATALOGUE SEARCH
               </span>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--color-dark)]">
-              {query ? `Results for "${query}"` : 'Explore Catalogue'}
+              {query ? `Results for "${query}"` : 'Explore All Collections'}
             </h1>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500 font-semibold">{MOCK_RESULTS.length} Items Found</span>
+            <span className="text-xs text-gray-500 font-semibold">{dbProducts.length} Items Found</span>
           </div>
         </div>
 
         {/* Product Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-          {MOCK_RESULTS.map((product, index) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.04, duration: 0.3 }}
+        {dbProducts.length === 0 ? (
+          <div className="p-16 text-center bg-white rounded-3xl border border-[var(--color-champagne)]/60 text-gray-400 space-y-3">
+            <Package size={40} className="mx-auto opacity-40 text-gray-400" />
+            <h3 className="font-display font-bold text-lg text-gray-700">No products matching your search</h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto font-sans">
+              Try searching with different keywords like &quot;casuals&quot;, &quot;feeding&quot;, &quot;ethnic&quot;, or &quot;party wear&quot;.
+            </p>
+            <Link
+              href="/category/casuals"
+              className="inline-block mt-4 px-6 py-2.5 bg-[var(--color-primary-gold)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-wider rounded-full hover:shadow-gold-sm"
             >
-              <ProductCard {...product} />
-            </motion.div>
-          ))}
-        </div>
+              Browse Casuals Collection
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            {dbProducts.map((product, index) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04, duration: 0.3 }}
+              >
+                <ProductCard {...(product as any)} />
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

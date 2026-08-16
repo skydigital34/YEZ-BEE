@@ -36,8 +36,11 @@ export const SEED_CATEGORIES = [
     image: '/images/categories/non-maternity-kurtis-dresses.jpg',
     banner: '/images/categories/non-maternity-kurtis-dresses.jpg',
     displayOrder: 3,
-    hasFeedingSplit: false,
-    subcategories: [],
+    hasFeedingSplit: true,
+    subcategories: [
+      { name: 'FEEDING', slug: 'ethnic-wear-feeding', productType: 'FEEDING' as const },
+      { name: 'NON-FEEDING', slug: 'ethnic-wear-non-feeding', productType: 'NON-FEEDING' as const },
+    ],
   },
   {
     name: 'LOUNGE WEAR',
@@ -46,11 +49,8 @@ export const SEED_CATEGORIES = [
     image: '/images/categories/maternity-feeding-loungewears.jpg',
     banner: '/images/categories/maternity-feeding-loungewears.jpg',
     displayOrder: 4,
-    hasFeedingSplit: true,
-    subcategories: [
-      { name: 'FEEDING', slug: 'lounge-wear-feeding', productType: 'FEEDING' as const },
-      { name: 'NON-FEEDING', slug: 'lounge-wear-non-feeding', productType: 'NON-FEEDING' as const },
-    ],
+    hasFeedingSplit: false,
+    subcategories: [],
   },
   {
     name: 'PEPLUM TOPS',
@@ -110,45 +110,59 @@ export async function seedCategoriesAndMigrateProducts(): Promise<void> {
       categoryMap.set(catData.slug, category);
     }
 
-    // Migrate existing products referencing old category names/slugs
+    // Migrate & normalize existing products referencing old/new taxonomy
     const products = await Product.find({}).populate('category');
 
     for (const product of products) {
       let updated = false;
       const catObj = product.category as any;
-      const oldCatSlug = catObj?.slug || '';
+      const currentCatSlug = catObj?.slug || '';
 
-      // Migration mapping
-      if (oldCatSlug === 'maternity-kurtis') {
+      // 1. Legacy category slug migrations
+      if (currentCatSlug === 'maternity-kurtis') {
         product.category = categoryMap.get('casuals')._id;
         product.productType = 'FEEDING';
         product.subcategory = 'Feeding';
         updated = true;
-      } else if (oldCatSlug === 'maternity-feeding-loungewears' || oldCatSlug === 'maternity-intimatewears') {
+      } else if (currentCatSlug === 'maternity-feeding-loungewears' || currentCatSlug === 'maternity-intimatewears' || currentCatSlug === 'loungewear') {
         product.category = categoryMap.get('lounge-wear')._id;
-        product.productType = 'FEEDING';
-        product.subcategory = 'Feeding';
+        product.productType = null;
+        product.subcategory = null as any;
         updated = true;
-      } else if (oldCatSlug === 'non-maternity-kurtis-dresses') {
+      } else if (currentCatSlug === 'non-maternity-kurtis-dresses') {
         product.category = categoryMap.get('casuals')._id;
         product.productType = 'NON-FEEDING';
         product.subcategory = 'Non-Feeding';
         updated = true;
-      } else if (oldCatSlug === 'kids-clothing') {
+      } else if (currentCatSlug === 'kids-clothing') {
         product.category = categoryMap.get('kids-wear')._id;
         product.productType = null;
-        product.subcategory = 'Kids Wear';
+        product.subcategory = null as any;
         updated = true;
-      } else if (oldCatSlug === 'loungewear') {
-        product.category = categoryMap.get('lounge-wear')._id;
-        product.productType = 'NON-FEEDING';
-        product.subcategory = 'Non-Feeding';
-        updated = true;
+      }
+
+      // 2. Normalize standalone categories (LOUNGE WEAR & KIDS WEAR) -> clear productType & subcategory
+      if (currentCatSlug === 'lounge-wear' || currentCatSlug === 'kids-wear') {
+        if (product.productType !== null || product.subcategory) {
+          product.productType = null;
+          product.subcategory = null as any;
+          updated = true;
+        }
+      }
+
+      // 3. Normalize dual-subcategory categories (ETHNIC WEAR, CASUALS, PARTY WEAR, PEPLUM TOPS)
+      if (currentCatSlug === 'ethnic-wear') {
+        if (!product.productType || (product.productType !== 'FEEDING' && product.productType !== 'NON-FEEDING')) {
+          const isFeeding = /feeding|nursing/i.test(`${product.name} ${product.description} ${(product.tags || []).join(' ')}`);
+          product.productType = isFeeding ? 'FEEDING' : 'NON-FEEDING';
+          product.subcategory = isFeeding ? 'Feeding' : 'Non-Feeding';
+          updated = true;
+        }
       }
 
       if (updated) {
         await product.save();
-        logger.info(`Migrated product "${product.name}" to new taxonomy.`);
+        logger.info(`Migrated/Normalized product "${product.name}" to new taxonomy.`);
       }
     }
 

@@ -5,7 +5,7 @@ import Category from '../models/Category';
 import { AppError } from '../middleware/errorHandler';
 import { logger, slugify, parsePagination, parseSort } from '../utils/helpers';
 import { getFromCache, setToCache, delFromCache } from '../config/redis';
-import { CACHE_KEYS, DEFAULT_TTL } from '../utils/constants';
+import { CACHE_KEYS, DEFAULT_TTL, CATEGORY_CONFIG } from '../utils/constants';
 import { uploadToCloudinary, deleteFromCloudinary, getCategoryFolderPath } from '../config/cloudinary';
 
 export const getProducts = async (
@@ -135,6 +135,23 @@ export const getProducts = async (
   }
 };
 
+export const getProductById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const product = await Product.findById(id).populate('category', 'name slug').lean();
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+    res.status(200).json({ success: true, data: product });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getProductBySlug = async (
   req: Request,
   res: Response,
@@ -142,25 +159,33 @@ export const getProductBySlug = async (
 ): Promise<void> => {
   try {
     const paramValue = req.params.slug;
-    const cacheKey = CACHE_KEYS.PRODUCT_BY_SLUG(paramValue);
-    const cached = await getFromCache(cacheKey);
-    if (cached) {
-      res.status(200).json({ success: true, data: cached });
-      return;
+    const isMongoId = /^[0-9a-fA-F]{24}$/.test(paramValue);
+    const isAdminRequest = (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin')) || req.query.admin === 'true';
+
+    // Fast-path cache for public requests by slug
+    if (!isAdminRequest && !isMongoId) {
+      const cacheKey = CACHE_KEYS.PRODUCT_BY_SLUG(paramValue);
+      const cached = await getFromCache(cacheKey);
+      if (cached) {
+        res.status(200).json({ success: true, data: cached });
+        return;
+      }
     }
 
-    const isMongoId = /^[0-9a-fA-F]{24}$/.test(paramValue);
     const identifierFilter = isMongoId
       ? { $or: [{ _id: paramValue }, { slug: paramValue }] }
       : { slug: paramValue };
 
-    const statusFilter = {
-      $or: [{ status: 'PUBLISHED' }, { isActive: true }, { status: { $exists: false } }],
-    };
+    // For public website, only show published products; for admin or direct ID lookup, allow loading any product status
+    let queryFilter: Record<string, unknown> = identifierFilter;
+    if (!isAdminRequest && !isMongoId) {
+      const statusFilter = {
+        $or: [{ status: 'PUBLISHED' }, { isActive: true }, { status: { $exists: false } }],
+      };
+      queryFilter = { $and: [identifierFilter, statusFilter] };
+    }
 
-    const product = await Product.findOne({
-      $and: [identifierFilter, statusFilter],
-    })
+    const product = await Product.findOne(queryFilter)
       .populate('category', 'name slug')
       .lean();
 
@@ -168,7 +193,10 @@ export const getProductBySlug = async (
       throw new AppError('Product not found', 404);
     }
 
-    await setToCache(cacheKey, product, DEFAULT_TTL.PRODUCT);
+    if (!isAdminRequest && !isMongoId) {
+      const cacheKey = CACHE_KEYS.PRODUCT_BY_SLUG(paramValue);
+      await setToCache(cacheKey, product, DEFAULT_TTL.PRODUCT);
+    }
 
     res.status(200).json({ success: true, data: product });
   } catch (error) {
@@ -288,6 +316,45 @@ export const createProduct = async (
       }
     }
 
+    // Validate category and productType against CATEGORY_CONFIG
+    let categoryDocForValidation = await Category.findById(categoryId);
+    if (!categoryDocForValidation && typeof categoryId === 'string') {
+      categoryDocForValidation = await Category.findOne({
+        $or: [{ slug: categoryId }, { name: new RegExp(`^${categoryId}$`, 'i') }],
+      });
+    }
+    const catSlug = (categoryDocForValidation?.slug || (typeof categoryId === 'string' ? categoryId : '')).toLowerCase();
+    const config = (CATEGORY_CONFIG as Record<string, any>)[catSlug];
+
+    let finalProductType: 'FEEDING' | 'NON-FEEDING' | null = null;
+    let finalSubcategory: string | null = null;
+
+    if (config) {
+      if (config.subcategories.length > 0) {
+        const rawType = productData.productType || productData.subcategory;
+        const upperType = (rawType || '').toString().toUpperCase();
+        if (upperType === 'FEEDING' || upperType === 'NON-FEEDING') {
+          finalProductType = upperType as 'FEEDING' | 'NON-FEEDING';
+          finalSubcategory = upperType === 'FEEDING' ? 'Feeding' : 'Non-Feeding';
+        } else {
+          throw new AppError(
+            `Category "${config.label}" requires a valid subcategory selection: "feeding" or "non-feeding".`,
+            400
+          );
+        }
+      } else {
+        // Standalone category (e.g. lounge-wear, kids-wear)
+        finalProductType = null;
+        finalSubcategory = null;
+      }
+    } else {
+      const upperType = (productData.productType || '').toString().toUpperCase();
+      if (upperType === 'FEEDING' || upperType === 'NON-FEEDING') {
+        finalProductType = upperType as 'FEEDING' | 'NON-FEEDING';
+        finalSubcategory = upperType === 'FEEDING' ? 'Feeding' : 'Non-Feeding';
+      }
+    }
+
     const initialStatus = (productData.status || 'PUBLISHED').toUpperCase();
 
     const product = new Product({
@@ -296,6 +363,8 @@ export const createProduct = async (
       variants,
       ...productData,
       category: categoryId,
+      productType: finalProductType,
+      subcategory: finalSubcategory,
       images: uploadedImages,
       status: initialStatus,
       isActive: initialStatus === 'PUBLISHED',
@@ -393,18 +462,64 @@ export const updateProduct = async (
       updateData.isActive = updateData.status === 'PUBLISHED';
     }
 
+    // Validate category and productType against CATEGORY_CONFIG if category or productType or subcategory are updated
+    if (updateData.category !== undefined || updateData.productType !== undefined || updateData.subcategory !== undefined) {
+      const targetCatId = updateData.category || product.category;
+      let categoryDoc = await Category.findById(targetCatId);
+      if (!categoryDoc && typeof targetCatId === 'string') {
+        categoryDoc = await Category.findOne({
+          $or: [{ slug: targetCatId }, { name: new RegExp(`^${targetCatId}$`, 'i') }],
+        });
+      }
+
+      if (categoryDoc) {
+        updateData.category = categoryDoc._id;
+      }
+
+      const catSlug = (categoryDoc?.slug || (typeof targetCatId === 'string' ? targetCatId : '')).toLowerCase();
+      const config = (CATEGORY_CONFIG as Record<string, any>)[catSlug];
+
+      if (config) {
+        if (config.subcategories.length > 0) {
+          const rawType = updateData.productType !== undefined ? updateData.productType : (product.productType || updateData.subcategory);
+          const upperType = (rawType || '').toString().toUpperCase();
+          if (upperType === 'FEEDING' || upperType === 'NON-FEEDING') {
+            updateData.productType = upperType;
+            updateData.subcategory = upperType === 'FEEDING' ? 'Feeding' : 'Non-Feeding';
+          } else {
+            throw new AppError(
+              `Category "${config.label}" requires a valid subcategory selection: "feeding" or "non-feeding".`,
+              400
+            );
+          }
+        } else {
+          // Standalone category (e.g. lounge-wear, kids-wear)
+          updateData.productType = null;
+          updateData.subcategory = null;
+        }
+      }
+    }
+
     const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
-    });
+    }).populate('category', 'name slug');
+
+    if (!updatedProduct) {
+      throw new AppError('Product not found for update', 404);
+    }
 
     await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
+    if (updatedProduct.slug !== product.slug) {
+      await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(updatedProduct.slug));
+    }
     await delFromCache(CACHE_KEYS.PRODUCTS_ALL);
 
     res.status(200).json({
       success: true,
       message: 'Product updated successfully',
       data: updatedProduct,
+      product: updatedProduct,
     });
   } catch (error) {
     next(error);

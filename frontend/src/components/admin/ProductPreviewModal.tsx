@@ -55,10 +55,7 @@ export default function ProductPreviewModal({
 
   if (!isOpen) return null;
 
-  const displayImages = product.images.length > 0
-    ? product.images
-    : [{ url: '/images/categories/maternity-kurtis.jpg', alt: product.name }];
-
+  const displayImages = (product.images || []).filter((i) => i && i.url && i.url.trim());
   const currentImage = displayImages[selectedImageIndex] || displayImages[0];
   const calcDiscount = product.discount || (
     product.compareAtPrice && product.compareAtPrice > product.price
@@ -117,14 +114,23 @@ export default function ProductPreviewModal({
             {/* Left: Gallery */}
             <div className="flex flex-col gap-4">
               {/* Main Image View */}
-              <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-white shadow-soft-md border border-[var(--color-champagne)]/60">
-                <Image
-                  src={getSafeImageUrl(currentImage.url)}
-                  alt={currentImage.alt || product.name}
-                  fill
-                  className="object-cover object-center"
-                  unoptimized={currentImage.url.startsWith('blob:') || currentImage.url.startsWith('data:')}
-                />
+              <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-white shadow-soft-md border border-[var(--color-champagne)]/60 flex items-center justify-center">
+                {currentImage?.url ? (
+                  <Image
+                    src={getSafeImageUrl(currentImage.url)}
+                    alt={currentImage.alt || product.name}
+                    fill
+                    className="object-cover object-center"
+                    unoptimized={currentImage.url.startsWith('blob:') || currentImage.url.startsWith('data:')}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-gray-400 gap-2 p-6 text-center">
+                    <span className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold">
+                      [IMG]
+                    </span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">No Image Uploaded</span>
+                  </div>
+                )}
 
                 {calcDiscount > 0 && (
                   <span className="absolute top-4 left-4 bg-[var(--color-soft-red)] text-white text-xs font-bold uppercase px-3 py-1 rounded-md shadow-sm">

@@ -47,14 +47,14 @@ export const getCart = async (
         },
         variant: variant
           ? {
-              sku: variant.sku,
-              color: variant.color,
-              colorHex: variant.colorHex,
-              size: variant.size,
-              price: variant.price,
-              compareAtPrice: variant.compareAtPrice,
-              stock: variant.stock,
-            }
+            sku: variant.sku,
+            color: variant.color,
+            colorHex: variant.colorHex,
+            size: variant.size,
+            price: variant.price,
+            compareAtPrice: variant.compareAtPrice,
+            stock: variant.stock,
+          }
           : null,
         quantity: item.quantity,
         addedAt: item.addedAt,

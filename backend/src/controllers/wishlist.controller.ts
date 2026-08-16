@@ -61,7 +61,12 @@ export const addToWishlist = async (
     );
 
     if (alreadyInWishlist) {
-      throw new AppError('Product already in wishlist', 409);
+      res.status(200).json({
+        success: true,
+        message: 'Product already in wishlist',
+        data: { wishlistCount: user.wishlist.length },
+      });
+      return;
     }
 
     user.wishlist.push(productId as any);
