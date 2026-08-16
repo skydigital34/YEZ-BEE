@@ -13,7 +13,7 @@ export default function EditorsPick() {
           {/* Main Runway Editorial Feature */}
           <div className="relative lg:col-span-8 overflow-hidden rounded-3xl min-h-[480px] lg:min-h-[540px] shadow-soft-lg group">
             <Image
-              src="/images/flash_sale.jpg"
+              src="/images/Yez bee/13/bestconverter_compressed_1.jpg"
               alt="Editor's Runway Pick"
               fill
               sizes="(max-width: 1024px) 100vw, 66vw"
@@ -46,7 +46,7 @@ export default function EditorsPick() {
                 Curated by Chief Fashion Director Vanya Kapoor
               </p>
               <Link
-                href="/category/editors-pick"
+                href="/category/casuals"
                 className={cn(
                   'inline-flex w-fit items-center gap-3 rounded-full px-8 py-3.5 text-xs font-bold uppercase tracking-[0.15em] transition-all duration-300',
                   'bg-[var(--color-primary-gold)] text-[var(--color-dark)]',
@@ -63,7 +63,7 @@ export default function EditorsPick() {
           <div className="lg:col-span-4 flex flex-col gap-6">
             <div className="group relative flex-1 overflow-hidden rounded-2xl min-h-[250px] shadow-soft-md">
               <Image
-                src="/images/luxury_featured_collection.jpg"
+                src="/images/Yez bee/14/bestconverter_compressed_1.jpg"
                 alt="Royal Festival Edit"
                 fill
                 sizes="(max-width: 1024px) 100vw, 33vw"
@@ -88,7 +88,7 @@ export default function EditorsPick() {
 
             <div className="group relative flex-1 overflow-hidden rounded-2xl min-h-[250px] shadow-soft-md">
               <Image
-                src="/images/western_chic.jpg"
+                src="/images/Yez bee/15/bestconverter_compressed_1.jpg"
                 alt="Executive Power Tailoring"
                 fill
                 sizes="(max-width: 1024px) 100vw, 33vw"

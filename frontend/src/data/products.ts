@@ -93,8 +93,12 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 950,
     discountPercentage: 24,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/1/casuals_maternity_feeding_kurti.jpg',
+      '/images/Yez bee/1/casuals_maternity_feeding_kurti (2).jpg',
+      '/images/Yez bee/1/casuals_maternity_feeding_kurti (3).jpg',
+    ],
+    thumbnail: '/images/Yez bee/1/casuals_maternity_feeding_kurti.jpg',
     colors: [
       { name: 'Peach Floral', hex: '#FFDAB9' },
       { name: 'Navy Blue', hex: '#1B2A4A' },
@@ -155,8 +159,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 650,
     discountPercentage: 25,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/2/green_casual_maternity_feeding (2).jpg',
+      '/images/Yez bee/2/green_casual_maternity_feeding (3).jpg',
+    ],
+    thumbnail: '/images/Yez bee/2/green_casual_maternity_feeding (2).jpg',
     colors: [
       { name: 'Indigo Blue', hex: '#3F51B5' },
       { name: 'Mustard Yellow', hex: '#FFC107' },
@@ -215,8 +222,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 1100,
     discountPercentage: 23,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/6/bestconverter_compressed_1.jpg',
+      '/images/Yez bee/6/bestconverter_compressed_2.jpg',
+    ],
+    thumbnail: '/images/Yez bee/6/bestconverter_compressed_1.jpg',
     colors: [
       { name: 'Maroon Gold', hex: '#800000' },
       { name: 'Teal Blue', hex: '#008080' },
@@ -275,8 +285,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 1700,
     discountPercentage: 30,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/7/bestconverter_compressed_1.jpg',
+      '/images/Yez bee/7/bestconverter_compressed_2.jpg',
+    ],
+    thumbnail: '/images/Yez bee/7/bestconverter_compressed_1.jpg',
     colors: [
       { name: 'Royal Emerald', hex: '#004B23' },
       { name: 'Midnight Black', hex: '#0B090A' },
@@ -334,8 +347,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 2200,
     discountPercentage: 23,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/10/bestconverter_compressed_1.jpg',
+      '/images/Yez bee/10/bestconverter_compressed_2.jpg',
+    ],
+    thumbnail: '/images/Yez bee/10/bestconverter_compressed_1.jpg',
     colors: [
       { name: 'Crimson Red', hex: '#990000' },
       { name: 'Royal Gold', hex: '#DAA520' },
@@ -390,8 +406,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 1700,
     discountPercentage: 26,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/12/bestconverter_compressed_1.jpg',
+      '/images/Yez bee/12/bestconverter_compressed_2.jpg',
+    ],
+    thumbnail: '/images/Yez bee/12/bestconverter_compressed_1.jpg',
     colors: [
       { name: 'Maroon Gold', hex: '#800000' },
       { name: 'Teal Blue', hex: '#008080' },
@@ -447,8 +466,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 900,
     discountPercentage: 25,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/22/bestconverter_compressed_1.jpg',
+      '/images/Yez bee/22/bestconverter_compressed_2.jpg',
+    ],
+    thumbnail: '/images/Yez bee/22/bestconverter_compressed_1.jpg',
     colors: [
       { name: 'Blush Pink', hex: '#FFB6C1' },
       { name: 'Lavender', hex: '#E6E6FA' },
@@ -506,8 +528,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 700,
     discountPercentage: 24,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/23/bestconverter_compressed_1.jpg',
+      '/images/Yez bee/23/bestconverter_compressed_2.jpg',
+    ],
+    thumbnail: '/images/Yez bee/23/bestconverter_compressed_1.jpg',
     colors: [
       { name: 'Sage Green', hex: '#87A96B' },
       { name: 'Charcoal Grey', hex: '#36454F' },
@@ -566,8 +591,10 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 750,
     discountPercentage: 23,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/3/1.jpg',
+    ],
+    thumbnail: '/images/Yez bee/3/1.jpg',
     colors: [
       { name: 'Blush Pink', hex: '#FFB6C1' },
       { name: 'Navy Blue', hex: '#1B2A4A' },
@@ -626,8 +653,10 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 680,
     discountPercentage: 20,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/4/1.jpg',
+    ],
+    thumbnail: '/images/Yez bee/4/1.jpg',
     colors: [
       { name: 'Off White', hex: '#FAF9F6' },
       { name: 'Coral Pink', hex: '#FF6F61' },
@@ -686,8 +715,11 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     costPrice: 420,
     discountPercentage: 33,
     currency: 'INR',
-    images: [],
-    thumbnail: '',
+    images: [
+      '/images/Yez bee/5/bestconverter_compressed_1.jpg',
+      '/images/Yez bee/5/bestconverter_compressed_2.jpg',
+    ],
+    thumbnail: '/images/Yez bee/5/bestconverter_compressed_1.jpg',
     colors: [
       { name: 'Coral Pink', hex: '#FF6F61' },
       { name: 'Sunshine Yellow', hex: '#FFD700' },

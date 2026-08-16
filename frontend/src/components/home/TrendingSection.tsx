@@ -11,28 +11,28 @@ const TRENDS = [
     title: 'Peplum Tops & Waist Tunics',
     description: 'Sculpted silhouettes redefining modern casual glam',
     slug: '/category/peplum-tops',
-    image: '/images/western_chic.jpg',
+    image: '/images/Yez bee/4/1.jpg',
   },
   {
     id: 2,
     title: 'Casuals & Feeding Edit',
     description: 'Effortlessly fluid matching ensembles with hidden nursing zips',
     slug: '/category/casuals/feeding',
-    image: '/images/categories/maternity-kurtis.jpg',
+    image: '/images/Yez bee/1/casuals_maternity_feeding_kurti (2).jpg',
   },
   {
     id: 3,
     title: 'Party Wear & Festive Gowns',
     description: 'Sharp tailoring & gold embellishments for celebrations',
     slug: '/category/party-wear',
-    image: '/images/maternity/slide3.jpg',
+    image: '/images/Yez bee/7/bestconverter_compressed_1.jpg',
   },
   {
     id: 4,
     title: 'Hand-Woven Ethnic Sarees',
     description: 'Ethereal sheer drapes embellished with gold zari motifs',
     slug: '/category/ethnic-wear',
-    image: '/images/ethnic_luxe.jpg',
+    image: '/images/Yez bee/12/bestconverter_compressed_1.jpg',
   },
 ];
 

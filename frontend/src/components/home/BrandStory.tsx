@@ -14,7 +14,7 @@ export default function BrandStory() {
           <div className="lg:col-span-6 relative">
             <div className="relative aspect-[4/5] w-full max-w-md mx-auto lg:max-w-none overflow-hidden rounded-2xl shadow-soft-xl">
               <Image
-                src="/images/luxury_featured_collection.jpg"
+                src="/images/Yez bee/8/bestconverter_compressed_1.jpg"
                 alt="YEZ BEE Heritage Craftsmanship"
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
@@ -26,7 +26,7 @@ export default function BrandStory() {
                   ESTABLISHED 2024
                 </span>
                 <p className="font-display text-xl font-semibold italic">
-                  &ldquo;Preserving royal Indian heritage through modern haute couture silhouettes.&rdquo;
+                  &ldquo;Preserving comfort and elegance through thoughtful maternity & everyday fashion.&rdquo;
                 </p>
               </div>
             </div>
@@ -34,7 +34,7 @@ export default function BrandStory() {
             {/* Overlapping Secondary Card */}
             <div className="hidden sm:block absolute -bottom-8 -right-4 w-52 h-64 overflow-hidden rounded-xl shadow-gold-lg border-2 border-white">
               <Image
-                src="/images/ethnic_luxe.jpg"
+                src="/images/Yez bee/9/bestconverter_compressed_1.jpg"
                 alt="Artisan Detail"
                 fill
                 sizes="200px"

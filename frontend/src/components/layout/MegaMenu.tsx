@@ -178,7 +178,7 @@ export function MegaMenu({ scrolled, onActiveChange }: MegaMenuProps) {
                     {/* Right: Promotional Banner Card */}
                     <div className="col-span-4 relative overflow-hidden rounded-2xl border border-[var(--color-primary-gold)]/40 h-[220px] group shadow-gold-sm">
                       <Image
-                        src="/images/luxury_featured_collection.jpg"
+                        src="/images/Yez bee/8/bestconverter_compressed_1.jpg"
                         alt="NEW SEASON"
                         fill
                         sizes="380px"

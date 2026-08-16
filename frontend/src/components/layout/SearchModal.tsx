@@ -35,25 +35,25 @@ const POPULAR_PRODUCTS = [
   {
     name: 'Floral Cotton Casual Kurti',
     price: '₹1,899',
-    image: '/images/categories/maternity-kurtis.jpg',
+    image: '/images/Yez bee/1/casuals_maternity_feeding_kurti (2).jpg',
     href: '/category/casuals',
   },
   {
     name: 'Festive Gown & Party Wear',
     price: '₹2,499',
-    image: '/images/maternity/slide3.jpg',
+    image: '/images/Yez bee/6/bestconverter_compressed_1.jpg',
     href: '/category/party-wear',
   },
   {
     name: 'Ethnic Wear Kurti Set',
     price: '₹2,199',
-    image: '/images/ethnic_luxe.jpg',
+    image: '/images/Yez bee/10/bestconverter_compressed_1.jpg',
     href: '/category/ethnic-wear',
   },
   {
     name: 'Peplum Tops & Tunics',
     price: '₹1,499',
-    image: '/images/western_chic.jpg',
+    image: '/images/Yez bee/3/1.jpg',
     href: '/category/peplum-tops',
   },
 ];

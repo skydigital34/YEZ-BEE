@@ -7,33 +7,33 @@ import Image from 'next/image';
 const INSTA_POSTS = [
   {
     id: 1,
-    image: '/images/luxury_featured_collection.jpg',
+    image: '/images/Yez bee/16/bestconverter_compressed_1.jpg',
     tag: '#YEZBEELookbook',
   },
   {
     id: 2,
-    image: '/images/flash_sale.jpg',
-    tag: '#HauteCouture',
+    image: '/images/Yez bee/17/bestconverter_compressed_1.jpg',
+    tag: '#MaternityStyle',
   },
   {
     id: 3,
-    image: '/images/ethnic_luxe.jpg',
+    image: '/images/Yez bee/18/1.jpg',
     tag: '#FestivalGlam',
   },
   {
     id: 4,
-    image: '/images/western_chic.jpg',
-    tag: '#PowerDressing',
+    image: '/images/Yez bee/19/bestconverter_compressed_1.jpg',
+    tag: '#EverydayComfort',
   },
   {
     id: 5,
-    image: '/images/luxury_featured_collection.jpg',
-    tag: '#SilkElegance',
+    image: '/images/Yez bee/20/bestconverter_compressed_1.jpg',
+    tag: '#FeedingFashion',
   },
   {
     id: 6,
-    image: '/images/haute_accessories.jpg',
-    tag: '#FineJewellery',
+    image: '/images/Yez bee/21/bestconverter_compressed_1.jpg',
+    tag: '#PureCotton',
   },
 ];
 
