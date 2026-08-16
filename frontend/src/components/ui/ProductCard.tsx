@@ -68,9 +68,20 @@ export default function ProductCard({
   const safeColors = Array.isArray(colors) && colors.length > 0 ? colors : [{ name: 'Default', hex: '#C9A84C' }];
   const safeSizes = Array.isArray(sizes) && sizes.length > 0 ? sizes : ['M'];
 
-  const primaryImage = getSafeImageUrl(
-    image || thumbnail || (Array.isArray(images) ? images[0] : images) || rest.galleryImages?.[0] || ''
-  );
+  const primaryImage = (() => {
+    if (image) return getSafeImageUrl(image, '');
+    if (thumbnail) return getSafeImageUrl(thumbnail, '');
+    if (Array.isArray(images) && images.length > 0) {
+      const primaryObj = images.find((i: any) => Boolean(i?.isPrimary));
+      if (primaryObj) return getSafeImageUrl(primaryObj, '');
+      return getSafeImageUrl(images[0], '');
+    }
+    if (typeof images === 'string') return getSafeImageUrl(images, '');
+    if (Array.isArray(rest.galleryImages) && rest.galleryImages.length > 0) {
+      return getSafeImageUrl(rest.galleryImages[0], '');
+    }
+    return '';
+  })();
   const secondaryImage = hoverImage ? getSafeImageUrl(hoverImage, '') : '';
 
   const isWishlisted = isInWishlist(id);
@@ -285,9 +296,9 @@ export default function ProductCard({
             )}
           </div>
 
-          {colors.length > 0 && (
+          {safeColors.length > 0 && (
             <div className="flex items-center gap-1">
-              {colors.slice(0, 3).map((c, i) => {
+              {safeColors.slice(0, 3).map((c, i) => {
                 const colorName = typeof c === 'string' ? c : c?.name || `Color-${i}`;
                 const colorHex = typeof c === 'string' ? '#000000' : c?.hex || '#000000';
                 return (
@@ -307,9 +318,9 @@ export default function ProductCard({
                   />
                 );
               })}
-              {colors.length > 3 && (
+              {safeColors.length > 3 && (
                 <span className="text-[10px] text-[var(--color-dark)]/50 font-medium">
-                  +{colors.length - 3}
+                  +{safeColors.length - 3}
                 </span>
               )}
             </div>

@@ -39,43 +39,57 @@ export default function FlashSale() {
         if (res && res.data && res.data.length > 0 && isMounted) {
           const mapped = res.data
             .map((p: any) => {
-              const rawImages = p.images?.map((i: any) => getSafeImageUrl(i)).filter((u: string) => Boolean(u && u.trim())) || [];
-              const thumbnail = getSafeImageUrl(p.thumbnail || rawImages[0], '');
-              const imagesList = rawImages.length > 0 ? rawImages : (thumbnail ? [thumbnail] : []);
-              const minPrice = p.price || (p.variants || []).reduce((min: number, v: any) => Math.min(min, v.price || Infinity), Infinity) || 0;
-              const maxCompare = p.compareAtPrice || (p.variants || []).reduce((max: number, v: any) => Math.max(max, v.compareAtPrice || 0), 0);
-              const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
+              const sortedRaw = Array.isArray(p.images)
+              ? [...p.images].sort((a: any, b: any) => {
+                  const orderA = typeof a?.order === 'number' ? a.order : (typeof a?.sortOrder === 'number' ? a.sortOrder : 9999);
+                  const orderB = typeof b?.order === 'number' ? b.order : (typeof b?.sortOrder === 'number' ? b.sortOrder : 9999);
+                  return orderA - orderB;
+                })
+              : [];
+            const rawImages = sortedRaw.map((i: any) => getSafeImageUrl(i, '')).filter((u: string) => Boolean(u && u.trim()));
+            const primaryObj = sortedRaw.find((i: any) => Boolean(i?.isPrimary));
+            const thumbnail = primaryObj ? getSafeImageUrl(primaryObj, '') : getSafeImageUrl(p.thumbnail || rawImages[0], '');
+            const imagesList = rawImages.length > 0 ? rawImages : (thumbnail ? [thumbnail] : []);
+              const variantsList = Array.isArray(p.variants) ? p.variants : [];
+              const minPrice = p.price || (variantsList.length > 0 ? variantsList.reduce((min: number, v: any) => Math.min(min, v.price || Infinity), Infinity) : 0) || 0;
+              const maxCompare = p.compareAtPrice || (variantsList.length > 0 ? variantsList.reduce((max: number, v: any) => Math.max(max, v.compareAtPrice || 0), 0) : undefined);
+              const discountPct = p.discount || (maxCompare && maxCompare > minPrice ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
+              const totalStock = variantsList.length > 0 ? variantsList.reduce((acc: number, v: any) => acc + (v.stock || 0), 0) : (p.stock || 0);
 
               return {
                 id: p._id || p.id,
-                name: p.name,
-                slug: p.slug,
+                name: p.name || 'YEZ BEE Item',
+                slug: p.slug || p._id || p.id,
                 description: p.description || '',
                 shortDescription: p.shortDescription || '',
                 price: minPrice,
-                compareAtPrice: maxCompare > minPrice ? maxCompare : undefined,
+                compareAtPrice: maxCompare && maxCompare > minPrice ? maxCompare : undefined,
                 discountPercentage: discountPct,
-                category: p.category?.slug || 'casuals',
-                categoryName: p.category?.name || 'CASUALS',
-                productType: p.productType,
+                category: p.category?.slug || p.category || 'casuals',
+                categoryName: p.category?.name || p.subcategory || 'CASUALS',
+                productType: p.productType || null,
                 fabric: p.fabric || 'Cotton',
                 fit: p.fit || 'Regular',
                 pattern: p.pattern || 'Printed',
                 occasion: p.occasion || 'Casual',
-                careInstructions: p.careInstructions || [],
+                careInstructions: Array.isArray(p.careInstructions) ? p.careInstructions : [],
                 status: (p.status || 'published').toLowerCase(),
-                stock: (p.variants || []).reduce((acc: number, v: any) => acc + (v.stock || 0), 0),
-                sku: p.variants?.[0]?.sku || p._id,
+                stock: totalStock,
+                sku: variantsList[0]?.sku || p._id,
                 thumbnail,
                 images: imagesList,
                 galleryImages: imagesList,
-                colors: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.color))).map(name => ({ name, hex: '#000000' })) as any : [],
-                sizes: p.variants ? Array.from(new Set(p.variants.map((v: any) => v.size))) as any : [],
-                variants: p.variants || [],
+                colors: variantsList.length > 0
+                  ? Array.from(new Set(variantsList.map((v: any) => v.color).filter(Boolean))).map(name => ({ name, hex: '#000000' })) as any
+                  : [{ name: 'Default', hex: '#000000' }],
+                sizes: variantsList.length > 0
+                  ? Array.from(new Set(variantsList.map((v: any) => v.size).filter(Boolean))) as any
+                  : ['S', 'M', 'L'],
+                variants: variantsList,
                 featured: Boolean(p.featured),
                 bestseller: Boolean(p.bestSeller),
                 newArrival: Boolean(p.newArrival),
-                tags: p.tags || [],
+                tags: Array.isArray(p.tags) ? p.tags : [],
                 seo: p.seo || { title: p.name, description: p.shortDescription },
               } as unknown as CatalogProduct;
             });

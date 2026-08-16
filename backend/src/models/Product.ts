@@ -7,6 +7,7 @@ export interface IProductImage {
   publicId?: string;
   alt: string;
   isPrimary: boolean;
+  order?: number;
   sortOrder?: number;
 }
 
@@ -112,6 +113,7 @@ const productImageSchema = new Schema<IProductImage>(
     publicId: { type: String, default: '' },
     alt: { type: String, default: '' },
     isPrimary: { type: Boolean, default: false },
+    order: { type: Number, default: 0 },
     sortOrder: { type: Number, default: 0 },
   },
   { _id: false }

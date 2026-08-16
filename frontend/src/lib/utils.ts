@@ -192,11 +192,26 @@ export function getSafeProductImage(
 
   // Case 1: Input is a Product object
   if (typeof input === 'object' && !Array.isArray(input)) {
-    const imagesArray = Array.isArray(input.images)
+    const rawArray = Array.isArray(input.images)
       ? input.images
       : Array.isArray(input.galleryImages)
       ? input.galleryImages
       : [];
+
+    const imagesArray = [...rawArray].sort((a: any, b: any) => {
+      const orderA = typeof a?.order === 'number' ? a.order : (typeof a?.sortOrder === 'number' ? a.sortOrder : 9999);
+      const orderB = typeof b?.order === 'number' ? b.order : (typeof b?.sortOrder === 'number' ? b.sortOrder : 9999);
+      return orderA - orderB;
+    });
+
+    // If requesting the primary/cover image (index 0), prioritize explicit isPrimary
+    if (index === 0) {
+      const primaryItem = imagesArray.find((img: any) => Boolean(img?.isPrimary));
+      if (primaryItem) {
+        const candidate = getSafeImageUrl(primaryItem, '');
+        if (candidate) return candidate;
+      }
+    }
 
     if (imagesArray.length > index && imagesArray[index]) {
       const candidate = getSafeImageUrl(imagesArray[index], '');
@@ -218,12 +233,26 @@ export function getSafeProductImage(
 
   // Case 2: Input is an Array
   if (Array.isArray(input)) {
-    if (input.length > index && input[index]) {
-      const candidate = getSafeImageUrl(input[index], '');
+    const sortedArray = [...input].sort((a: any, b: any) => {
+      const orderA = typeof a?.order === 'number' ? a.order : (typeof a?.sortOrder === 'number' ? a.sortOrder : 9999);
+      const orderB = typeof b?.order === 'number' ? b.order : (typeof b?.sortOrder === 'number' ? b.sortOrder : 9999);
+      return orderA - orderB;
+    });
+
+    if (index === 0) {
+      const primaryItem = sortedArray.find((img: any) => Boolean(img?.isPrimary));
+      if (primaryItem) {
+        const candidate = getSafeImageUrl(primaryItem, '');
+        if (candidate) return candidate;
+      }
+    }
+
+    if (sortedArray.length > index && sortedArray[index]) {
+      const candidate = getSafeImageUrl(sortedArray[index], '');
       if (candidate) return candidate;
     }
-    if (input.length > 0 && input[0]) {
-      const candidate = getSafeImageUrl(input[0], '');
+    if (sortedArray.length > 0 && sortedArray[0]) {
+      const candidate = getSafeImageUrl(sortedArray[0], '');
       if (candidate) return candidate;
     }
     return fallback;

@@ -1,3 +1,5 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['mongoose'],
@@ -18,7 +20,7 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
   },
   turbopack: {
-    root: '../',
+    root: path.resolve(__dirname, '..'),
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',

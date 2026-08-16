@@ -66,12 +66,28 @@ const configureMiddleware = (): void => {
     'http://localhost:5173',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
+    'https://yez-bee.vercel.app',
+    'https://yezbee-fashion.vercel.app',
     process.env.FRONTEND_URL,
   ].filter((url): url is string => Boolean(url));
 
   const corsOptions: cors.CorsOptions = {
     origin: (origin, callback) => {
-      // Allow any requesting origin dynamically for local development & CORS credentials compatibility
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // Match explicit allowed origins or any vercel.app preview URL for yez-bee
+      if (
+        allowedOrigins.includes(origin) ||
+        /^https:\/\/yez-bee(-[a-z0-9-]+)?\.vercel\.app$/.test(origin) ||
+        /^https:\/\/yezbee(-[a-z0-9-]+)?\.vercel\.app$/.test(origin) ||
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
+      ) {
+        return callback(null, true);
+      }
+
+      // Default fallback
       callback(null, true);
     },
     credentials: true,

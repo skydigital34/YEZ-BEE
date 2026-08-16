@@ -38,6 +38,7 @@ import { slugify, saveOrUpdateProduct } from '@/data/products';
 import { api } from '@/lib/api';
 import { getSafeImageUrl } from '@/lib/utils';
 import ProductPreviewModal, { ProductPreviewData } from './ProductPreviewModal';
+import ProductMediaSortable from './ProductMediaSortable';
 
 const PRESET_COLORS = [
   { name: 'Peach Floral', hex: '#FFDAB9' },
@@ -76,6 +77,8 @@ export interface FormImage {
   publicId?: string;
   alt?: string;
   isPrimary: boolean;
+  order: number;
+  sortOrder?: number;
   colorAssigned?: string;
   uploading?: boolean;
 }
@@ -261,10 +264,16 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
     setBestSeller(Boolean(p.bestSeller || p.isBestSeller));
     setNewArrival(Boolean(p.newArrival || p.isNewProduct));
 
-    // Images
+    // Images (Sorted by order ASC)
     const rawImages = p.images || [];
     if (Array.isArray(rawImages) && rawImages.length > 0) {
-      const cleanImages: FormImage[] = rawImages
+      const sortedRaw = [...rawImages].sort((a: any, b: any) => {
+        const orderA = typeof a?.order === 'number' ? a.order : (typeof a?.sortOrder === 'number' ? a.sortOrder : 9999);
+        const orderB = typeof b?.order === 'number' ? b.order : (typeof b?.sortOrder === 'number' ? b.sortOrder : 9999);
+        return orderA - orderB;
+      });
+
+      const cleanImages: FormImage[] = sortedRaw
         .map((img: any, idx: number) => {
           const urlStr = typeof img === 'string' ? img : img?.url || img?.secure_url || '';
           if (!urlStr || !urlStr.trim()) return null;
@@ -274,6 +283,8 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
             publicId: img?.publicId || img?.public_id,
             alt: img?.alt || p.name || '',
             isPrimary: Boolean(img?.isPrimary || idx === 0),
+            order: idx,
+            sortOrder: idx + 1,
             colorAssigned: img?.color || img?.colorAssigned,
           };
         })
@@ -290,6 +301,8 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
           url: p.thumbnail,
           alt: p.name || '',
           isPrimary: true,
+          order: 0,
+          sortOrder: 1,
         },
       ]);
     } else {
@@ -514,6 +527,8 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
           url: dataUrl,
           alt: name || 'YEZ BEE Product',
           isPrimary: prev.length === 0,
+          order: prev.length,
+          sortOrder: prev.length + 1,
           uploading: true,
         },
       ]);
@@ -562,14 +577,19 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
     }
     setImages((prev) => {
       const filtered = prev.filter((i) => i.id !== id);
-      if (filtered.length > 0 && !filtered.some((i) => i.isPrimary)) {
-        filtered[0].isPrimary = true;
+      const reindexed = filtered.map((img, index) => ({
+        ...img,
+        order: index,
+        sortOrder: index + 1,
+      }));
+      if (reindexed.length > 0 && !reindexed.some((i) => i.isPrimary)) {
+        reindexed[0].isPrimary = true;
       }
-      return filtered;
+      return reindexed;
     });
   };
 
-  // Set Primary Image
+  // Set Primary Image (independent of order)
   const handleSetPrimaryImage = (id: string) => {
     setImages((prev) => prev.map((img) => ({ ...img, isPrimary: img.id === id })));
   };
@@ -641,9 +661,10 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
         url: img.url,
         publicId: img.publicId || '',
         alt: img.alt || name,
-        isPrimary: Boolean(img.isPrimary || idx === 0),
+        isPrimary: Boolean(img.isPrimary),
+        order: typeof img.order === 'number' ? img.order : idx,
+        sortOrder: typeof img.sortOrder === 'number' ? img.sortOrder : idx + 1,
         color: img.colorAssigned,
-        sortOrder: idx + 1,
       }));
 
     const apiPayload: any = {
@@ -1379,103 +1400,26 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
         {/* ── RIGHT / SECONDARY COLUMN (4 COLS - STICKY) ── */}
         <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
 
-          {/* MEDIA CARD: CLOUDINARY UPLOADS & GALLERY */}
+          {/* CARD 9: PRODUCT MEDIA & SORTABLE ORDERING */}
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                 <ImageIcon size={16} className="text-[var(--color-primary-gold)]" />
-                Product Media ({images.length})
+                Product Media & Ordering
               </h2>
+              <span className="text-[10px] text-gray-400 font-mono">
+                {images.length} {images.length === 1 ? 'image' : 'images'}
+              </span>
             </div>
 
-            {/* Dropzone */}
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleFileUpload(e.dataTransfer.files);
-              }}
-              className="border-2 border-dashed border-gray-300 p-6 rounded-2xl text-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              <Upload className="mx-auto text-gray-400 mb-2" size={28} />
-              <p className="text-xs font-bold text-gray-700">Drag & Drop Product Images</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">JPG, PNG, WEBP up to 5MB (Cloudinary)</p>
-
-              <input
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
-                className="hidden"
-                id="file-upload-input"
-              />
-              <label
-                htmlFor="file-upload-input"
-                className="mt-3 inline-block px-3.5 py-1.5 bg-[var(--color-dark)] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-black"
-              >
-                Browse Files
-              </label>
-            </div>
-
-            {/* Progress Bar */}
-            {uploadProgress !== null && (
-              <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-[var(--color-primary-gold)] h-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-            )}
-
-            {/* Uploaded Images List / Grid */}
-            {images.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {images.map((img, idx) => (
-                  <div
-                    key={img.id || idx}
-                    className="relative aspect-[3/4] rounded-xl overflow-hidden border border-gray-200 bg-gray-50 group"
-                  >
-                    <Image
-                      src={img.url}
-                      alt={img.alt || 'Product image'}
-                      fill
-                      className="object-cover"
-                      unoptimized={img.url.startsWith('data:') || img.url.startsWith('blob:')}
-                    />
-
-                    {img.isPrimary && (
-                      <span className="absolute top-1.5 left-1.5 bg-[var(--color-dark)] text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider z-10 shadow-xs">
-                        Primary
-                      </span>
-                    )}
-
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-2 z-20">
-                      {!img.isPrimary && (
-                        <button
-                          type="button"
-                          onClick={() => handleSetPrimaryImage(img.id)}
-                          className="px-2 py-1 bg-white text-black text-[9px] font-bold rounded shadow"
-                        >
-                          Make Primary
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteImage(img.id)}
-                        className="p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-700"
-                        title="Delete image"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-150 text-center text-xs text-gray-400 font-sans">
-                No images uploaded yet. Clean empty state.
-              </div>
-            )}
+            <ProductMediaSortable
+              images={images}
+              onImagesChange={setImages}
+              onSetPrimary={handleSetPrimaryImage}
+              onDelete={handleDeleteImage}
+              onUpload={handleFileUpload}
+              uploadProgress={uploadProgress}
+            />
           </div>
 
           {/* VISIBILITY & STATUS CARD */}

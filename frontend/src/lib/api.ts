@@ -1,8 +1,35 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:5000/api/v1');
+export const getBaseApiUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+
+    if (envUrl) {
+      // If we are running in a production browser on Vercel/custom domain,
+      // but NEXT_PUBLIC_API_URL was baked with localhost, prevent calling client machine
+      if (!isLocalhost && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
+        return '/api/v1';
+      }
+      return envUrl;
+    }
+
+    // Default for browser on public domain without custom backend URL
+    return isLocalhost ? 'http://localhost:5000/api/v1' : '/api/v1';
+  }
+
+  // SSR / Server runtime
+  if (envUrl) {
+    return envUrl;
+  }
+  return process.env.NODE_ENV === 'production'
+    ? 'https://yez-bee.vercel.app/api/v1'
+    : 'http://localhost:5000/api/v1';
+};
+
+const BASE_URL = getBaseApiUrl();
 
 interface TokenResponse {
   access: string;
@@ -177,15 +204,44 @@ export interface AdminProductFilters extends ProductFilters {
 }
 
 export const api = {
+  // Health check
+  checkHealth: () =>
+    apiClient
+      .get<{ success: boolean; message: string; timestamp?: string }>('/health')
+      .then((r) => r.data)
+      .catch(() =>
+        apiClient
+          .get<{ success: boolean; message: string; timestamp?: string }>('/api/health')
+          .then((r) => r.data)
+      ),
+
   // Public Customer Products
   getProducts: (filters?: ProductFilters) =>
     apiClient.get<PaginatedResponse<any>>('/products', { params: filters }).then((r) => r.data),
 
-  getProduct: (slug: string) =>
-    apiClient.get<ApiResponse<any>>(`/products/${slug}`).then((r) => r.data),
+  getProduct: async (slug: string) => {
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(`/products/${slug}`);
+      return res.data;
+    } catch (err: any) {
+      // If 404 and looks like an ObjectId, attempt direct /id/ endpoint
+      if (/^[0-9a-fA-F]{24}$/.test(slug)) {
+        try {
+          const idRes = await apiClient.get<ApiResponse<any>>(`/products/id/${slug}`);
+          return idRes.data;
+        } catch (idErr) {
+          throw err;
+        }
+      }
+      throw err;
+    }
+  },
 
   getProductById: (id: string) =>
-    apiClient.get<ApiResponse<any>>(`/products/id/${id}`).catch(() => apiClient.get<ApiResponse<any>>(`/products/${id}`)).then((r) => r.data),
+    apiClient
+      .get<ApiResponse<any>>(`/products/id/${id}`)
+      .catch(() => apiClient.get<ApiResponse<any>>(`/products/${id}`))
+      .then((r) => r.data),
 
   searchProducts: (query: string, filters?: ProductFilters) =>
     apiClient

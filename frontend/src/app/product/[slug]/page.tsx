@@ -203,11 +203,24 @@ export default function ProductDetailPage() {
             ? p.images
             : (p.thumbnail ? [p.thumbnail] : []);
 
-          let cleanImages = rawImages
+          // Sort images strictly by order ASC (or sortOrder ASC)
+          const sortedRawImages = [...rawImages].sort((a: any, b: any) => {
+            const orderA = typeof a?.order === 'number' ? a.order : (typeof a?.sortOrder === 'number' ? a.sortOrder : 9999);
+            const orderB = typeof b?.order === 'number' ? b.order : (typeof b?.sortOrder === 'number' ? b.sortOrder : 9999);
+            return orderA - orderB;
+          });
+
+          let cleanImages = sortedRawImages
             .map((img: any) => getSafeImageUrl(img, ''))
             .filter((u: string) => Boolean(u && u.trim()));
 
-          cleanImages = Array.from(new Set(cleanImages));
+          // De-duplicate while preserving exact order
+          const seen = new Set<string>();
+          cleanImages = cleanImages.filter((url) => {
+            if (seen.has(url)) return false;
+            seen.add(url);
+            return true;
+          });
 
           if (cleanImages.length === 0 && p.thumbnail) {
             const thumbUrl = getSafeImageUrl(p.thumbnail, '');
@@ -215,6 +228,9 @@ export default function ProductDetailPage() {
               cleanImages.push(thumbUrl);
             }
           }
+
+          const primaryObj = sortedRawImages.find((i: any) => Boolean(i?.isPrimary));
+          const primaryThumbnail = primaryObj ? getSafeImageUrl(primaryObj, '') : (cleanImages[0] || '');
 
           const mapped = {
             id: p._id || p.id,
@@ -237,7 +253,7 @@ export default function ProductDetailPage() {
               : (p.careInstructions || 'Machine wash cold with gentle detergent.'),
             status: (p.status || 'published').toLowerCase() as any,
             stock: totalStock,
-            thumbnail: cleanImages[0] || getSafeImageUrl(p.thumbnail, '') || '',
+            thumbnail: primaryThumbnail,
             images: cleanImages,
             galleryImages: cleanImages,
             colors: p.variants && p.variants.length > 0
@@ -327,13 +343,6 @@ export default function ProductDetailPage() {
     }
   }, [product, selectedColor]);
 
-  // Sync color selection when product loads
-  useEffect(() => {
-    if (product && product.colors && product.colors.length > 0 && !selectedColor) {
-      setSelectedColor(typeof product.colors[0] === 'string' ? product.colors[0] : product.colors[0]?.name || '');
-    }
-  }, [product, selectedColor]);
-
   // Accordion Expand States (Description default OPEN)
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({
     description: true,
@@ -359,6 +368,42 @@ export default function ProductDetailPage() {
 
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+
+  const isWishlisted = product ? isInWishlist(product.id) : false;
+
+  // ── Color-dependent Size Availability ────────────────────────────────────
+  const availableVariantsForColor = useMemo(() => {
+    if (!product || !product.variants) return [];
+    return (product.variants || []).filter((v) => v.color === selectedColor);
+  }, [product, selectedColor]);
+
+  // Derive size options for selected color
+  const sizeAvailability = useMemo(() => {
+    if (!product || !product.sizes) return [];
+    return (product.sizes || []).map((sizeName) => {
+      const variant = availableVariantsForColor.find((v) => v.size === sizeName);
+      const stock = variant ? variant.stock : 0;
+      return {
+        size: sizeName,
+        stock,
+        isOffered: !!variant,
+        isInStock: stock > 0,
+      };
+    });
+  }, [product, availableVariantsForColor]);
+
+  const selectedVariant = useMemo(() => {
+    return availableVariantsForColor.find((v) => v.size === selectedSize);
+  }, [availableVariantsForColor, selectedSize]);
+
+  const handleSizeSelect = useCallback((sizeName: string, isInStock: boolean) => {
+    if (!isInStock) return;
+    setSelectedSize(sizeName);
+    setSizeError(false);
+  }, []);
+
+  const stockForSelectedSize = selectedVariant?.stock ?? 0;
+  const isLowStock = stockForSelectedSize > 0 && stockForSelectedSize <= 5;
 
   // Full-page luxury neutral skeleton when loading / switching products
   if (loading || !product) {
@@ -424,34 +469,6 @@ export default function ProductDetailPage() {
     );
   }
 
-  const isWishlisted = isInWishlist(product.id);
-
-  // ── Color-dependent Size Availability ────────────────────────────────────
-  const availableVariantsForColor = useMemo(() => {
-    return (product.variants || []).filter((v) => v.color === selectedColor);
-  }, [product.variants, selectedColor]);
-
-  // Derive size options for selected color
-  const sizeAvailability = useMemo(() => {
-    return (product.sizes || []).map((sizeName) => {
-      const variant = availableVariantsForColor.find((v) => v.size === sizeName);
-      const stock = variant ? variant.stock : 0;
-      return {
-        size: sizeName,
-        stock,
-        isOffered: !!variant,
-        isInStock: stock > 0,
-      };
-    });
-  }, [product.sizes, availableVariantsForColor]);
-
-  const selectedVariant = useMemo(() => {
-    return availableVariantsForColor.find((v) => v.size === selectedSize);
-  }, [availableVariantsForColor, selectedSize]);
-
-  const stockForSelectedSize = selectedVariant?.stock ?? 0;
-  const isLowStock = stockForSelectedSize > 0 && stockForSelectedSize <= 5;
-
   // Handle color change (resets invalid size)
   const handleColorChange = (colorName: string) => {
     setSelectedColor(colorName);
@@ -461,12 +478,6 @@ export default function ProductDetailPage() {
       setSelectedSize('');
     }
   };
-
-  const handleSizeSelect = useCallback((sizeName: string, isInStock: boolean) => {
-    if (!isInStock) return;
-    setSelectedSize(sizeName);
-    setSizeError(false);
-  }, []);
 
   const handleAddToCart = () => {
     if (!selectedSize) {
@@ -791,24 +802,26 @@ export default function ProductDetailPage() {
                 <span>Color: <span className="text-[var(--color-primary-gold)] font-extrabold">{selectedColor}</span></span>
               </div>
               <div className="flex items-center gap-3">
-                {product.colors.map((c) => {
-                  const isSelected = selectedColor === c.name;
+                {(product.colors || []).map((c, i) => {
+                  const colorName = typeof c === 'string' ? c : c?.name || `Color ${i + 1}`;
+                  const colorHex = typeof c === 'string' ? '#000000' : c?.hex || '#000000';
+                  const isSelected = selectedColor === colorName;
                   return (
                     <button
-                      key={c.name}
-                      onClick={() => handleColorChange(c.name)}
-                      aria-label={`Select color ${c.name}`}
+                      key={`${colorName}-${i}`}
+                      onClick={() => handleColorChange(colorName)}
+                      aria-label={`Select color ${colorName}`}
                       aria-pressed={isSelected}
                       className={`h-9 w-9 rounded-full border-2 transition-all flex items-center justify-center ${
                         isSelected
                           ? 'ring-2 ring-[var(--color-primary-gold)] ring-offset-2 scale-110'
                           : 'border-gray-200 hover:scale-105'
                       }`}
-                      style={{ backgroundColor: c.hex }}
-                      title={c.name}
+                      style={{ backgroundColor: colorHex }}
+                      title={colorName}
                     >
                       {isSelected && (
-                        <Check size={14} className={c.hex === '#FAF7F2' || c.hex === '#E6E6FA' ? 'text-black' : 'text-white'} />
+                        <Check size={14} className={colorHex === '#FAF7F2' || colorHex === '#E6E6FA' ? 'text-black' : 'text-white'} />
                       )}
                     </button>
                   );

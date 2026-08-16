@@ -1,46 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose, { Schema } from 'mongoose';
+import dns from 'dns';
 
-// MongoDB Atlas connection string
-const MONGODB_URI =
+// MongoDB Atlas connection strings
+const PRIMARY_MONGODB_URI =
   process.env.MONGODB_URI ||
   'mongodb+srv://sbfashionamazon:dharu1234@yez-bee.pnmkrhi.mongodb.net/yezbee?retryWrites=true&w=majority';
 
-let isConnected = false;
+const DIRECT_MONGODB_URI =
+  'mongodb://sbfashionamazon:dharu1234@ac-gvh0e4p-shard-00-01.pnmkrhi.mongodb.net:27017,ac-gvh0e4p-shard-00-00.pnmkrhi.mongodb.net:27017,ac-gvh0e4p-shard-00-02.pnmkrhi.mongodb.net:27017/yezbee?ssl=true&replicaSet=atlas-pu06nj-shard-0&authSource=admin&retryWrites=true&w=majority';
 
-function getMongoose(): any {
-  try {
-    return require('mongoose');
-  } catch (err) {
-    console.error('Mongoose require failed at runtime:', err);
-    return null;
-  }
+// Configure DNS for MongoDB SRV record resolution
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+} catch {
+  // Ignore DNS set failures
 }
 
+let isConnecting = false;
+
 async function connectDB() {
-  const mongoose = getMongoose();
-  if (!mongoose) return;
-  if (isConnected || mongoose.connection?.readyState === 1) {
-    isConnected = true;
+  if (Number(mongoose.connection.readyState) === 1) {
     return;
   }
+
+  if (isConnecting) {
+    while (isConnecting) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    if (Number(mongoose.connection.readyState) === 1) return;
+  }
+
+  isConnecting = true;
   try {
-    await mongoose.connect(MONGODB_URI, {
-      dbName: 'yezbee',
-      serverSelectionTimeoutMS: 8000,
-    });
-    isConnected = true;
-  } catch (err) {
-    console.error('Next.js API MongoDB connection failed:', err);
+    try {
+      await mongoose.connect(PRIMARY_MONGODB_URI, {
+        dbName: 'yezbee',
+        serverSelectionTimeoutMS: 4000,
+        connectTimeoutMS: 4000,
+        bufferCommands: false,
+      });
+    } catch (srvErr: any) {
+      console.warn('Primary SRV connection failed, attempting direct cluster nodes...');
+      await mongoose.connect(DIRECT_MONGODB_URI, {
+        dbName: 'yezbee',
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        bufferCommands: false,
+      });
+    }
+  } finally {
+    isConnecting = false;
   }
 }
 
 function getProductModel(): any {
-  const mongoose = getMongoose();
-  if (!mongoose) return null;
   if (mongoose.models && mongoose.models.Product) {
     return mongoose.models.Product;
   }
-  const Schema = mongoose.Schema;
   const ProductSchema = new Schema(
     {
       name: { type: String, required: true },
@@ -97,6 +114,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const Product = getProductModel();
 
   try {
+    // 0. GET /api/v1/health
+    if (path === 'health') {
+      return corsResponse({
+        success: true,
+        message: 'YEZ BEE API is running',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     // 1. GET /api/v1/products/admin/all
     if (path === 'products/admin/all') {
       const items = Product ? await Product.find({}).sort({ createdAt: -1 }).lean() : [];
@@ -147,25 +173,63 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // 4. GET /api/v1/products
     if (path === 'products' || path === 'products/featured') {
-      const items = Product ? await Product.find({ status: 'PUBLISHED' }).sort({ createdAt: -1 }).lean() : [];
+      const url = new URL(request.url);
+      const isNew = url.searchParams.get('isNew') === 'true' || url.searchParams.get('newArrival') === 'true';
+      const isBestSeller = url.searchParams.get('isBestSeller') === 'true' || url.searchParams.get('bestSeller') === 'true';
+      const category = url.searchParams.get('category');
+      const productType = url.searchParams.get('productType');
+      const limit = parseInt(url.searchParams.get('limit') || '100', 10);
+
+      const filter: Record<string, any> = {
+        $or: [{ status: 'PUBLISHED' }, { status: { $exists: false }, isActive: true }],
+      };
+
+      if (isNew) filter.newArrival = true;
+      if (isBestSeller) filter.bestSeller = true;
+      if (productType && productType !== 'all') filter.productType = productType.toUpperCase();
+      if (category && category !== 'all') {
+        filter.$and = [
+          {
+            $or: [
+              { category: category },
+              { categorySlug: category },
+              { 'category.slug': category },
+              { subcategory: new RegExp(category, 'i') },
+            ],
+          },
+        ];
+      }
+
+      let query = Product ? Product.find(filter).sort({ createdAt: -1 }).limit(limit).lean() : [];
+      let items = Product ? await query : [];
+
+      // Fallback: If filtered returned 0 products (e.g. initial setup), return all published products
+      if (items.length === 0 && Product) {
+        items = await Product.find({
+          $or: [{ status: 'PUBLISHED' }, { status: { $exists: false }, isActive: true }],
+        }).sort({ createdAt: -1 }).limit(limit).lean();
+      }
+
       return corsResponse({
         success: true,
         data: items,
-        pagination: { total: items.length, page: 1, limit: 100 },
+        pagination: { total: items.length, page: 1, limit },
       });
     }
 
     // 5. GET /api/v1/products/:slugOrId
     if (path.startsWith('products/')) {
       const idOrSlug = path.replace('products/', '').replace('id/', '');
-      const mongoose = getMongoose();
       let item = null;
       if (Product) {
-        if (mongoose && mongoose.Types.ObjectId.isValid(idOrSlug)) {
+        if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
           item = await Product.findById(idOrSlug).lean();
         }
         if (!item) {
           item = await Product.findOne({ slug: idOrSlug }).lean();
+        }
+        if (!item) {
+          item = await Product.findOne({ name: new RegExp(`^${idOrSlug}$`, 'i') }).lean();
         }
       }
       if (!item) {
@@ -174,7 +238,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return corsResponse({ success: true, data: item, product: item });
     }
 
-    return corsResponse({ success: true, message: 'API V1 Active' });
+    return corsResponse({ success: true, message: 'API V1 Active', timestamp: new Date().toISOString() });
   } catch (err: any) {
     return corsResponse({ success: false, message: err.message || 'Server error' }, 500);
   }

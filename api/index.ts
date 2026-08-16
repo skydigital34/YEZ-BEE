@@ -33,10 +33,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// Health check
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.status(200).json({ success: true, message: 'API is running', timestamp: new Date().toISOString() });
-});
+// Health checks
+const healthHandler = (_req: Request, res: Response) => {
+  res.status(200).json({ success: true, message: 'YEZ BEE API is running', timestamp: new Date().toISOString() });
+};
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
+app.get('/api/v1/health', healthHandler);
 
 // Routes
 const API_PREFIX = '/api/v1';

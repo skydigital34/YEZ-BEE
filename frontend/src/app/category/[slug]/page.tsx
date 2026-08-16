@@ -200,28 +200,41 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
             const discountPct = p.discount || (maxCompare > minPrice && maxCompare > 0 ? Math.round(((maxCompare - minPrice) / maxCompare) * 100) : 0);
             const totalStock = (p.variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
 
-            return {
-              id: p._id || p.id,
-              name: p.name,
-              slug: p.slug,
-              description: p.description || '',
-              shortDescription: p.shortDescription || '',
-              price: minPrice,
-              compareAtPrice: maxCompare > minPrice ? maxCompare : undefined,
-              discountPercentage: discountPct,
-              category: p.category?.slug || p.category || 'casuals',
-              categoryName: p.category?.name || p.subcategory || 'CASUALS',
-              productType: p.productType || null,
-              fabric: p.fabric || 'Cotton',
-              fit: p.fit || 'Regular Fit',
-              pattern: p.pattern || 'Printed',
-              occasion: p.occasion || 'Casual',
-              careInstructions: p.careInstructions || [],
-              status: (p.status || 'published').toLowerCase() as any,
-              stock: totalStock,
-              image: getSafeImageUrl(p.images?.[0] || p.thumbnail),
-              thumbnail: getSafeImageUrl(p.images?.[0] || p.thumbnail),
-              hoverImage: getSafeImageUrl(p.images?.[1] || p.images?.[0] || p.thumbnail),
+              const sortedRaw = Array.isArray(p.images)
+                ? [...p.images].sort((a: any, b: any) => {
+                    const orderA = typeof a?.order === 'number' ? a.order : (typeof a?.sortOrder === 'number' ? a.sortOrder : 9999);
+                    const orderB = typeof b?.order === 'number' ? b.order : (typeof b?.sortOrder === 'number' ? b.sortOrder : 9999);
+                    return orderA - orderB;
+                  })
+                : [];
+              const rawImages = sortedRaw.map((i: any) => getSafeImageUrl(i, '')).filter((u: string) => Boolean(u && u.trim()));
+              const primaryObj = sortedRaw.find((i: any) => Boolean(i?.isPrimary));
+              const primaryThumbnail = primaryObj ? getSafeImageUrl(primaryObj, '') : getSafeImageUrl(p.thumbnail || rawImages[0], '');
+              const hoverThumbnail = rawImages.length > 1 ? (rawImages[1] !== primaryThumbnail ? rawImages[1] : (rawImages[0] !== primaryThumbnail ? rawImages[0] : '')) : '';
+
+              return {
+                id: p._id || p.id,
+                name: p.name,
+                slug: p.slug,
+                description: p.description || '',
+                shortDescription: p.shortDescription || '',
+                price: minPrice,
+                compareAtPrice: maxCompare > minPrice ? maxCompare : undefined,
+                discountPercentage: discountPct,
+                category: p.category?.slug || p.category || 'casuals',
+                categoryName: p.category?.name || p.subcategory || 'CASUALS',
+                productType: p.productType || null,
+                fabric: p.fabric || 'Cotton',
+                fit: p.fit || 'Regular Fit',
+                pattern: p.pattern || 'Printed',
+                occasion: p.occasion || 'Casual',
+                careInstructions: p.careInstructions || [],
+                status: (p.status || 'published').toLowerCase() as any,
+                stock: totalStock,
+                image: primaryThumbnail,
+                thumbnail: primaryThumbnail,
+                images: rawImages,
+                hoverImage: hoverThumbnail,
               colors: p.variants && p.variants.length > 0
                 ? Array.from(new Set(p.variants.map((v: any) => v.color))).map((name: any) => ({
                     name: name || 'Standard',
