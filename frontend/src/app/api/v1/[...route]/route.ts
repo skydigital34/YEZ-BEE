@@ -259,7 +259,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         if (file) {
           const bytes = await file.arrayBuffer();
           const buffer = Buffer.from(bytes);
-          const base64 = `data:${file.type || 'image/jpeg'};base64,${buffer.toString('base64')}`;
+
+          let processedBuffer = buffer;
+          let mimeType = file.type || 'image/jpeg';
+
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const sharp = require('sharp');
+            processedBuffer = await sharp(buffer)
+              .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+              .jpeg({ quality: 80 })
+              .toBuffer();
+            mimeType = 'image/jpeg';
+          } catch (sharpErr) {
+            console.warn('Sharp compression fallback:', sharpErr);
+          }
+
+          const base64 = `data:${mimeType};base64,${processedBuffer.toString('base64')}`;
           return corsResponse({
             success: true,
             message: 'Image uploaded successfully',
