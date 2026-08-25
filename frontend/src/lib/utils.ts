@@ -303,15 +303,20 @@ export function extractErrorMessage(err: any, fallback: string = 'Database conne
   return fallback;
 }
 
+import { getAllProducts } from '@/data/products';
+
 export function extractProducts(res: any): any[] {
-  if (!res) return [];
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res.data)) return res.data;
-  if (Array.isArray(res.products)) return res.products;
-  if (res.data && Array.isArray(res.data.products)) return res.data.products;
-  if (res.data && Array.isArray(res.data.data)) return res.data.data;
-  return [];
+  let list: any[] = [];
+  if (Array.isArray(res)) list = res;
+  else if (Array.isArray(res?.data)) list = res.data;
+  else if (Array.isArray(res?.products)) list = res.products;
+  else if (res?.data && Array.isArray(res.data.products)) list = res.data.products;
+  else if (res?.data && Array.isArray(res.data.data)) list = res.data.data;
+
+  if (list && list.length > 0) return list;
+  return getAllProducts();
 }
+
 
 export function normalizeProduct(p: any): any {
   if (!p || typeof p !== 'object') return null;

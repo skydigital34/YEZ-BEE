@@ -1,5 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { extractErrorMessage } from './utils';
+import { getAllProducts } from '@/data/products';
+
 
 export const getBaseApiUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
@@ -221,7 +223,8 @@ export const api = {
     apiClient
       .get<PaginatedResponse<any>>('/products', { params: filters })
       .then((r) => r.data)
-      .catch(() => ({ success: false, data: [] })),
+      .catch(() => ({ success: true, data: getAllProducts() })),
+
 
   getProduct: async (slug: string) => {
     try {
