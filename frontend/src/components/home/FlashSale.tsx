@@ -65,14 +65,17 @@ export default function FlashSale() {
           <div>
             <div className="inline-flex items-center gap-2 mb-2">
               <Zap size={14} className="text-[var(--color-primary-gold)] animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--color-primary-gold)]">
-                LIMITED HOUR EXCLUSIVE OFFER
+              <span className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-gold-light)]">
+                FLAT 10% DISCOUNT • LIMITED TIME OFFER
               </span>
             </div>
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-              Flash Clearance Sale
+              Flash Clearance Sale – <span className="text-[var(--color-primary-gold)]">Flat 10% OFF</span>
             </h2>
             <div className="mt-3 h-0.5 w-16 bg-[var(--color-primary-gold)]" />
+            <p className="mt-3 text-xs sm:text-sm text-white/80 font-sans max-w-lg">
+              Enjoy an exclusive 10% discount on our premium maternity wear, feeding kurtis, and everyday fashion essentials.
+            </p>
           </div>
 
           <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-[var(--color-primary-gold)]/30">
@@ -118,7 +121,7 @@ export default function FlashSale() {
                   hoverImage={getSafeProductImage(product, 1)}
                   colors={product.colors}
                   sizes={product.sizes}
-                  discount={product.discountPercentage}
+                  discount={product.discountPercentage || 10}
                   stock={product.stock}
                 />
               </motion.div>
@@ -129,9 +132,9 @@ export default function FlashSale() {
         <div className="mt-12 text-center">
           <Link
             href="/sale"
-            className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[var(--color-primary-gold)] to-[var(--color-gold-light)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-[0.2em] rounded-full hover:shadow-gold-md transition-all"
+            className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[var(--color-primary-gold)] to-[var(--color-gold-light)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-[0.2em] rounded-full hover:shadow-gold-md transition-all font-semibold"
           >
-            Explore All Sale Deals <Zap size={14} />
+            Explore All 10% Off Deals <Zap size={14} />
           </Link>
         </div>
       </div>

@@ -56,11 +56,11 @@ const footerColumns = [
 ];
 
 const socialLinks = [
-  { icon: Instagram, href: 'https://instagram.com', label: 'Instagram' },
+  { icon: Instagram, href: 'https://www.instagram.com/yezbeefashion?igsi=MTRwZm1rNzdrc2h0bw==', label: 'Instagram' },
+  { icon: Facebook, href: 'https://www.facebook.com/share/1GoBY9GSPB/', label: 'Facebook' },
   { icon: Youtube, href: 'https://youtube.com', label: 'YouTube' },
-  { icon: Facebook, href: 'https://facebook.com', label: 'Facebook' },
   { icon: Pinterest, href: 'https://pinterest.com', label: 'Pinterest' },
-  { icon: MessageCircle, href: 'https://wa.me/919876543210', label: 'WhatsApp' },
+  { icon: MessageCircle, href: 'https://wa.me/918760890906', label: 'WhatsApp' },
 ];
 
 const paymentMethods = [
@@ -79,13 +79,13 @@ export default function Footer() {
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-1">
               <div className="mb-4">
-                <Link href="/" className="inline-block">
+                <Link href="/" className="inline-block group">
                   <Image
-                    src="/images/yezbee-logo.png"
+                    src="/logo.png"
                     alt="YEZ BEE Fashion"
                     width={240}
                     height={80}
-                    className="h-16 sm:h-20 w-auto object-contain brightness-0 invert"
+                    className="h-16 sm:h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
                   />
                 </Link>
               </div>

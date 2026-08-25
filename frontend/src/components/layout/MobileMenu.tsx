@@ -88,11 +88,11 @@ export function MobileMenu({ isOpen, onClose, onOpenSearch }: MobileMenuProps) {
             <div className="flex items-center justify-between border-b border-[var(--color-champagne)] px-6 py-4">
               <Link href="/" onClick={onClose} className="inline-block">
                 <Image
-                  src="/images/yezbee-logo.png"
+                  src="/logo.png"
                   alt="YEZ BEE Fashion"
-                  width={180}
-                  height={56}
-                  className="h-12 w-auto object-contain"
+                  width={220}
+                  height={70}
+                  className="h-13 sm:h-15 w-auto object-contain"
                 />
               </Link>
               <button
@@ -278,10 +278,10 @@ export function MobileMenu({ isOpen, onClose, onOpenSearch }: MobileMenuProps) {
 
             <div className="border-t border-[var(--color-champagne)] px-6 py-4 bg-white/60">
               <div className="flex items-center justify-around text-gray-500">
-                <a href="#" className="hover:text-[var(--color-primary-gold)] transition-colors" aria-label="Instagram"><Instagram size={18} /></a>
+                <a href="https://www.instagram.com/yezbeefashion?igsi=MTRwZm1rNzdrc2h0bw==" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-primary-gold)] transition-colors" aria-label="Instagram"><Instagram size={18} /></a>
                 <a href="#" className="hover:text-[var(--color-primary-gold)] transition-colors" aria-label="YouTube"><Youtube size={18} /></a>
-                <a href="#" className="hover:text-[var(--color-primary-gold)] transition-colors" aria-label="Facebook"><Facebook size={18} /></a>
-                <a href="https://wa.me/" className="hover:text-[var(--color-primary-gold)] transition-colors" aria-label="WhatsApp"><MessageCircle size={18} /></a>
+                <a href="https://www.facebook.com/share/1GoBY9GSPB/" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-primary-gold)] transition-colors" aria-label="Facebook"><Facebook size={18} /></a>
+                <a href="https://wa.me/918760890906" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-primary-gold)] transition-colors" aria-label="WhatsApp"><MessageCircle size={18} /></a>
               </div>
             </div>
           </motion.nav>

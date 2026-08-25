@@ -1,6 +1,6 @@
 'use client';
 
-import { Instagram } from 'lucide-react';
+import { Instagram, Facebook } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -19,21 +19,6 @@ const INSTA_POSTS = [
     id: 3,
     image: '/images/hero/hero3.png',
     tag: '#FestivalGlam',
-  },
-  {
-    id: 4,
-    image: '/images/hero/hero4.png',
-    tag: '#EverydayComfort',
-  },
-  {
-    id: 5,
-    image: '/images/hero/hero1.png',
-    tag: '#FeedingFashion',
-  },
-  {
-    id: 6,
-    image: '/images/hero/hero2.png',
-    tag: '#PureCotton',
   },
 ];
 
@@ -55,43 +40,56 @@ export default function InstagramFeed() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 px-2">
-        {INSTA_POSTS.map((post) => (
-          <a
-            key={post.id}
-            href="https://instagram.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative block aspect-square overflow-hidden bg-gray-100 rounded-lg"
-          >
-            <Image
-              src={post.image}
-              alt={post.tag}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-              className="object-cover object-center transition-transform duration-700 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-black/0 transition-all duration-300 group-hover:bg-black/50 flex flex-col items-center justify-center p-3 text-center">
-              <Instagram
-                size={24}
-                className="text-white opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0"
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
+          {INSTA_POSTS.map((post) => (
+            <a
+              key={post.id}
+              href="https://www.instagram.com/yezbeefashion?igsi=MTRwZm1rNzdrc2h0bw=="
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative block aspect-[4/5] overflow-hidden bg-gray-100 rounded-2xl sm:rounded-3xl shadow-soft-md hover:shadow-gold-md transition-all duration-500 hover:-translate-y-1"
+            >
+              <Image
+                src={post.image}
+                alt={post.tag}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
               />
-              <span className="text-[10px] font-bold text-[var(--color-gold-light)] opacity-0 group-hover:opacity-100 transition-all duration-300 mt-2 uppercase tracking-wider">
-                {post.tag}
-              </span>
-            </div>
-          </a>
-        ))}
+              <div className="absolute inset-0 bg-black/0 transition-all duration-300 group-hover:bg-black/50 flex flex-col items-center justify-center p-4 text-center">
+                <Instagram
+                  size={28}
+                  className="text-white opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0"
+                />
+                <span className="text-xs font-bold text-[var(--color-gold-light)] opacity-0 group-hover:opacity-100 transition-all duration-300 mt-2 uppercase tracking-wider">
+                  {post.tag}
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-8 text-center">
+      <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
         <a
-          href="https://instagram.com"
+          href="https://www.instagram.com/yezbeefashion?igsi=MTRwZm1rNzdrc2h0bw=="
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-full px-8 py-3 text-xs font-bold uppercase tracking-[0.15em] border border-[var(--color-primary-gold)] text-[var(--color-primary-gold)] hover:bg-[var(--color-primary-gold)] hover:text-[var(--color-dark)] transition-all shadow-sm"
+          className="group inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 text-xs font-bold uppercase tracking-[0.15em] border-2 border-[var(--color-primary-gold)] text-[var(--color-dark)] bg-transparent hover:bg-[var(--color-primary-gold)] hover:text-white transition-all shadow-sm font-semibold hover:scale-105 active:scale-95"
         >
-          <Instagram size={16} /> Follow Us On Instagram
+          <Instagram size={16} className="text-[var(--color-primary-gold)] group-hover:text-white transition-colors" />
+          <span>Follow On Instagram</span>
+        </a>
+
+        <a
+          href="https://www.facebook.com/share/1GoBY9GSPB/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 text-xs font-bold uppercase tracking-[0.15em] border-2 border-[var(--color-primary-gold)] text-[var(--color-dark)] bg-transparent hover:bg-[var(--color-primary-gold)] hover:text-white transition-all shadow-sm font-semibold hover:scale-105 active:scale-95"
+        >
+          <Facebook size={16} className="text-[var(--color-primary-gold)] group-hover:text-white transition-colors" />
+          <span>Follow On Facebook</span>
         </a>
       </div>
     </section>

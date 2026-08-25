@@ -33,7 +33,7 @@ export default function NewArrivals() {
   return (
     <section className="py-20 sm:py-28 bg-[var(--color-warm-white)]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-10 gap-6">
           <div>
             <div className="inline-flex items-center gap-2 mb-2">
               <Sparkles size={14} className="text-[var(--color-primary-gold)]" />
@@ -68,6 +68,41 @@ export default function NewArrivals() {
           </div>
         </div>
 
+        {/* Diwali Festival Announcement Banner */}
+        <div className="mb-12 relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#1A140E] via-[#2A1E13] to-[#1A140E] p-6 sm:p-8 text-white border border-[var(--color-primary-gold)]/40 shadow-xl">
+          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--color-primary-gold)]/15 blur-2xl pointer-events-none" />
+          <div className="absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-[var(--color-primary-gold)]/15 blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-primary-gold)]/20 border border-[var(--color-primary-gold)]/40 text-[var(--color-gold-light)] text-[11px] sm:text-xs font-bold uppercase tracking-[0.2em] mb-2.5">
+                <Sparkles size={13} className="text-[var(--color-primary-gold)] animate-pulse" />
+                <span>Special Festive Announcement</span>
+              </div>
+              <h3 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 leading-tight">
+                Diwali Festival Collections
+              </h3>
+              <p className="text-xs sm:text-sm lg:text-base text-white/80 font-sans leading-relaxed mb-4">
+                Get ready to illuminate your festive celebrations with exquisite maternity festive wear, royal ethnic kurtis, and designer feeding sets crafted for radiant comfort and timeless charm.
+              </p>
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-[var(--color-primary-gold)]/25 to-[var(--color-gold-light)]/20 border border-[var(--color-primary-gold)]/60 text-[var(--color-gold-light)] text-xs sm:text-sm font-bold uppercase tracking-[0.25em] shadow-gold-sm">
+                <Sparkles size={14} className="text-[var(--color-primary-gold)] animate-spin" style={{ animationDuration: '3s' }} />
+                <span>Coming Soon</span>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-center gap-3">
+              <Link
+                href="/category/ethnic-wear"
+                className="inline-flex items-center gap-2 rounded-full px-6 sm:px-7 py-3.5 text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-[var(--color-primary-gold)] to-[var(--color-gold-light)] text-[var(--color-dark)] hover:shadow-gold-md hover:scale-105 active:scale-95 transition-all shadow-md"
+              >
+                <span>Explore Ethnic Wear</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((skel) => (
@@ -75,6 +110,7 @@ export default function NewArrivals() {
             ))}
           </div>
         ) : visibleProducts.length === 0 ? (
+          /* TEMPORARILY HIDDEN:
           <div className="text-center py-16 bg-white rounded-3xl border border-gray-200/60 p-8 shadow-soft-sm">
             <p className="text-sm font-semibold text-gray-500">No products found in "{selectedCategory}".</p>
             <button
@@ -84,6 +120,8 @@ export default function NewArrivals() {
               Show All Products
             </button>
           </div>
+          */
+          null
         ) : (
           <div
             ref={ref}
@@ -118,6 +156,7 @@ export default function NewArrivals() {
           </div>
         )}
 
+        {/* TEMPORARILY HIDDEN:
         <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
           {filteredProducts.length > displayCount && (
             <button
@@ -135,6 +174,7 @@ export default function NewArrivals() {
             Explore Full Catalog ({items.length} Items) <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
+        */}
       </div>
     </section>
   );

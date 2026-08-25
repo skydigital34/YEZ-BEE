@@ -56,7 +56,7 @@ export default function ContactPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
           <a
-            href="https://wa.me/919876543210"
+            href="https://wa.me/918760890906"
             target="_blank"
             rel="noopener noreferrer"
             className="bg-white p-6 rounded-3xl border border-[var(--color-champagne)] shadow-soft-sm hover:shadow-gold-md hover:-translate-y-1 transition-all group"
@@ -66,19 +66,19 @@ export default function ContactPage() {
             </div>
             <h3 className="font-display font-bold text-base text-[var(--color-dark)] mb-1">WhatsApp Chat</h3>
             <p className="text-xs text-gray-500 mb-3">Instant answers from styling advisors.</p>
-            <span className="text-xs font-bold text-emerald-600 group-hover:underline">Chat on WhatsApp →</span>
+            <span className="text-xs font-bold text-emerald-600 group-hover:underline">Chat on WhatsApp (+91 87608 90906) →</span>
           </a>
 
           <a
-            href="tel:+919876543210"
+            href="tel:+918760890906"
             className="bg-white p-6 rounded-3xl border border-[var(--color-champagne)] shadow-soft-sm hover:shadow-gold-md hover:-translate-y-1 transition-all group"
           >
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mb-4 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-[var(--color-primary-gold)] mb-4 group-hover:bg-[var(--color-primary-gold)] group-hover:text-[var(--color-dark)] transition-colors">
               <Phone size={24} />
             </div>
-            <h3 className="font-display font-bold text-base text-[var(--color-dark)] mb-1">Call Support</h3>
-            <p className="text-xs text-gray-500 mb-3">+91 98765 43210 (Toll Free)</p>
-            <span className="text-xs font-bold text-amber-600 group-hover:underline">Call Us Now →</span>
+            <h3 className="font-display font-bold text-base text-[var(--color-dark)] mb-1">Direct Call</h3>
+            <p className="text-xs text-gray-500 mb-3">+91 87608 90906</p>
+            <span className="text-xs font-bold text-[var(--color-primary-gold)] group-hover:underline">Call Now →</span>
           </a>
 
           <a

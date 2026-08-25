@@ -139,8 +139,8 @@ export const INDIA_STATES = [
 ] as const;
 
 export const SOCIAL_LINKS = [
-  { label: 'Instagram', href: 'https://instagram.com/yezbeefashion', icon: 'instagram' },
-  { label: 'Facebook', href: 'https://facebook.com/yezbeefashion', icon: 'facebook' },
+  { label: 'Instagram', href: 'https://www.instagram.com/yezbeefashion?igsi=MTRwZm1rNzdrc2h0bw==', icon: 'instagram' },
+  { label: 'Facebook', href: 'https://www.facebook.com/share/1GoBY9GSPB/', icon: 'facebook' },
   { label: 'Pinterest', href: 'https://pinterest.com/yezbeefashion', icon: 'pinterest' },
   { label: 'YouTube', href: 'https://youtube.com/@yezbeefashion', icon: 'youtube' },
 ] as const;

@@ -1,4 +1,4 @@
-import { Truck, RefreshCw, Shield, Headphones } from 'lucide-react';
+import { Truck, Tag, Shield, Headphones } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const features = [
@@ -8,9 +8,9 @@ const features = [
     description: 'Free shipping on all orders above ₹999. Delivered to your doorstep within 4-7 business days.',
   },
   {
-    icon: RefreshCw,
-    title: 'Easy Returns',
-    description: 'Hassle-free returns within 15 days of delivery. We believe in your complete satisfaction.',
+    icon: Tag,
+    title: 'Same Price For All Sizes',
+    description: 'Enjoy uniform, transparent pricing across all sizes without any extra charges for plus sizes.',
   },
   {
     icon: Shield,

@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import { AuthModal } from '@/components/auth/AuthModal';
+import WhatsAppButton from '@/components/ui/WhatsAppButton';
 
 export default function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -24,6 +25,7 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
       <main id="main-content">{children}</main>
       <Footer />
       <MobileBottomNav />
+      <WhatsAppButton />
       <AuthModal />
     </>
   );

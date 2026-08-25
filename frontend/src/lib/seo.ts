@@ -123,8 +123,8 @@ export function generateOrganizationJsonLd() {
     url: SITE_URL,
     logo: ORGANIZATION_LOGO,
     sameAs: [
-      'https://facebook.com/yezbeefashion',
-      'https://instagram.com/yezbeefashion',
+      'https://www.facebook.com/share/1GoBY9GSPB/',
+      'https://www.instagram.com/yezbeefashion?igsi=MTRwZm1rNzdrc2h0bw==',
       'https://pinterest.com/yezbeefashion',
     ],
     contactPoint: {

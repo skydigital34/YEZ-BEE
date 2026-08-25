@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 
 export default function LoadingScreen() {
   const [isLoading, setIsLoading] = useState(true)
@@ -29,24 +30,26 @@ export default function LoadingScreen() {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6, ease: 'easeInOut' }}
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#FAF7F2]"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black"
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="text-center"
+            className="flex flex-col items-center justify-center text-center px-4"
           >
-            <h1 className="font-display text-5xl md:text-7xl font-bold text-[#1A1A1A] tracking-[0.15em]">
-              YEZ
-              <span className="text-[#C9A84C]"> BEE</span>
-            </h1>
-            <p className="font-sans text-[10px] md:text-xs text-[#9C9380] tracking-[0.5em] mt-2 uppercase">
-              Fashion
-            </p>
+            <div className="relative w-64 sm:w-80 md:w-96 h-28 sm:h-36 md:h-44">
+              <Image
+                src="/logo.png"
+                alt="YEZ BEE"
+                fill
+                priority
+                className="object-contain"
+              />
+            </div>
           </motion.div>
 
-          <div className="mt-12 w-48 md:w-64 h-[2px] bg-[#E8E4DC] overflow-hidden rounded-full">
+          <div className="mt-8 w-48 md:w-64 h-[2px] bg-white/10 overflow-hidden rounded-full">
             <motion.div
               className="h-full bg-gradient-to-r from-[#C9A84C] via-[#E8D48B] to-[#C9A84C] rounded-full"
               style={{ width: `${Math.min(progress, 100)}%` }}
@@ -54,7 +57,7 @@ export default function LoadingScreen() {
             />
           </div>
 
-          <p className="mt-4 font-sans text-xs text-[#B8B0A0] tracking-[0.2em] uppercase">
+          <p className="mt-4 font-sans text-xs text-[#C9A84C]/80 tracking-[0.2em] uppercase">
             {Math.min(Math.floor(progress), 100)}%
           </p>
         </motion.div>
@@ -62,3 +65,4 @@ export default function LoadingScreen() {
     </AnimatePresence>
   )
 }
+

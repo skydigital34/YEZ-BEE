@@ -10,17 +10,19 @@ import { cn } from '@/lib/utils';
 const slides = [
   {
     id: 1,
-    eyebrow: 'ETHNIC & FESTIVE WEAR',
-    heading: 'Elegance That Celebrates Every Moment',
-    description: 'Thoughtfully designed ethnic kurtis, festive gowns, and feeding dresses crafted for graceful comfort and timeless elegance.',
-    mobileDescription: 'Thoughtfully designed ethnic kurtis and feeding dresses.',
-    primaryCta: 'SHOP ETHNIC WEAR',
+    eyebrow: 'MATERNITY & FEEDING WEAR',
+    heading: 'Yezbee Fashion - Best Maternity Kurtis for Women',
+    description: 'Shop the best maternity kurtis and kurti sets for women online. Enjoy stylish, comfortable, and pregnancy-friendly designs perfect for every occasion.',
+    mobileDescription: 'Shop stylish, comfortable & pregnancy-friendly maternity kurtis online.',
+    primaryCta: 'SHOP MATERNITY KURTIS',
     primaryHref: '/category/ethnic-wear',
-    secondaryCta: 'EXPLORE ALL CASUALS',
+    secondaryCta: 'EXPLORE ALL KURTIS',
     secondaryHref: '/category/casuals',
     image: '/images/hero/hero2.png',
-    alt: 'Woman wearing an elegant YEZ BEE festive ethnic red dress with gold dupatta',
+    alt: 'Best maternity kurtis and kurti sets for women online - YEZ BEE',
     align: 'left',
+    imagePosition: 'object-right',
+    bg: '#201914',
   },
   {
     id: 2,
@@ -35,6 +37,8 @@ const slides = [
     image: '/images/hero/hero1.png',
     alt: 'Woman in stylish YEZ BEE printed casual feeding dress',
     align: 'right',
+    imagePosition: 'object-left',
+    bg: '#E2D7CB',
   },
   {
     id: 3,
@@ -49,6 +53,8 @@ const slides = [
     image: '/images/hero/hero3.png',
     alt: 'Stylish woman wearing modern YEZ BEE patterned dress',
     align: 'left',
+    imagePosition: 'object-right',
+    bg: '#FFFFFF',
   },
   {
     id: 4,
@@ -63,17 +69,19 @@ const slides = [
     image: '/images/hero/hero4.png',
     alt: 'Woman wearing comfortable YEZ BEE lounge dress',
     align: 'left',
+    imagePosition: 'object-right',
+    bg: '#FFFFFF',
   },
 ];
 
 const textVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 15 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
     transition: {
-      delay: i * 0.12,
-      duration: 0.6,
+      delay: i * 0.1,
+      duration: 0.5,
       ease: [0.25, 0.1, 0.25, 1],
     },
   }),
@@ -101,7 +109,7 @@ export default function Hero() {
 
   return (
     <section
-      className="relative h-[580px] sm:h-[650px] lg:h-[720px] w-full overflow-hidden bg-black text-white"
+      className="relative w-full h-[480px] sm:h-[540px] md:h-[580px] lg:h-[620px] overflow-hidden bg-black text-white"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       aria-label="Maternity Dress Campaign"
@@ -109,11 +117,12 @@ export default function Hero() {
       <AnimatePresence mode="wait">
         <motion.div
           key={slide.id}
-          initial={{ opacity: 0, scale: 1.05 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.9, ease: [0.25, 0.1, 0.25, 1] }}
+          transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
           className="absolute inset-0 z-0"
+          style={{ backgroundColor: slide.bg }}
         >
           <Image
             src={slide.image}
@@ -121,28 +130,30 @@ export default function Hero() {
             fill
             priority
             loading="eager"
-            sizes="100vw"
-            className="object-cover object-center sm:object-[center_20%]"
+            sizes="(max-width: 768px) 100vw, 1537px"
+            className={cn('object-contain', slide.imagePosition)}
           />
 
           <div
             className={cn(
-              'absolute inset-0 z-10',
+              'absolute inset-0 z-10 pointer-events-none',
               slide.align === 'left'
-                ? 'bg-gradient-to-r from-black/90 via-black/60 to-transparent'
-                : 'bg-gradient-to-l from-black/90 via-black/60 to-transparent'
+                ? 'bg-gradient-to-r from-black/90 via-black/50 to-transparent'
+                : 'bg-gradient-to-l from-black/90 via-black/50 to-transparent'
             )}
           />
-          <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/80 via-transparent to-black/30 sm:hidden" />
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/85 via-black/30 to-transparent sm:hidden pointer-events-none" />
         </motion.div>
       </AnimatePresence>
 
       <div className="relative z-20 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="h-full flex items-center">
+        <div className="h-full flex items-center py-6 sm:py-8 md:py-10">
           <div
             className={cn(
-              'w-full max-w-2xl',
-              slide.align === 'right' ? 'ml-auto text-left' : 'text-left'
+              'w-full max-w-xl lg:max-w-2xl',
+              slide.align === 'right'
+                ? 'ml-auto text-left'
+                : 'text-left pl-2 sm:pl-8 md:pl-12 lg:pl-16'
             )}
           >
             <AnimatePresence mode="wait">
@@ -153,9 +164,9 @@ export default function Hero() {
                 exit="hidden"
                 className="flex flex-col items-start"
               >
-                <motion.div custom={0} variants={textVariants} className="inline-flex items-center gap-2 mb-3">
-                  <Sparkles size={14} className="text-[var(--color-primary-gold)]" />
-                  <span className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-gold-light)]">
+                <motion.div custom={0} variants={textVariants} className="inline-flex items-center gap-2.5 mb-2.5 sm:mb-3">
+                  <Sparkles size={16} className="text-[var(--color-primary-gold)]" />
+                  <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.26em] text-[var(--color-gold-light)]">
                     {slide.eyebrow}
                   </span>
                 </motion.div>
@@ -163,7 +174,7 @@ export default function Hero() {
                 <motion.h1
                   custom={1}
                   variants={textVariants}
-                  className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.15] mb-4"
+                  className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.14] mb-3 sm:mb-4 drop-shadow-md"
                 >
                   {slide.heading}
                 </motion.h1>
@@ -171,7 +182,7 @@ export default function Hero() {
                 <motion.p
                   custom={2}
                   variants={textVariants}
-                  className="text-sm sm:text-base lg:text-lg text-white/80 font-sans leading-relaxed mb-8 max-w-xl"
+                  className="text-sm sm:text-base lg:text-lg text-white/90 font-sans leading-relaxed mb-6 sm:mb-8 max-w-xl drop-shadow-sm"
                 >
                   <span className="hidden sm:inline">{slide.description}</span>
                   <span className="sm:hidden">{slide.mobileDescription}</span>
@@ -181,14 +192,14 @@ export default function Hero() {
                   <Link
                     href={slide.primaryHref}
                     className={cn(
-                      'group inline-flex items-center gap-2.5 rounded-full px-7 sm:px-8 py-3.5 sm:py-4 text-xs font-bold uppercase tracking-[0.16em] transition-all duration-300 min-h-[44px]',
+                      'group inline-flex items-center gap-2.5 rounded-full px-7 sm:px-9 py-3.5 sm:py-4 text-xs sm:text-sm font-bold uppercase tracking-[0.16em] transition-all duration-300 min-h-[46px] sm:min-h-[50px]',
                       'bg-gradient-to-r from-[var(--color-primary-gold)] to-[var(--color-gold-light)] text-[var(--color-dark)]',
                       'hover:shadow-gold-md hover:scale-105 active:scale-95'
                     )}
                   >
                     {slide.primaryCta}
                     <ArrowRight
-                      size={15}
+                      size={16}
                       className="transition-transform duration-300 group-hover:translate-x-1"
                     />
                   </Link>
@@ -197,8 +208,8 @@ export default function Hero() {
                     <Link
                       href={slide.secondaryHref!}
                       className={cn(
-                        'inline-flex items-center gap-2 rounded-full px-6 sm:px-7 py-3.5 sm:py-4 text-xs font-bold uppercase tracking-[0.16em] transition-all duration-300 min-h-[44px]',
-                        'border border-white/40 text-white backdrop-blur-sm',
+                        'inline-flex items-center gap-2 rounded-full px-6 sm:px-8 py-3.5 sm:py-4 text-xs sm:text-sm font-bold uppercase tracking-[0.16em] transition-all duration-300 min-h-[46px] sm:min-h-[50px]',
+                        'border border-white/50 text-white backdrop-blur-sm',
                         'hover:bg-white hover:text-[var(--color-dark)] hover:border-white'
                       )}
                     >
@@ -207,8 +218,8 @@ export default function Hero() {
                   )}
                 </motion.div>
 
-                <motion.div custom={4} variants={textVariants} className="mt-8 pt-4 border-t border-white/15 flex items-center gap-2 text-[11px] text-white/60 font-medium">
-                  <HeartHandshake size={14} className="text-[var(--color-primary-gold)] shrink-0" />
+                <motion.div custom={4} variants={textVariants} className="mt-6 sm:mt-8 pt-4 border-t border-white/20 flex items-center gap-2 text-xs sm:text-sm text-white/80 font-medium">
+                  <HeartHandshake size={16} className="text-[var(--color-primary-gold)] shrink-0" />
                   <span>Comfort-first silhouettes • Easy movement • Thoughtful fits</span>
                 </motion.div>
               </motion.div>
@@ -221,27 +232,27 @@ export default function Hero() {
         type="button"
         onClick={prevSlide}
         suppressHydrationWarning
-        className="absolute left-4 sm:left-6 top-1/2 z-20 -translate-y-1/2 rounded-full p-3 text-white/70 backdrop-blur-md transition-all duration-300 hover:bg-white/20 hover:text-white cursor-pointer"
+        className="absolute left-2.5 sm:left-5 top-1/2 z-20 -translate-y-1/2 rounded-full p-2 sm:p-2.5 text-white/80 bg-black/30 backdrop-blur-md transition-all duration-300 hover:bg-white/25 hover:text-white cursor-pointer"
         aria-label="Previous maternity slide"
       >
-        <ChevronLeft size={22} />
+        <ChevronLeft size={20} />
       </button>
 
       <button
         type="button"
         onClick={nextSlide}
         suppressHydrationWarning
-        className="absolute right-4 sm:right-6 top-1/2 z-20 -translate-y-1/2 rounded-full p-3 text-white/70 backdrop-blur-md transition-all duration-300 hover:bg-white/20 hover:text-white cursor-pointer"
+        className="absolute right-2.5 sm:right-5 top-1/2 z-20 -translate-y-1/2 rounded-full p-2 sm:p-2.5 text-white/80 bg-black/30 backdrop-blur-md transition-all duration-300 hover:bg-white/25 hover:text-white cursor-pointer"
         aria-label="Next maternity slide"
       >
-        <ChevronRight size={22} />
+        <ChevronRight size={20} />
       </button>
 
-      <div className="absolute bottom-6 left-4 sm:left-8 z-20 flex items-center gap-4">
-        <span className="font-mono text-xs font-bold text-white/80 tracking-wider">
+      <div className="absolute bottom-3 sm:bottom-4 left-4 sm:left-8 z-20 flex items-center gap-3">
+        <span className="font-mono text-[11px] sm:text-xs font-bold text-white/80 tracking-wider">
           0{currentSlide + 1} <span className="text-white/40">/</span> 0{slides.length}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {slides.map((s, idx) => (
             <button
               key={s.id}
@@ -249,10 +260,10 @@ export default function Hero() {
               onClick={() => setCurrentSlide(idx)}
               suppressHydrationWarning
               className={cn(
-                'h-2 rounded-full transition-all duration-300 cursor-pointer',
+                'h-1.5 rounded-full transition-all duration-300 cursor-pointer',
                 currentSlide === idx
-                  ? 'w-6 bg-[var(--color-primary-gold)]'
-                  : 'w-2 bg-white/40 hover:bg-white/70'
+                  ? 'w-5 bg-[var(--color-primary-gold)]'
+                  : 'w-1.5 bg-white/40 hover:bg-white/70'
               )}
               aria-label={`Go to slide ${idx + 1}`}
               aria-pressed={currentSlide === idx}

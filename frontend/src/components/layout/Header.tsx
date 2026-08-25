@@ -54,21 +54,21 @@ export default function Header() {
         className={cn(
           'sticky top-0 left-0 right-0 z-40 transition-all duration-300',
           isSolidHeader
-            ? 'bg-white/95 backdrop-blur-xl shadow-soft-md border-b border-[var(--color-champagne)]/80 py-1'
-            : 'bg-gradient-to-b from-black/90 via-black/60 to-transparent backdrop-blur-[2px] border-b border-white/10 py-1.5'
+            ? 'bg-white/95 backdrop-blur-xl shadow-soft-md border-b border-[var(--color-champagne)]/80 py-0'
+            : 'bg-gradient-to-b from-black/90 via-black/60 to-transparent backdrop-blur-[2px] border-b border-white/10 py-0'
         )}
       >
-        <div className="mx-auto flex min-h-[56px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-13 sm:h-14 lg:h-[58px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center shrink-0">
-            <Link href="/" className="shrink-0 group flex items-center">
+            <Link href="/" className="shrink-0 group flex items-center py-0 -my-1">
               <Image
-                src="/images/yezbee-logo.png"
+                src="/logo.png"
                 alt="YEZ BEE Fashion"
-                width={220}
-                height={70}
+                width={260}
+                height={90}
                 priority
                 className={cn(
-                  'h-11 sm:h-14 lg:h-14 w-auto object-contain transition-transform duration-300 group-hover:scale-105',
+                  'h-12 sm:h-14 md:h-16 lg:h-[68px] w-auto object-contain transition-transform duration-300 group-hover:scale-105',
                   !isSolidHeader && 'brightness-0 invert'
                 )}
               />

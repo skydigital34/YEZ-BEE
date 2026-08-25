@@ -9,12 +9,8 @@ import FlashSale from '@/components/home/FlashSale'
 import TrendingSection from '@/components/home/TrendingSection'
 import BestSellers from '@/components/home/BestSellers'
 import BrandStory from '@/components/home/BrandStory'
-import EditorsPick from '@/components/home/EditorsPick'
 import WhyChooseUs from '@/components/home/WhyChooseUs'
-import Testimonials from '@/components/home/Testimonials'
 import InstagramFeed from '@/components/home/InstagramFeed'
-import Newsletter from '@/components/home/Newsletter'
-import StatsSection from '@/components/home/StatsSection'
 import TrustBadges from '@/components/home/TrustBadges'
 
 const fadeIn = {
@@ -46,22 +42,10 @@ export default function HomePage() {
         <BrandStory />
       </motion.div>
       <motion.div {...fadeIn}>
-        <EditorsPick />
-      </motion.div>
-      <motion.div {...fadeIn}>
         <WhyChooseUs />
       </motion.div>
       <motion.div {...fadeIn}>
-        <Testimonials />
-      </motion.div>
-      <motion.div {...fadeIn}>
         <InstagramFeed />
-      </motion.div>
-      <motion.div {...fadeIn}>
-        <Newsletter />
-      </motion.div>
-      <motion.div {...fadeIn}>
-        <StatsSection />
       </motion.div>
       <TrustBadges />
     </>
