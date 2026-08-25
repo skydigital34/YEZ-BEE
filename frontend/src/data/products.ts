@@ -951,6 +951,26 @@ export function getProductsByCategory(categorySlug: string, productType?: 'FEEDI
   });
 }
 
+function safeImg(url?: any): string {
+  if (!url) return '';
+  let raw: any = url;
+  if (typeof raw === 'object' && raw !== null) {
+    raw = raw.secure_url || raw.url || raw.publicId || raw.public_id || '';
+  }
+  if (typeof raw !== 'string' || !raw.trim()) return '';
+  const trimmed = raw.trim();
+  if (
+    trimmed === 'undefined' ||
+    trimmed === 'null' ||
+    trimmed === '[object Object]' ||
+    trimmed === 'none' ||
+    trimmed.startsWith('blob:')
+  ) {
+    return '';
+  }
+  return trimmed;
+}
+
 export function saveOrUpdateProduct(productData: Partial<CatalogProduct>): CatalogProduct {
   const products = getAllProducts();
 
@@ -1083,11 +1103,12 @@ export function permanentDeleteProduct(id: string): boolean {
   markProductAsDeleted(id);
   const products = getAllProducts().filter((p) => p.id !== id && p.slug !== id);
   saveProductsToStorage(products);
-  if (typeof window === 'undefined') {
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('yezbee_products_updated'));
   }
   return true;
 }
+
 
 export function slugify(text: string): string {
   return text

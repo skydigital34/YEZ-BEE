@@ -1,5 +1,3 @@
-const path = require('path');
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['mongoose'],
@@ -15,9 +13,6 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 768, 1024, 1280, 1536],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-  },
-  turbo: {
-    root: path.resolve(__dirname, '..'),
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
