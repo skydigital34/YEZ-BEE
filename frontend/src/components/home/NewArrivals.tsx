@@ -1,49 +1,22 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { ArrowRight, Sparkles, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
 import { YEZBEE_CATEGORIES } from '@/data/categories';
-import { api } from '@/lib/api';
-import { extractProducts, normalizeProduct, matchesCategory, getSafeProductImage } from '@/lib/utils';
+import { useProducts } from '@/hooks/useProducts';
+import { matchesCategory, getSafeProductImage } from '@/lib/utils';
 import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 
 export default function NewArrivals() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [displayCount, setDisplayCount] = useState<number>(12);
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: '-60px' });
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-
-    api.getProducts({ limit: 100 })
-      .then((res) => {
-        if (!isMounted) return;
-        const raw = extractProducts(res);
-        const normalized = raw
-          .map(normalizeProduct)
-          .filter(Boolean)
-          .sort((a, b) => new Date(b.createdAt || Date.now()).getTime() - new Date(a.createdAt || Date.now()).getTime());
-        setItems(normalized);
-      })
-      .catch((err) => {
-        console.error('[NewArrivals] error fetching products:', err);
-        if (isMounted) setItems([]);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const { data: items = [], isLoading: loading } = useProducts({ limit: 100 });
 
   const categories = useMemo(() => {
     return ['All', ...YEZBEE_CATEGORIES.map((c) => c.name)];
@@ -137,6 +110,8 @@ export default function NewArrivals() {
                   sizes={product.sizes}
                   discount={product.discountPercentage}
                   stock={product.stock}
+                  isNew={Boolean(product.newArrival || product.isNewProduct || product.isNew)}
+                  isBestSeller={Boolean(product.bestSeller || product.isBestSeller || product.bestseller)}
                 />
               </motion.div>
             ))}

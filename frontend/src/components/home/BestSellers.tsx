@@ -1,44 +1,24 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
-import { api } from '@/lib/api';
-import { extractProducts, normalizeProduct, getSafeProductImage } from '@/lib/utils';
+import { useProducts } from '@/hooks/useProducts';
+import { getSafeProductImage } from '@/lib/utils';
 import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 
 export default function Bestsellers() {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: '-60px' });
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
+  const { data: allProducts = [], isLoading: loading } = useProducts({ limit: 100 });
 
-    api.getProducts({ limit: 100 })
-      .then((res) => {
-        if (!isMounted) return;
-        const raw = extractProducts(res);
-        const normalized = raw.map(normalizeProduct).filter(Boolean);
-        const best = normalized.filter((p) => p.bestseller || p.featured || p.discountPercentage > 0);
-        setItems(best.length > 0 ? best.slice(0, 8) : normalized.slice(0, 8));
-      })
-      .catch((err) => {
-        console.error('[BestSellers] error fetching products:', err);
-        if (isMounted) setItems([]);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const bestsellers = useMemo(() => {
+    const best = allProducts.filter((p) => p.bestseller || p.bestSeller || p.isBestSeller || p.featured || (p.discountPercentage && p.discountPercentage > 0));
+    return best.length > 0 ? best.slice(0, 8) : allProducts.slice(0, 8);
+  }, [allProducts]);
 
   return (
     <section className="py-20 sm:py-28 bg-white">
@@ -70,7 +50,7 @@ export default function Bestsellers() {
             ref={ref}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            {items.map((product, i) => (
+            {bestsellers.map((product, i) => (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, y: 24 }}
@@ -91,6 +71,8 @@ export default function Bestsellers() {
                   sizes={product.sizes}
                   discount={product.discountPercentage}
                   stock={product.stock}
+                  isNew={Boolean(product.newArrival || product.isNewProduct || product.isNew)}
+                  isBestSeller={Boolean(product.bestSeller || product.isBestSeller || product.bestseller)}
                 />
               </motion.div>
             ))}

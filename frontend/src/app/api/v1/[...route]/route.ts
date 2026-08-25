@@ -236,21 +236,37 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const isBestSeller = url.searchParams.get('isBestSeller') === 'true' || url.searchParams.get('bestSeller') === 'true';
       const category = url.searchParams.get('category');
       const productType = url.searchParams.get('productType');
-      const limit = parseInt(url.searchParams.get('limit') || '40', 10);
+      const limit = parseInt(url.searchParams.get('limit') || '100', 10);
       const page = parseInt(url.searchParams.get('page') || '1', 10);
       const skip = (page - 1) * limit;
 
       const filter: Record<string, any> = {};
 
-      if (isNew) filter.newArrival = true;
-      if (isBestSeller) filter.bestSeller = true;
-      if (productType && productType !== 'all') filter.productType = productType.toUpperCase();
-      if (category && category !== 'all') {
+      if (isNew) {
+        filter.$or = [
+          { newArrival: true },
+          { isNewProduct: true },
+          { isNew: true },
+        ];
+      }
+      if (isBestSeller) {
+        filter.$or = [
+          { bestSeller: true },
+          { isBestSeller: true },
+          { bestseller: true },
+        ];
+      }
+      if (productType && productType !== 'all') {
+        filter.productType = productType.toUpperCase();
+      }
+      if (category && category.toLowerCase() !== 'all') {
+        const normCat = category.toLowerCase().trim().replace(/[_\s]+/g, '-');
         const isObjId = mongoose.Types.ObjectId.isValid(category);
         const orConditions: any[] = [
-          { categorySlug: category },
-          { 'category.slug': category },
-          { subcategory: new RegExp(category, 'i') },
+          { categorySlug: normCat },
+          { 'category.slug': normCat },
+          { subcategory: new RegExp(normCat, 'i') },
+          { categoryName: new RegExp(normCat, 'i') },
         ];
         if (isObjId) {
           orConditions.unshift({ category: category });
@@ -261,7 +277,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const [items, total] = Product
         ? await Promise.all([
             Product.find(filter)
-              .select('name slug price compareAtPrice discount status category subcategory productType brand featured bestSeller newArrival images variants createdAt')
+              .select('name slug price compareAtPrice discount status category subcategory productType brand featured bestSeller newArrival isNewProduct isBestSeller images variants createdAt')
               .sort({ createdAt: -1 })
               .skip(skip)
               .limit(limit)
@@ -278,6 +294,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       setCachedData(cacheKey, resData);
       return corsResponse(resData);
     }
+
 
     if (path.startsWith('products/')) {
       const idOrSlug = path.replace('products/', '').replace('id/', '');

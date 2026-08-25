@@ -384,8 +384,10 @@ export function normalizeProduct(p: any): any {
     colors,
     sizes,
     featured: Boolean(p.featured || p.isFeatured),
-    bestseller: Boolean(p.bestSeller || p.isBestSeller),
-    newArrival: Boolean(p.newArrival || p.isNewProduct),
+    bestseller: Boolean(p.bestSeller || p.isBestSeller || p.bestseller),
+    newArrival: Boolean(p.newArrival || p.isNewProduct || p.isNew),
+    isNew: Boolean(p.newArrival || p.isNewProduct || p.isNew),
+    isNewProduct: Boolean(p.newArrival || p.isNewProduct || p.isNew),
     createdAt: p.createdAt || new Date().toISOString(),
   };
 }

@@ -7,6 +7,7 @@ import { WishlistProvider } from '@/providers/WishlistProvider'
 import { CompareProvider } from '@/providers/CompareProvider'
 import { Toaster } from 'react-hot-toast'
 import { LenisProvider } from '@/providers/LenisProvider'
+import QueryProvider from '@/providers/QueryProvider'
 import RootLayoutClient from '@/components/layout/RootLayoutClient'
 import LoadingScreen from '@/components/LoadingScreen'
 
@@ -63,28 +64,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-inter bg-warmWhite text-dark antialiased" suppressHydrationWarning>
         <LoadingScreen />
         <LenisProvider>
-          <AuthProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <CompareProvider>
-                  <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-6 focus:py-3 focus:bg-gold focus:text-dark focus:rounded-lg focus:outline-none">
-                    Skip to main content
-                  </a>
-                  <RootLayoutClient>{children}</RootLayoutClient>
-                  <Toaster
-                    position="top-right"
-                    toastOptions={{
-                      duration: 3000,
-                      style: { background: '#1A1A1A', color: '#FAF7F2', fontFamily: 'var(--font-inter)' },
-                      success: { iconTheme: { primary: '#C9A84C', secondary: '#FAF7F2' } },
-                      error: { iconTheme: { primary: '#EF4444', secondary: '#FAF7F2' } },
-                    }}
-                  />
-                </CompareProvider>
-              </WishlistProvider>
-            </CartProvider>
-          </AuthProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <CompareProvider>
+                    <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-6 focus:py-3 focus:bg-gold focus:text-dark focus:rounded-lg focus:outline-none">
+                      Skip to main content
+                    </a>
+                    <RootLayoutClient>{children}</RootLayoutClient>
+                    <Toaster
+                      position="top-right"
+                      toastOptions={{
+                        duration: 3000,
+                        style: { background: '#1A1A1A', color: '#FAF7F2', fontFamily: 'var(--font-inter)' },
+                        success: { iconTheme: { primary: '#C9A84C', secondary: '#FAF7F2' } },
+                        error: { iconTheme: { primary: '#EF4444', secondary: '#FAF7F2' } },
+                      }}
+                    />
+                  </CompareProvider>
+                </WishlistProvider>
+              </CartProvider>
+            </AuthProvider>
+          </QueryProvider>
         </LenisProvider>
+
       </body>
     </html>
   )
