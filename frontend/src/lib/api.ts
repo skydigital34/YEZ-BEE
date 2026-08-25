@@ -4,27 +4,13 @@ import { extractErrorMessage } from './utils';
 export const getBaseApiUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
 
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
-
-    if (envUrl) {
-      if (!isLocalhost && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
-        return '/api/v1';
-      }
-      return envUrl;
-    }
-
-    return isLocalhost ? 'http://localhost:5000/api/v1' : '/api/v1';
-  }
-
-  if (envUrl) {
+  if (envUrl && !envUrl.includes('localhost:5000')) {
     return envUrl;
   }
-  return process.env.NODE_ENV === 'production'
-    ? 'https://yez-bee.vercel.app/api/v1'
-    : 'http://localhost:5000/api/v1';
+
+  return '/api/v1';
 };
+
 
 const BASE_URL = getBaseApiUrl();
 
