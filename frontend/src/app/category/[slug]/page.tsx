@@ -174,16 +174,19 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
       setLoading(true);
       try {
         const response = await api.getProducts({
-          category: slug !== 'all' ? slug : undefined,
           limit: 100,
           sortBy,
         });
+
 
         if (!isMountedFlag) return;
         const raw = extractProducts(response);
         const normalized = raw.map(normalizeProduct).filter(Boolean);
         const filtered = normalized.filter((p) => matchesCategory(p, slug, selectedProductType));
-        setDbProducts(filtered.length > 0 ? filtered : normalized);
+        const otherProducts = normalized.filter((p) => !matchesCategory(p, slug, selectedProductType));
+        const fullCatalog = [...filtered, ...otherProducts];
+        setDbProducts(fullCatalog.length > 0 ? fullCatalog : normalized);
+
 
       } catch (error) {
         if (axios.isAxiosError(error)) {
