@@ -157,6 +157,30 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
+    if (path === 'debug') {
+      const dbConnected = Number(mongoose.connection.readyState) === 1;
+      let colNames: string[] = [];
+      let productCountInDb = 0;
+      let sampleProducts: any[] = [];
+      if (dbConnected && mongoose.connection.db) {
+        const collections = await mongoose.connection.db.listCollections().toArray();
+        colNames = collections.map((c) => c.name);
+        if (Product) {
+          productCountInDb = await Product.countDocuments({});
+          sampleProducts = await Product.find({}).limit(5).lean();
+        }
+      }
+      return corsResponse({
+        success: true,
+        dbConnected,
+        colNames,
+        productCountInDb,
+        sampleProducts: sampleProducts.map((p) => ({ id: p._id, name: p.name, category: p.category, images: p.images })),
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+
     const cacheKey = `req_${request.url}`;
     const cached = getCachedData(cacheKey);
     if (cached) {
