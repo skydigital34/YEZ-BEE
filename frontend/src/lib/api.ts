@@ -223,7 +223,9 @@ export const api = {
     apiClient
       .get<PaginatedResponse<any>>('/products', { params: filters })
       .then((r) => r.data)
-      .catch(() => ({ success: true, data: getAllProducts() })),
+      .catch(() => ({ success: false, data: [] })),
+
+
 
 
   getProduct: async (slug: string) => {

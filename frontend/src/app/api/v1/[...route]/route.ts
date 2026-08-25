@@ -35,8 +35,12 @@ function getCachedData(key: string): any | null {
 }
 
 function setCachedData(key: string, data: any): void {
+  if (data && data.success && Array.isArray(data.data) && data.data.length === 0) {
+    return;
+  }
   memoryCache.set(key, { data, timestamp: Date.now() });
 }
+
 
 function clearProductCache(): void {
   memoryCache.clear();
@@ -51,10 +55,11 @@ async function connectDB() {
 
   if (isConnecting) {
     let attempts = 0;
-    while (isConnecting && attempts < 10) {
+    while (isConnecting && attempts < 50) {
       await new Promise((r) => setTimeout(r, 100));
       attempts++;
     }
+
     if (Number(mongoose.connection.readyState) === 1) return;
   }
 
@@ -62,8 +67,8 @@ async function connectDB() {
   try {
     await mongoose.connect(PRIMARY_MONGODB_URI, {
       dbName: 'yezbee',
-      serverSelectionTimeoutMS: 4000,
-      connectTimeoutMS: 4000,
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
       maxPoolSize: 10,
       minPoolSize: 2,
     });
@@ -72,11 +77,12 @@ async function connectDB() {
     try {
       await mongoose.connect(DIRECT_MONGODB_URI, {
         dbName: 'yezbee',
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 15000,
+        connectTimeoutMS: 15000,
         maxPoolSize: 10,
         minPoolSize: 2,
       });
+
     } catch (directErr: any) {
       console.error('Direct Mongo URI connection error:', directErr?.message || directErr);
     }
@@ -344,30 +350,33 @@ function getCategoryModel(): any {
           ])
         : [[], 0];
 
-      if ((!items || items.length === 0) && Product) {
-        const [allDbItems, allTotal] = await Promise.all([
-          Product.find({})
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .lean(),
-          Product.countDocuments({}),
-        ]);
-        if (allDbItems && allDbItems.length > 0) {
-          items = allDbItems;
-          total = allTotal;
+      if ((!items || items.length === 0) && mongoose.connection.readyState === 1 && mongoose.connection.db) {
+        try {
+          const rawDocs = await mongoose.connection.db.collection('products').find({}).limit(100).toArray();
+          if (rawDocs && rawDocs.length > 0) {
+            items = rawDocs;
+            total = rawDocs.length;
+          }
+        } catch (rawErr) {
+          console.warn('Raw MongoDB collection fallback error:', rawErr);
         }
       }
+
 
 
 
       const resData = {
         success: true,
         data: items,
-        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        pagination: { total, page, limit, totalPages: Math.ceil((total || 1) / limit) },
       };
-      setCachedData(cacheKey, resData);
+      if (items && items.length > 0) {
+        setCachedData(cacheKey, resData);
+      } else {
+        clearProductCache();
+      }
       return corsResponse(resData);
+
     }
 
 

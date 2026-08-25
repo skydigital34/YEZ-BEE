@@ -313,16 +313,17 @@ export function extractProducts(res: any): any[] {
   else if (res?.data && Array.isArray(res.data.products)) list = res.data.products;
   else if (res?.data && Array.isArray(res.data.data)) list = res.data.data;
 
-  if (list && list.length > 0) return list;
-  return getAllProducts();
+  return list || [];
 }
+
 
 
 export function normalizeProduct(p: any): any {
   if (!p || typeof p !== 'object') return null;
 
-  const id = p.id || p._id || p.slug;
-  if (!id) return null;
+  const rawId = p._id ? (typeof p._id === 'object' ? p._id.toString() : String(p._id)) : (p.id ? String(p.id) : p.slug);
+  const id = rawId || p.slug || `prod-${Math.random().toString(36).substring(2, 7)}`;
+
 
   let images: string[] = [];
   if (Array.isArray(p.images) && p.images.length > 0) {
