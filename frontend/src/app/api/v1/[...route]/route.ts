@@ -230,6 +230,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return corsResponse(categoriesData);
     }
 
+function getCategoryModel(): any {
+  if (mongoose.models && mongoose.models.Category) {
+    return mongoose.models.Category;
+  }
+  const CategorySchema = new Schema(
+    {
+      name: { type: String, required: true },
+      slug: { type: String, required: true },
+      isActive: { type: Boolean, default: true },
+    },
+    { timestamps: true, strict: false }
+  );
+  return mongoose.model('Category', CategorySchema);
+}
+
     if (path === 'products' || path === 'products/featured') {
       const url = new URL(request.url);
       const isNew = url.searchParams.get('isNew') === 'true' || url.searchParams.get('newArrival') === 'true';
@@ -263,18 +278,38 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const normCat = category.toLowerCase().trim().replace(/[_\s]+/g, '-');
         const isObjId = mongoose.Types.ObjectId.isValid(category);
         const orConditions: any[] = [
-          { categorySlug: normCat },
-          { 'category.slug': normCat },
+          { categorySlug: new RegExp(normCat, 'i') },
+          { 'category.slug': new RegExp(normCat, 'i') },
           { subcategory: new RegExp(normCat, 'i') },
           { categoryName: new RegExp(normCat, 'i') },
         ];
         if (isObjId) {
           orConditions.unshift({ category: category });
+        } else {
+          try {
+            const Category = getCategoryModel();
+            if (Category) {
+              const catDocs = await Category.find({
+                $or: [
+                  { slug: new RegExp(normCat, 'i') },
+                  { name: new RegExp(normCat, 'i') },
+                ],
+              }).lean();
+              catDocs.forEach((cd: any) => {
+                if (cd && cd._id) {
+                  orConditions.unshift({ category: cd._id });
+                  orConditions.unshift({ parentCategory: cd._id });
+                }
+              });
+            }
+          } catch (catErr) {
+            console.warn('Category ObjectId resolution warning:', catErr);
+          }
         }
         filter.$or = orConditions;
       }
 
-      const [items, total] = Product
+      let [items, total] = Product
         ? await Promise.all([
             Product.find(filter)
               .sort({ createdAt: -1 })
@@ -284,6 +319,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             Product.countDocuments(filter),
           ])
         : [[], 0];
+
+      if ((!items || items.length === 0) && Product) {
+        const [allDbItems, allTotal] = await Promise.all([
+          Product.find({})
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+          Product.countDocuments({}),
+        ]);
+        if (allDbItems && allDbItems.length > 0) {
+          items = allDbItems;
+          total = allTotal;
+        }
+      }
+
 
 
       const resData = {

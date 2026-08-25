@@ -183,7 +183,8 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
         const raw = extractProducts(response);
         const normalized = raw.map(normalizeProduct).filter(Boolean);
         const filtered = normalized.filter((p) => matchesCategory(p, slug, selectedProductType));
-        setDbProducts(filtered.length > 0 ? filtered : (slug === 'all' ? normalized : []));
+        setDbProducts(filtered.length > 0 ? filtered : normalized);
+
       } catch (error) {
         if (axios.isAxiosError(error)) {
           console.error('[CategoryPage] API Error:', {
