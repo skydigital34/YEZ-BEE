@@ -167,12 +167,11 @@ export function getSafeImageUrl(
     !trimmed.startsWith('/') &&
     !trimmed.startsWith('data:')
   ) {
-    if (/\s/.test(trimmed) || !/^[a-zA-Z0-9\-\.\/_]+$/.test(trimmed)) {
-      return fallback;
-    }
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'smpyi8aw';
-    trimmed = `https://res.cloudinary.com/${cloudName}/image/upload/${trimmed}`;
+    const cleanPublicId = trimmed.replace(/^\/+/, '');
+    trimmed = `https://res.cloudinary.com/${cloudName}/image/upload/${cleanPublicId}`;
   }
+
 
   return trimmed;
 }
@@ -325,13 +324,37 @@ export function normalizeProduct(p: any): any {
     images = p.images
       .map((img: any) => getSafeImageUrl(img, ''))
       .filter((u: string) => Boolean(u && u.trim()));
+  } else if (Array.isArray(p.galleryImages) && p.galleryImages.length > 0) {
+    images = p.galleryImages
+      .map((img: any) => getSafeImageUrl(img, ''))
+      .filter((u: string) => Boolean(u && u.trim()));
   } else if (p.images && typeof p.images === 'string') {
     const u = getSafeImageUrl(p.images, '');
     if (u) images.push(u);
+  } else if (p.imageUrl && typeof p.imageUrl === 'string') {
+    const u = getSafeImageUrl(p.imageUrl, '');
+    if (u) images.push(u);
+  } else if (p.thumbnail && typeof p.thumbnail === 'string') {
+    const u = getSafeImageUrl(p.thumbnail, '');
+    if (u) images.push(u);
+  }
+
+  if (images.length === 0 && Array.isArray(p.variants) && p.variants.length > 0) {
+    p.variants.forEach((v: any) => {
+      if (Array.isArray(v.images) && v.images.length > 0) {
+        v.images.forEach((img: any) => {
+          const u = getSafeImageUrl(img, '');
+          if (u && !images.includes(u)) images.push(u);
+        });
+      }
+    });
   }
 
   const primaryObj = Array.isArray(p.images) ? p.images.find((i: any) => Boolean(i?.isPrimary)) : null;
-  const thumbnail = primaryObj ? getSafeImageUrl(primaryObj, '') : (getSafeImageUrl(p.thumbnail, '') || (images.length > 0 ? images[0] : ''));
+  const thumbnail = primaryObj
+    ? getSafeImageUrl(primaryObj, '')
+    : (getSafeImageUrl(p.thumbnail, '') || getSafeImageUrl(p.imageUrl, '') || (images.length > 0 ? images[0] : ''));
+
 
   const rawCatSlug = (typeof p.category === 'object' && p.category?.slug)
     ? p.category.slug

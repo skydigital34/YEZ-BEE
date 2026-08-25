@@ -172,11 +172,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const [items, total] = Product
         ? await Promise.all([
             Product.find({})
-              .select('name slug price compareAtPrice discount status category subcategory productType brand featured bestSeller newArrival images variants createdAt')
               .sort({ createdAt: -1 })
               .skip(skip)
               .limit(limit)
               .lean(),
+
             Product.countDocuments({}),
           ])
         : [[], 0];
@@ -277,7 +277,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const [items, total] = Product
         ? await Promise.all([
             Product.find(filter)
-              .select('name slug price compareAtPrice discount status category subcategory productType brand featured bestSeller newArrival isNewProduct isBestSeller images variants createdAt')
               .sort({ createdAt: -1 })
               .skip(skip)
               .limit(limit)
@@ -285,6 +284,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             Product.countDocuments(filter),
           ])
         : [[], 0];
+
 
       const resData = {
         success: true,
