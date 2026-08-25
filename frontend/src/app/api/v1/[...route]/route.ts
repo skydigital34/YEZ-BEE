@@ -367,16 +367,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const keySecret = process.env.RAZORPAY_KEY_SECRET || '2k8t2xr5xZvY3lG7V2zoFH8y';
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const Razorpay = require('razorpay');
-        const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
-
-        const order = await razorpay.orders.create({
-          amount: Math.round(amount * 100),
-          currency,
-          receipt: `receipt_${Date.now()}`,
-          payment_capture: 1,
+        const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
+        const rzpResponse = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: Math.round(amount * 100),
+            currency,
+            receipt: `receipt_${Date.now()}`,
+            payment_capture: 1,
+          }),
         });
+
+        const order = await rzpResponse.json();
+
+        if (!rzpResponse.ok) {
+          throw new Error(order.error?.description || 'Razorpay order creation failed');
+        }
 
         return corsResponse({
           success: true,
