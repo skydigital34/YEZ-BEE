@@ -22,7 +22,7 @@ interface CacheEntry {
 }
 
 const memoryCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
+const CACHE_TTL_MS = 5 * 1000; // 5 seconds fast TTL for live DB sync
 
 function getCachedData(key: string): any | null {
   const entry = memoryCache.get(key);

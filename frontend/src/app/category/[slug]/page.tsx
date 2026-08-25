@@ -183,13 +183,7 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
         const raw = extractProducts(response);
         const normalized = raw.map(normalizeProduct).filter(Boolean);
         const filtered = normalized.filter((p) => matchesCategory(p, slug, selectedProductType));
-
-        if (filtered.length > 0) {
-          setDbProducts(filtered);
-        } else {
-          const fallback = getProductsByCategory(slug);
-          setDbProducts(fallback);
-        }
+        setDbProducts(filtered.length > 0 ? filtered : (slug === 'all' ? normalized : []));
       } catch (error) {
         if (axios.isAxiosError(error)) {
           console.error('[CategoryPage] API Error:', {
@@ -201,10 +195,7 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
         } else {
           console.error('[CategoryPage] Unexpected error:', error);
         }
-        if (isMountedFlag) {
-          const fallback = getProductsByCategory(slug);
-          setDbProducts(fallback);
-        }
+
       } finally {
         if (isMountedFlag) setLoading(false);
       }
