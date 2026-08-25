@@ -18,11 +18,11 @@ const slides = [
     primaryHref: '/category/ethnic-wear',
     secondaryCta: 'EXPLORE ALL KURTIS',
     secondaryHref: '/category/casuals',
-    image: '/images/hero/hero2.png',
+    image: '/images/hero/hero1.png',
     alt: 'Best maternity kurtis and kurti sets for women online - YEZ BEE',
     align: 'left',
-    imagePosition: 'object-right',
-    bg: '#201914',
+    imagePosition: 'object-[80%_center]',
+    bg: '#E2D7CB',
   },
   {
     id: 2,
@@ -34,11 +34,11 @@ const slides = [
     primaryHref: '/category/casuals',
     secondaryCta: 'SHOP FEEDING WEAR',
     secondaryHref: '/category/casuals/feeding',
-    image: '/images/hero/hero1.png',
+    image: '/images/hero/hero3.png',
     alt: 'Woman in stylish YEZ BEE printed casual feeding dress',
-    align: 'right',
-    imagePosition: 'object-left',
-    bg: '#E2D7CB',
+    align: 'left',
+    imagePosition: 'object-[80%_center]',
+    bg: '#FAF7F2',
   },
   {
     id: 3,
@@ -50,11 +50,11 @@ const slides = [
     primaryHref: '/category/peplum-tops',
     secondaryCta: 'PARTY WEAR',
     secondaryHref: '/category/party-wear',
-    image: '/images/hero/hero3.png',
-    alt: 'Stylish woman wearing modern YEZ BEE patterned dress',
-    align: 'left',
-    imagePosition: 'object-right',
-    bg: '#FFFFFF',
+    image: '/images/hero/hero2.png',
+    alt: 'Stylish woman wearing modern YEZ BEE patterned festive outfit',
+    align: 'right',
+    imagePosition: 'object-[20%_center]',
+    bg: '#201914',
   },
   {
     id: 4,
@@ -68,9 +68,9 @@ const slides = [
     secondaryHref: '/category/casuals',
     image: '/images/hero/hero4.png',
     alt: 'Woman wearing comfortable YEZ BEE lounge dress',
-    align: 'left',
-    imagePosition: 'object-right',
-    bg: '#FFFFFF',
+    align: 'right',
+    imagePosition: 'object-[20%_center]',
+    bg: '#F5F5F7',
   },
 ];
 
@@ -130,16 +130,16 @@ export default function Hero() {
             fill
             priority
             loading="eager"
-            sizes="(max-width: 768px) 100vw, 1537px"
-            className={cn('object-contain', slide.imagePosition)}
+            sizes="100vw"
+            className={cn('object-cover transition-transform duration-1000', slide.imagePosition)}
           />
 
           <div
             className={cn(
               'absolute inset-0 z-10 pointer-events-none',
               slide.align === 'left'
-                ? 'bg-gradient-to-r from-black/90 via-black/50 to-transparent'
-                : 'bg-gradient-to-l from-black/90 via-black/50 to-transparent'
+                ? 'bg-gradient-to-r from-black/90 via-black/50 via-40% to-transparent'
+                : 'bg-gradient-to-l from-black/90 via-black/50 via-40% to-transparent'
             )}
           />
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/85 via-black/30 to-transparent sm:hidden pointer-events-none" />
@@ -150,10 +150,10 @@ export default function Hero() {
         <div className="h-full flex items-center py-6 sm:py-8 md:py-10">
           <div
             className={cn(
-              'w-full max-w-xl lg:max-w-2xl',
+              'w-full max-w-md sm:max-w-lg lg:max-w-xl z-20',
               slide.align === 'right'
-                ? 'ml-auto text-left'
-                : 'text-left pl-2 sm:pl-8 md:pl-12 lg:pl-16'
+                ? 'ml-auto text-left pr-2 sm:pr-4'
+                : 'text-left pl-2 sm:pl-4 md:pl-6 lg:pl-8'
             )}
           >
             <AnimatePresence mode="wait">
