@@ -73,137 +73,134 @@ export interface CatalogProduct {
 export const INITIAL_PRODUCTS: CatalogProduct[] = [];
 
 
-const STORAGE_KEY = 'yezbee_admin_products_v2';
-const DELETED_KEYS = 'yezbee_deleted_product_ids_v1';
+let cachedProducts: CatalogProduct[] = [];
+let isFetching = false;
 
-export function getDeletedProductIds(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(DELETED_KEYS);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
+export function getCategoryNameBySlug(slug: string): string {
+  const map: Record<string, string> = {
+    'casuals': 'CASUALS',
+    'party-wear': 'PARTY WEAR',
+    'ethnic-wear': 'ETHNIC WEAR',
+    'lounge-wear': 'LOUNGE WEAR',
+    'peplum-tops': 'PEPLUM TOPS',
+    'kids-wear': 'KIDS WEAR',
+  };
+  return map[slug] || 'CASUALS';
 }
 
-export function markProductAsDeleted(id: string) {
-  if (typeof window === 'undefined') return;
+function normalizeCatalogProduct(p: any): CatalogProduct {
+  const catConfig = getCategoryBySlug(p.category) || (p.categoryName ? getCategoryBySlug(p.categoryName) : undefined);
+  const categorySlug = catConfig?.slug || (typeof p.category === 'string' && !p.category.match(/^[0-9a-fA-F]{24}$/) ? p.category.toLowerCase().trim() : 'casuals');
+  const categoryName = catConfig?.name || p.categoryName || getCategoryNameBySlug(categorySlug);
+
+  const rawImages = Array.isArray(p.images) ? p.images : [];
+  const cleanImages = rawImages.map((img: any) => {
+    if (typeof img === 'string') return img;
+    return img?.url || img?.secure_url || '';
+  }).filter(Boolean);
+
+  const primaryImage = rawImages.find((img: any) => img?.isPrimary)?.url || cleanImages[0] || p.thumbnail || '';
+
+  const colors = Array.isArray(p.colors) && p.colors.length > 0 
+    ? p.colors 
+    : (p.variants && p.variants.length > 0 
+        ? Array.from(new Set(p.variants.map((v: any) => v.color))).map(name => ({
+            name: String(name),
+            hex: p.variants.find((v: any) => v.color === name)?.colorHex || '#000000'
+          }))
+        : [{ name: 'Standard', hex: '#000000' }]
+      );
+
+  const sizes = Array.isArray(p.sizes) && p.sizes.length > 0
+    ? p.sizes
+    : (p.variants && p.variants.length > 0
+        ? Array.from(new Set(p.variants.map((v: any) => v.size)))
+        : ['S', 'M', 'L', 'XL']
+      );
+
+  const totalStock = typeof p.stock === 'number'
+    ? p.stock
+    : (p.variants && p.variants.length > 0
+        ? p.variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0)
+        : 10
+      );
+
+  return {
+    id: p._id || p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    slug: p.slug || (p.name ? p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `prod-${Date.now()}`),
+    name: p.name || 'Untitled Product',
+    category: categorySlug,
+    categoryName,
+    productType: p.productType || null,
+    subcategory: p.subcategory || (p.productType === 'FEEDING' ? 'Feeding' : p.productType === 'NON-FEEDING' ? 'Non-Feeding' : 'General'),
+    shortDescription: p.shortDescription || p.description || '',
+    description: p.description || '',
+    highlights: p.highlights || [],
+    price: Number(p.price) || 999,
+    compareAtPrice: p.compareAtPrice ? Number(p.compareAtPrice) : null,
+    discountPercentage: p.discount || p.discountPercentage || 0,
+    currency: p.currency || 'INR',
+    images: cleanImages,
+    thumbnail: primaryImage || p.thumbnail || '',
+    colors,
+    variants: p.variants || [],
+    fabric: p.fabric || '100% Pure Cotton',
+    fit: p.fit || 'Regular Fit',
+    pattern: p.pattern || 'Printed',
+    neckStyle: p.neckStyle || 'Round Neck',
+    sleeveLength: p.sleeveLength || '3/4th Sleeve',
+    length: p.length || 'Regular',
+    occasion: p.occasion || 'Everyday',
+    gender: p.gender || 'Women',
+    ageGroup: p.ageGroup || '',
+    maternity: p.productType === 'FEEDING' || !!p.maternity,
+    feedingFriendly: p.productType === 'FEEDING' || !!p.feedingFriendly,
+    sizes,
+    stock: totalStock,
+    lowStockThreshold: p.lowStockThreshold || 5,
+    rating: p.rating || p.ratings?.average || 5.0,
+    reviewCount: p.reviewCount || p.ratings?.count || 0,
+    tags: p.tags || [],
+    careInstructions: Array.isArray(p.careInstructions) ? p.careInstructions.join('. ') : (p.careInstructions || 'Machine wash cold.'),
+    shippingInfo: p.shippingInfo || 'Dispatched within 24 hours.',
+    returnPolicy: p.returnPolicy || '7-day easy returns.',
+    featured: !!p.featured,
+    bestseller: !!p.bestseller || !!p.bestSeller,
+    newArrival: !!p.newArrival,
+    status: (p.status || 'PUBLISHED').toLowerCase() as any,
+    active: (p.status || 'PUBLISHED').toUpperCase() === 'PUBLISHED',
+    seo: p.seo || {
+      title: `${p.name || 'Product'} | YEZ BEE Fashion`,
+      description: p.shortDescription || 'Shop YEZ BEE Fashion.',
+    },
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+}
+
+export async function fetchProductsFromApi(): Promise<CatalogProduct[]> {
+  if (typeof window === 'undefined') return [];
   try {
-    const deleted = getDeletedProductIds();
-    if (!deleted.includes(id)) {
-      deleted.push(id);
-      localStorage.setItem(DELETED_KEYS, JSON.stringify(deleted));
+    const apiModule = await import('@/lib/api');
+    const response = await apiModule.api.getProducts({ limit: 200 });
+    if (response && response.data && Array.isArray(response.data)) {
+      cachedProducts = response.data.map(normalizeCatalogProduct);
     }
   } catch (err) {
-    console.error('Failed to mark product as deleted:', err);
+    console.error('Failed to fetch products from API:', err);
   }
+  return cachedProducts;
 }
 
 export function getAllProducts(): CatalogProduct[] {
-  if (typeof window === 'undefined') return INITIAL_PRODUCTS;
-  const deletedIds = getDeletedProductIds();
-  try {
-    const keysToCheck = [
-      'yezbee_admin_products_v2',
-      'yezbee_admin_products_v1',
-      'yezbee_admin_products',
-      'yezbee_products',
-      'yezbee_catalog',
-    ];
-
-    let allCustomProducts: any[] = [];
-    keysToCheck.forEach((key) => {
-      try {
-        const stored = localStorage.getItem(key);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((p: any) => {
-              if (p && (p.id || p.name) && !allCustomProducts.some((exist) => (exist.id && exist.id === p.id) || (exist.slug && exist.slug === p.slug))) {
-                allCustomProducts.push(p);
-              }
-            });
-          }
-        }
-      } catch (e) {}
-    });
-
-    const combined = [...allCustomProducts];
-    INITIAL_PRODUCTS.forEach((ip) => {
-      if (!combined.some((p: any) => (p.id && p.id === ip.id) || (p.slug && p.slug === ip.slug))) {
-        combined.push(ip);
-      }
-    });
-
-    const mapped = combined.map((p: any) => {
-      const catConfig = getCategoryBySlug(p.category) || (p.categoryName ? getCategoryBySlug(p.categoryName) : undefined);
-      const categorySlug = catConfig?.slug || (typeof p.category === 'string' && !p.category.match(/^[0-9a-fA-F]{24}$/) ? p.category.toLowerCase().trim() : 'casuals');
-      const categoryName = catConfig?.name || p.categoryName || getCategoryNameBySlug(categorySlug);
-      return {
-        ...p,
-        id: p.id || p._id || `prod-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        slug: p.slug || (p.name ? p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `prod-${Date.now()}`),
-        category: categorySlug,
-        categoryName,
-        price: Number(p.price) || 999,
-        compareAtPrice: p.compareAtPrice ? Number(p.compareAtPrice) : undefined,
-        discountPercentage: p.discountPercentage || 0,
-        images: Array.isArray(p.images) && p.images.length > 0 ? p.images : (p.thumbnail ? [p.thumbnail] : []),
-        thumbnail: p.thumbnail || (Array.isArray(p.images) && p.images.length > 0 ? (typeof p.images[0] === 'string' ? p.images[0] : p.images[0]?.url || p.images[0]?.secure_url || '') : ''),
-        stock: typeof p.stock === 'number' ? p.stock : 10,
-        colors: Array.isArray(p.colors) && p.colors.length > 0 ? p.colors : [{ name: 'Standard', hex: '#000000' }],
-        sizes: Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes : ['S', 'M', 'L', 'XL'],
-        status: 'published',
-        active: true,
-      };
-    });
-
-    return mapped.filter((p) => !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
-  } catch (err) {
-    console.error('Failed to parse catalog products from storage:', err);
-    return INITIAL_PRODUCTS.filter((p) => !deletedIds.includes(p.id) && !deletedIds.includes(p.slug));
-  }
-}
-
-export const CATALOG_PRODUCTS: CatalogProduct[] = INITIAL_PRODUCTS;
-
-function sanitizeProductForStorage(p: CatalogProduct): CatalogProduct {
-  const sanitizeUrl = (url: any) => {
-    if (typeof url === 'string' && url.startsWith('data:image/') && url.length > 250000) {
-      return '';
-    }
-    return typeof url === 'string' ? url : '';
-  };
-
-  return {
-    ...p,
-    thumbnail: sanitizeUrl(p.thumbnail),
-    images: Array.isArray(p.images) ? p.images.map(sanitizeUrl).filter(Boolean) : [],
-  };
-}
-
-function saveProductsToStorage(products: CatalogProduct[]) {
-  if (typeof window === 'undefined') return;
-  try {
-    const sanitized = products.map(sanitizeProductForStorage);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
-    window.dispatchEvent(new Event('yezbee_products_updated'));
-  } catch (err) {
-    console.warn('LocalStorage quota warning, compressing image data and retrying:', err);
-    try {
-      const stripped = products.map((p) => ({
-        ...p,
-        images: Array.isArray(p.images)
-          ? p.images.map((img: any) => (typeof img === 'string' && img.startsWith('data:') ? '' : img)).filter(Boolean)
-          : [],
-        thumbnail: typeof p.thumbnail === 'string' && p.thumbnail.startsWith('data:') ? '' : p.thumbnail,
-      }));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+  if (typeof window !== 'undefined' && cachedProducts.length === 0 && !isFetching) {
+    isFetching = true;
+    fetchProductsFromApi().finally(() => {
+      isFetching = false;
       window.dispatchEvent(new Event('yezbee_products_updated'));
-    } catch (finalErr) {
-      console.error('Could not save product catalog to localStorage:', finalErr);
-    }
+    });
   }
+  return cachedProducts;
 }
 
 export function getProductBySlug(slug: string): CatalogProduct | undefined {
@@ -218,7 +215,7 @@ export function getProductById(id: string): CatalogProduct | undefined {
 
 export function getProductsByCategory(categorySlug: string, productType?: 'FEEDING' | 'NON-FEEDING' | string | null): CatalogProduct[] {
   const normalizedCat = categorySlug.toLowerCase().trim();
-  const products = getAllProducts().filter((p) => (p.status || 'published').toLowerCase() === 'published');
+  const products = getAllProducts().filter((p) => p.status === 'published');
   
   if (normalizedCat === 'all') return products;
 
@@ -271,124 +268,31 @@ export function getProductsByCategory(categorySlug: string, productType?: 'FEEDI
   });
 }
 
-function safeImg(url?: any): string {
-  if (!url) return '';
-  let raw: any = url;
-  if (typeof raw === 'object' && raw !== null) {
-    raw = raw.secure_url || raw.url || raw.publicId || raw.public_id || '';
-  }
-  if (typeof raw !== 'string' || !raw.trim()) return '';
-  const trimmed = raw.trim();
-  if (
-    trimmed === 'undefined' ||
-    trimmed === 'null' ||
-    trimmed === '[object Object]' ||
-    trimmed === 'none' ||
-    trimmed.startsWith('blob:')
-  ) {
-    return '';
-  }
-  return trimmed;
-}
-
 export function saveOrUpdateProduct(productData: Partial<CatalogProduct>): CatalogProduct {
-  const products = getAllProducts();
-
-  const id = productData.id || `PRD-${Date.now()}`;
-  const now = new Date().toISOString();
-
-  let computedStock = productData.stock || 0;
-  if (productData.variants && productData.variants.length > 0) {
-    computedStock = productData.variants.reduce((acc, v) => acc + (v.stock || 0), 0);
-  }
-
-  let discountPercentage = productData.discountPercentage || 0;
-  if (productData.price && productData.compareAtPrice && productData.compareAtPrice > productData.price) {
-    discountPercentage = Math.round(((productData.compareAtPrice - productData.price) / productData.compareAtPrice) * 100);
-  }
-
-  const existingIndex = products.findIndex((p) => p.id === id);
-
-  const rawCat = productData.category || 'casuals';
-  const catConfig = getCategoryBySlug(rawCat) || (productData.categoryName ? getCategoryBySlug(productData.categoryName) : undefined);
-  const normalizedCategorySlug = catConfig?.slug || (typeof rawCat === 'string' && !rawCat.match(/^[0-9a-fA-F]{24}$/) ? rawCat.toLowerCase().trim() : 'casuals');
-  const normalizedCategoryName = catConfig?.name || productData.categoryName || getCategoryNameBySlug(normalizedCategorySlug);
-
-  const fullProduct: CatalogProduct = {
-    id,
-    slug: productData.slug || slugify(productData.name || 'product'),
-    name: productData.name || 'Untitled Product',
-    category: normalizedCategorySlug,
-    categoryName: normalizedCategoryName,
-    productType: productData.productType || null,
-    subcategory: productData.subcategory || (productData.productType === 'FEEDING' ? 'Feeding' : productData.productType === 'NON-FEEDING' ? 'Non-Feeding' : 'General'),
-    shortDescription: productData.shortDescription || '',
-    description: productData.description || '',
-    highlights: productData.highlights || [],
-    price: productData.price || 0,
-    compareAtPrice: productData.compareAtPrice || null,
-    costPrice: productData.costPrice || 0,
-    discountPercentage,
-    currency: productData.currency || 'INR',
-    images: (productData.images && productData.images.length > 0)
-      ? productData.images.map((img: any) => safeImg(img)).filter(Boolean)
-      : [],
-    thumbnail: safeImg(productData.thumbnail || (productData.images && productData.images[0])),
-    colors: productData.colors || [{ name: 'Default', hex: '#000000' }],
-    variants: productData.variants || [],
-    fabric: productData.fabric || '100% Pure Cotton',
-    fit: productData.fit || 'Regular Fit',
-    pattern: productData.pattern || 'Printed',
-    neckStyle: productData.neckStyle || 'Round Neck',
-    sleeveLength: productData.sleeveLength || '3/4th Sleeve',
-    length: productData.length || 'Regular',
-    occasion: productData.occasion || 'Everyday',
-    gender: productData.gender || 'Women',
-    ageGroup: productData.ageGroup || '',
-    maternity: productData.productType === 'FEEDING' || !!productData.maternity,
-    feedingFriendly: productData.productType === 'FEEDING' || !!productData.feedingFriendly,
-    sizes: productData.sizes || ['S', 'M', 'L', 'XL'],
-    stock: computedStock,
-    lowStockThreshold: productData.lowStockThreshold || 5,
-    rating: productData.rating || 5.0,
-    reviewCount: productData.reviewCount || 0,
-    tags: productData.tags || [],
-    careInstructions: productData.careInstructions || 'Machine wash cold.',
-    shippingInfo: productData.shippingInfo || 'Dispatched within 24 hours.',
-    returnPolicy: productData.returnPolicy || '7-day easy returns.',
-    featured: !!productData.featured,
-    bestseller: !!productData.bestseller,
-    newArrival: !!productData.newArrival,
-    status: productData.status || 'published',
-    active: (productData.status || 'published') === 'published',
-    seo: productData.seo || {
-      title: `${productData.name || 'Product'} | YEZ BEE Fashion`,
-      description: productData.shortDescription || 'Shop YEZ BEE Fashion.',
-    },
-    createdAt: existingIndex >= 0 ? products[existingIndex].createdAt : now,
-    updatedAt: now,
-  };
-
+  const normalized = normalizeCatalogProduct(productData);
+  const existingIndex = cachedProducts.findIndex((p) => p.id === normalized.id);
   if (existingIndex >= 0) {
-    products[existingIndex] = fullProduct;
+    cachedProducts[existingIndex] = normalized;
   } else {
-    products.unshift(fullProduct);
+    cachedProducts.unshift(normalized);
   }
-
-  saveProductsToStorage(products);
-  return fullProduct;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('yezbee_products_updated'));
+  }
+  return normalized;
 }
 
 export function updateProductStatus(id: string, newStatus: 'published' | 'draft' | 'archived'): boolean {
-  const products = getAllProducts();
-  const index = products.findIndex((p) => p.id === id);
+  const index = cachedProducts.findIndex((p) => p.id === id);
   if (index < 0) return false;
 
-  products[index].status = newStatus;
-  products[index].active = newStatus === 'published';
-  products[index].updatedAt = new Date().toISOString();
+  cachedProducts[index].status = newStatus;
+  cachedProducts[index].active = newStatus === 'published';
+  cachedProducts[index].updatedAt = new Date().toISOString();
 
-  saveProductsToStorage(products);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('yezbee_products_updated'));
+  }
   return true;
 }
 
@@ -420,15 +324,12 @@ export function deleteOrArchiveProduct(id: string): boolean {
 }
 
 export function permanentDeleteProduct(id: string): boolean {
-  markProductAsDeleted(id);
-  const products = getAllProducts().filter((p) => p.id !== id && p.slug !== id);
-  saveProductsToStorage(products);
+  cachedProducts = cachedProducts.filter((p) => p.id !== id && p.slug !== id);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('yezbee_products_updated'));
   }
   return true;
 }
-
 
 export function slugify(text: string): string {
   return text
@@ -440,14 +341,8 @@ export function slugify(text: string): string {
     .replace(/\-\-+/g, '-');
 }
 
-export function getCategoryNameBySlug(slug: string): string {
-  const map: Record<string, string> = {
-    'casuals': 'CASUALS',
-    'party-wear': 'PARTY WEAR',
-    'ethnic-wear': 'ETHNIC WEAR',
-    'lounge-wear': 'LOUNGE WEAR',
-    'peplum-tops': 'PEPLUM TOPS',
-    'kids-wear': 'KIDS WEAR',
-  };
-  return map[slug] || 'CASUALS';
+export function getDeletedProductIds(): string[] {
+  return [];
 }
+
+

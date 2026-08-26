@@ -1,7 +1,7 @@
-import mongoose, { Document, Schema, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { getDb } from '../config/firebase';
 import { USER_ROLES, JWT_EXPIRES_IN, JWT_REFRESH_EXPIRES_IN } from '../utils/constants';
 import { generateReferralCode } from '../utils/helpers';
 
@@ -20,32 +20,34 @@ export interface IAddress {
 }
 
 export interface ICartItem {
-  product: mongoose.Types.ObjectId;
+  product: string; // Product ID
   variantSku: string;
   quantity: number;
   addedAt: Date;
 }
 
 export interface IRecentlyViewed {
-  product: mongoose.Types.ObjectId;
+  product: string; // Product ID
   viewedAt: Date;
 }
 
-export interface IUserDocument extends Document {
+export interface IUser {
+  _id?: string;
+  id?: string;
   name: string;
   email: string;
   phone?: string;
-  password: string;
+  password?: string;
   role: 'customer' | 'admin' | 'superadmin';
   avatar?: { url: string; publicId: string };
   addresses: IAddress[];
-  wishlist: mongoose.Types.ObjectId[];
+  wishlist: string[];
   cart: ICartItem[];
-  compareList: mongoose.Types.ObjectId[];
+  compareList: string[];
   recentlyViewed: IRecentlyViewed[];
   loyaltyPoints: number;
   referralCode: string;
-  referredBy?: mongoose.Types.ObjectId;
+  referredBy?: string;
   isVerified: boolean;
   isActive: boolean;
   resetPasswordToken?: string;
@@ -53,186 +55,141 @@ export interface IUserDocument extends Document {
   lastLoginAt?: Date;
   passwordChangedAt?: Date;
   refreshToken?: string;
-
-  comparePassword(candidatePassword: string): Promise<boolean>;
-  generateAuthToken(): string;
-  generateRefreshToken(): string;
-  generatePasswordResetToken(): string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-export interface IUserModel extends Model<IUserDocument> {
-  findByEmail(email: string): Promise<IUserDocument | null>;
-}
+export class UserModel {
+  private static collectionName = 'users';
 
-const addressSchema = new Schema<IAddress>(
-  {
-    label: { type: String, default: 'Home' },
-    fullName: { type: String, required: true, trim: true },
-    phone: { type: String, required: true },
-    line1: { type: String, required: true },
-    line2: { type: String, trim: true },
-    city: { type: String, required: true },
-    state: { type: String, required: true },
-    pincode: { type: String, required: true },
-    country: { type: String, default: 'India' },
-    isDefault: { type: Boolean, default: false },
-    addressType: { type: String, enum: ['home', 'work', 'other'], default: 'home' },
-  },
-  { _id: true }
-);
+  public static async comparePassword(candidatePassword: string, hash: string): Promise<boolean> {
+    if (!hash) return false;
+    return bcrypt.compare(candidatePassword, hash);
+  }
 
-const cartItemSchema = new Schema<ICartItem>(
-  {
-    product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
-    variantSku: { type: String, required: true },
-    quantity: { type: Number, required: true, min: 1, default: 1 },
-    addedAt: { type: Date, default: Date.now },
-  },
-  { _id: true }
-);
-
-const recentlyViewedSchema = new Schema<IRecentlyViewed>(
-  {
-    product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
-    viewedAt: { type: Date, default: Date.now },
-  },
-  { _id: false }
-);
-
-const userSchema = new Schema<IUserDocument, IUserModel>(
-  {
-    name: {
-      type: String,
-      required: [true, 'Name is required'],
-      trim: true,
-      minlength: [2, 'Name must be at least 2 characters'],
-      maxlength: [100, 'Name cannot exceed 100 characters'],
-    },
-    email: {
-      type: String,
-      required: [true, 'Email is required'],
-      unique: true,
-      lowercase: true,
-      trim: true,
-      match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email'],
-    },
-    phone: {
-      type: String,
-      trim: true,
-      match: [/^\+?[\d\s-]{10,15}$/, 'Please provide a valid phone number'],
-    },
-    password: {
-      type: String,
-      required: [true, 'Password is required'],
-      minlength: [8, 'Password must be at least 8 characters'],
-      select: false,
-    },
-    role: {
-      type: String,
-      enum: Object.values(USER_ROLES),
-      default: USER_ROLES.CUSTOMER,
-    },
-    avatar: {
-      url: { type: String },
-      publicId: { type: String },
-    },
-    addresses: [addressSchema],
-    wishlist: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
-    cart: [cartItemSchema],
-    compareList: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
-    recentlyViewed: {
-      type: [recentlyViewedSchema],
-      default: [],
-    },
-    loyaltyPoints: { type: Number, default: 0, min: 0 },
-    referralCode: { type: String, unique: true, sparse: true },
-    referredBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    isVerified: { type: Boolean, default: false },
-    isActive: { type: Boolean, default: true },
-    resetPasswordToken: { type: String },
-    resetPasswordExpires: { type: Date },
-    lastLoginAt: { type: Date },
-    passwordChangedAt: { type: Date },
-    refreshToken: { type: String, select: false },
-  },
-  {
-    timestamps: true,
-    toJSON: {
-      transform(_doc, ret) {
-        const obj = ret as Record<string, any>;
-        delete obj.password;
-        delete obj.refreshToken;
-        delete obj.resetPasswordToken;
-        delete obj.resetPasswordExpires;
-        delete obj.passwordChangedAt;
-        delete obj.__v;
-        return obj;
+  public static generateAuthToken(user: IUser): string {
+    return jwt.sign(
+      {
+        id: user._id || user.id,
+        role: user.role,
+        email: user.email,
       },
-    },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: (JWT_EXPIRES_IN || '7d') as any }
+    );
   }
-);
 
-userSchema.index({ 'addresses.pincode': 1 });
-
-userSchema.pre<IUserDocument>('save', async function (next) {
-  if (!this.isModified('password')) return next();
-
-  try {
-    const salt = await bcrypt.genSalt(12);
-    this.password = await bcrypt.hash(this.password, salt);
-    this.passwordChangedAt = new Date();
-    next();
-  } catch (error: unknown) {
-    next(error as Error);
+  public static generateRefreshToken(user: IUser): string {
+    return jwt.sign(
+      { id: user._id || user.id },
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'refreshsecret',
+      { expiresIn: (JWT_REFRESH_EXPIRES_IN || '30d') as any }
+    );
   }
-});
 
-userSchema.pre<IUserDocument>('save', function (next) {
-  if (!this.referralCode) {
-    this.referralCode = generateReferralCode();
+  public static generatePasswordResetToken(): { resetToken: string; hashedToken: string; expires: Date } {
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const expires = new Date(Date.now() + 3600000);
+    return { resetToken, hashedToken, expires };
   }
-  next();
-});
 
-userSchema.methods.comparePassword = async function (
-  candidatePassword: string
-): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
-};
+  public static async findByEmail(email: string): Promise<IUser | null> {
+    const db = getDb();
+    const snapshot = await db.collection(this.collectionName)
+      .where('email', '==', email.toLowerCase())
+      .limit(1)
+      .get();
 
-userSchema.methods.generateAuthToken = function (): string {
-  return jwt.sign(
-    {
-      id: this._id,
-      role: this.role,
-      email: this.email,
-    },
-    process.env.JWT_SECRET || 'secret',
-    { expiresIn: (JWT_EXPIRES_IN || '7d') as any }
-  );
-};
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { _id: doc.id, id: doc.id, ...doc.data() } as IUser;
+  }
 
-userSchema.methods.generateRefreshToken = function (): string {
-  return jwt.sign(
-    { id: this._id },
-    process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'refreshsecret',
-    { expiresIn: (JWT_REFRESH_EXPIRES_IN || '30d') as any }
-  );
-};
+  public static async findById(id: string): Promise<IUser | null> {
+    if (!id) return null;
+    const db = getDb();
+    const doc = await db.collection(this.collectionName).doc(id).get();
+    if (!doc.exists) return null;
+    return { _id: doc.id, id: doc.id, ...doc.data() } as IUser;
+  }
 
-userSchema.methods.generatePasswordResetToken = function (): string {
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-  this.resetPasswordExpires = new Date(Date.now() + 3600000);
-  return resetToken;
-};
+  public static async findOne(query: Record<string, any>): Promise<IUser | null> {
+    const db = getDb();
+    let ref: FirebaseFirestore.Query = db.collection(this.collectionName);
 
-userSchema.statics.findByEmail = function (
-  email: string
-): Promise<IUserDocument | null> {
-  return this.findOne({ email: email.toLowerCase() });
-};
+    for (const [key, value] of Object.entries(query)) {
+      ref = ref.where(key, '==', value);
+    }
 
-const User = mongoose.model<IUserDocument, IUserModel>('User', userSchema);
+    const snapshot = await ref.limit(1).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { _id: doc.id, id: doc.id, ...doc.data() } as IUser;
+  }
 
+  public static async create(data: Partial<IUser>): Promise<IUser> {
+    const db = getDb();
+    const docRef = db.collection(this.collectionName).doc();
+    
+    let hashedPassword = data.password;
+    if (data.password) {
+      const salt = await bcrypt.genSalt(12);
+      hashedPassword = await bcrypt.hash(data.password, salt);
+    }
+
+    const newUser: IUser = {
+      name: data.name || '',
+      email: (data.email || '').toLowerCase(),
+      phone: data.phone || '',
+      password: hashedPassword,
+      role: data.role || USER_ROLES.CUSTOMER,
+      avatar: data.avatar,
+      addresses: data.addresses || [],
+      wishlist: data.wishlist || [],
+      cart: data.cart || [],
+      compareList: data.compareList || [],
+      recentlyViewed: data.recentlyViewed || [],
+      loyaltyPoints: data.loyaltyPoints || 0,
+      referralCode: data.referralCode || generateReferralCode(),
+      referredBy: data.referredBy,
+      isVerified: data.isVerified || false,
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await docRef.set(newUser);
+    return { _id: docRef.id, id: docRef.id, ...newUser };
+  }
+
+  public static async findByIdAndUpdate(id: string, updateData: Partial<IUser>): Promise<IUser | null> {
+    if (!id) return null;
+    const db = getDb();
+    const docRef = db.collection(this.collectionName).doc(id);
+    
+    if (updateData.password) {
+      const salt = await bcrypt.genSalt(12);
+      updateData.password = await bcrypt.hash(updateData.password, salt);
+    }
+
+    const payload = {
+      ...updateData,
+      updatedAt: new Date(),
+    };
+
+    await docRef.set(payload, { merge: true });
+    return this.findById(id);
+  }
+
+  public static async findByIdAndDelete(id: string): Promise<boolean> {
+    if (!id) return false;
+    const db = getDb();
+    await db.collection(this.collectionName).doc(id).delete();
+    return true;
+  }
+}
+
+// Compatibility export
+const User = UserModel;
 export default User;

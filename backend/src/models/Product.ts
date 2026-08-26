@@ -1,6 +1,5 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import { getDb } from '../config/firebase';
 import { slugify } from '../utils/helpers';
-import { RATING_VALUES } from '../utils/constants';
 
 export interface IProductImage {
   url: string;
@@ -55,16 +54,18 @@ export interface IShippingInfo {
   weight: number;
 }
 
-export interface IProductDocument extends Document {
+export interface IProduct {
+  _id?: string;
+  id?: string;
   name: string;
   slug: string;
   description: string;
-  shortDescription: string;
-  category: mongoose.Types.ObjectId;
-  parentCategory?: mongoose.Types.ObjectId | null;
-  subcategory: string;
+  shortDescription?: string;
+  category: string; // Category ID or name
+  parentCategory?: string | null;
+  subcategory?: string;
   productType?: 'FEEDING' | 'NON-FEEDING' | null;
-  brand: string;
+  brand?: string;
   price: number;
   compareAtPrice?: number;
   discount?: number;
@@ -74,282 +75,260 @@ export interface IProductDocument extends Document {
   newArrival: boolean;
   tags: string[];
   images: IProductImage[];
-  videos: IProductVideo[];
+  videos?: IProductVideo[];
   variants: IProductVariant[];
-  fabric: string;
-  fit: string;
-  neckStyle: string;
-  sleeveLength: string;
-  pattern: string;
-  length: string;
-  occasion: string;
-  modelInfo: IModelInfo;
-  careInstructions: string[];
-  washCare: string;
-  features: string[];
-  specifications: Map<string, string>;
-  seo: ISeo;
-  ratings: { average: number; count: number; distribution: IRatingDistribution };
-  reviewCount: number;
-  soldCount: number;
-  isNewProduct: boolean;
-  isTrending: boolean;
-  isBestSeller: boolean;
-  isActive: boolean;
-  featuredOrder: number;
-  returnPolicy: string;
-  shippingInfo: IShippingInfo;
+  fabric?: string;
+  fit?: string;
+  neckStyle?: string;
+  sleeveLength?: string;
+  pattern?: string;
+  length?: string;
+  occasion?: string;
+  modelInfo?: IModelInfo;
+  careInstructions?: string[];
+  washCare?: string;
+  features?: string[];
+  specifications?: Record<string, string>;
+  seo?: ISeo;
+  ratings?: { average: number; count: number; distribution: IRatingDistribution };
+  reviewCount?: number;
+  soldCount?: number;
+  isNewProduct?: boolean;
+  isTrending?: boolean;
+  isBestSeller?: boolean;
+  isActive?: boolean;
+  featuredOrder?: number;
+  returnPolicy?: string;
+  shippingInfo?: IShippingInfo;
   taxRate?: number;
   imageUrl?: string;
   imagePublicId?: string;
   isPublished?: boolean;
-  getDiscountedPrice(variantSku: string): number | null;
-  isInStock(variantSku: string): boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const productImageSchema = new Schema<IProductImage>(
-  {
-    url: { type: String, required: true },
-    publicId: { type: String, default: '' },
-    alt: { type: String, default: '' },
-    isPrimary: { type: Boolean, default: false },
-    order: { type: Number, default: 0 },
-    sortOrder: { type: Number, default: 0 },
-  },
-  { _id: false }
-);
+export class ProductModel {
+  private static collectionName = 'products';
 
-const productVideoSchema = new Schema<IProductVideo>(
-  {
-    url: { type: String, required: true },
-    thumbnail: { type: String },
-  },
-  { _id: false }
-);
-
-const variantSchema = new Schema<IProductVariant>(
-  {
-    sku: { type: String, required: true },
-    color: { type: String, required: true },
-    colorHex: { type: String, default: '#000000' },
-    size: { type: String, required: true },
-    price: { type: Number, required: true, min: 0 },
-    compareAtPrice: { type: Number, min: 0 },
-    stock: { type: Number, required: true, min: 0, default: 0 },
-    lowStockThreshold: { type: Number, default: 5 },
-    images: [productImageSchema],
-    isActive: { type: Boolean, default: true },
-  },
-  { _id: true }
-);
-
-const modelInfoSchema = new Schema<IModelInfo>(
-  {
-    height: { type: String },
-    sizeWorn: { type: String },
-    fitType: { type: String },
-  },
-  { _id: false }
-);
-
-const seoSchema = new Schema<ISeo>(
-  {
-    title: { type: String },
-    description: { type: String },
-    ogImage: { type: String },
-  },
-  { _id: false }
-);
-
-const ratingDistributionSchema = new Schema<IRatingDistribution>(
-  {
-    1: { type: Number, default: 0 },
-    2: { type: Number, default: 0 },
-    3: { type: Number, default: 0 },
-    4: { type: Number, default: 0 },
-    5: { type: Number, default: 0 },
-  },
-  { _id: false }
-);
-
-const shippingInfoSchema = new Schema<IShippingInfo>(
-  {
-    free: { type: Boolean, default: false },
-    estimatedDays: { type: String },
-    weight: { type: Number, default: 0 },
-  },
-  { _id: false }
-);
-
-const productSchema = new Schema<IProductDocument>(
-  {
-    name: {
-      type: String,
-      required: [true, 'Product name is required'],
-      trim: true,
-      maxlength: [200, 'Name cannot exceed 200 characters'],
-    },
-    slug: {
-      type: String,
-      required: [true, 'Slug is required'],
-      unique: true,
-      lowercase: true,
-    },
-    description: { type: String, default: '' },
-    shortDescription: {
-      type: String,
-      maxlength: [500, 'Short description cannot exceed 500 characters'],
-    },
-    category: {
-      type: Schema.Types.ObjectId,
-      ref: 'Category',
-      required: [true, 'Category is required'],
-    },
-    parentCategory: {
-      type: Schema.Types.ObjectId,
-      ref: 'Category',
-      default: null,
-    },
-    subcategory: { type: String, trim: true },
-    productType: { type: String, enum: ['FEEDING', 'NON-FEEDING', null], default: null },
-    brand: { type: String, trim: true, default: 'YEZ BEE' },
-    price: { type: Number, default: 0, min: 0 },
-    compareAtPrice: { type: Number, default: 0, min: 0 },
-    discount: { type: Number, default: 0, min: 0 },
-    status: {
-      type: String,
-      enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'],
-      default: 'PUBLISHED',
-      index: true,
-    },
-    featured: { type: Boolean, default: false, index: true },
-    bestSeller: { type: Boolean, default: false, index: true },
-    newArrival: { type: Boolean, default: false, index: true },
-    tags: [{ type: String, lowercase: true, trim: true, index: true }],
-    images: [productImageSchema],
-    videos: [productVideoSchema],
-    variants: [variantSchema],
-    fabric: { type: String },
-    fit: { type: String },
-    neckStyle: { type: String },
-    sleeveLength: { type: String },
-    pattern: { type: String },
-    length: { type: String },
-    occasion: { type: String },
-    modelInfo: modelInfoSchema,
-    careInstructions: [{ type: String }],
-    washCare: { type: String },
-    features: [{ type: String }],
-    specifications: { type: Map, of: String, default: new Map() },
-    seo: seoSchema,
-    ratings: {
-      type: new Schema(
-        {
-          average: { type: Number, default: 0, min: 0, max: 5 },
-          count: { type: Number, default: 0, min: 0 },
-          distribution: ratingDistributionSchema,
-        },
-        { _id: false }
-      ),
-      default: { average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
-    },
-    reviewCount: { type: Number, default: 0, min: 0 },
-    soldCount: { type: Number, default: 0, min: 0 },
-    isNewProduct: { type: Boolean, default: false },
-    isTrending: { type: Boolean, default: false },
-    isBestSeller: { type: Boolean, default: false },
-    isActive: { type: Boolean, default: true, index: true },
-    featuredOrder: { type: Number, default: 0 },
-    returnPolicy: { type: String },
-    shippingInfo: shippingInfoSchema,
-    taxRate: { type: Number, default: 0.18 },
-  },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+  private static getFieldValue(obj: any, path: string): any {
+    if (!obj || !path) return undefined;
+    if (path === '_id' || path === 'id') {
+      return obj._id || obj.id;
+    }
+    if (path.includes('.')) {
+      const parts = path.split('.');
+      let current = obj;
+      for (const part of parts) {
+        if (current === null || current === undefined) return undefined;
+        if (Array.isArray(current)) {
+          return current.map(item => this.getFieldValue(item, part)).flat();
+        }
+        current = current[part];
+      }
+      return current;
+    }
+    return obj[path];
   }
-);
 
-productSchema.index({ createdAt: -1 });
-productSchema.index({ status: 1, createdAt: -1 });
-productSchema.index({ category: 1, status: 1 });
-productSchema.index({ parentCategory: 1, status: 1 });
-productSchema.index({ category: 1, productType: 1, status: 1 });
-productSchema.index({ 'variants.sku': 1 });
-productSchema.index({ 'variants.size': 1, status: 1 });
-productSchema.index({ 'variants.colorHex': 1, status: 1 });
-productSchema.index({ name: 'text', description: 'text', tags: 'text', brand: 'text' });
-productSchema.index({ soldCount: -1 });
-productSchema.index({ featuredOrder: 1 });
-productSchema.index({ isTrending: 1 });
-productSchema.index({ isBestSeller: 1 });
-productSchema.index({ 'variants.size': 1, isActive: 1 });
-
-productSchema.pre<IProductDocument>('save', function (next) {
-  if (this.isModified('name') && !this.slug) {
-    this.slug = slugify(this.name);
+  private static matchValue(value: any, target: any): boolean {
+    if (target instanceof RegExp) {
+      return target.test(String(value));
+    }
+    if (target && typeof target === 'object' && !(target instanceof Date)) {
+      if (target.$regex) {
+        const flags = target.$options || '';
+        const regex = new RegExp(target.$regex, flags);
+        return regex.test(String(value));
+      }
+      let matches = true;
+      if (target.$gte !== undefined) matches = matches && (Number(value) >= Number(target.$gte));
+      if (target.$lte !== undefined) matches = matches && (Number(value) <= Number(target.$lte));
+      if (target.$gt !== undefined) matches = matches && (Number(value) > Number(target.$gt));
+      if (target.$lt !== undefined) matches = matches && (Number(value) < Number(target.$lt));
+      if (target.$ne !== undefined) matches = matches && (value !== target.$ne);
+      if (target.$exists !== undefined) matches = matches && ((value !== undefined && value !== null) === Boolean(target.$exists));
+      if (target.$in !== undefined && Array.isArray(target.$in)) {
+        const valArr = Array.isArray(value) ? value : [value];
+        matches = matches && valArr.some(v =>
+          target.$in.some((t: any) => {
+            if (t instanceof RegExp) return t.test(String(v));
+            return String(v).toLowerCase() === String(t).toLowerCase();
+          })
+        );
+      }
+      return matches;
+    }
+    if (Array.isArray(value)) {
+      return value.includes(target);
+    }
+    return value === target;
   }
-  next();
-});
 
-productSchema.methods.getDiscountedPrice = function (
-  variantSku: string
-): number | null {
-  const variant = this.variants.find(
-    (v: IProductVariant) => v.sku === variantSku
-  );
-  if (!variant || !variant.compareAtPrice || variant.compareAtPrice <= variant.price) {
-    return null;
+  private static matchQuery(product: IProduct, query: Record<string, any>): boolean {
+    if (query.$or && Array.isArray(query.$or)) {
+      if (!query.$or.some((subQuery: any) => this.matchQuery(product, subQuery))) {
+        return false;
+      }
+    }
+    if (query.$and && Array.isArray(query.$and)) {
+      if (!query.$and.every((subQuery: any) => this.matchQuery(product, subQuery))) {
+        return false;
+      }
+    }
+
+    for (const [key, target] of Object.entries(query)) {
+      if (key === '$or' || key === '$and') continue;
+      const value = this.getFieldValue(product, key);
+      if (Array.isArray(value)) {
+        const matches = value.some(v => this.matchValue(v, target));
+        if (!matches) return false;
+      } else {
+        if (!this.matchValue(value, target)) return false;
+      }
+    }
+    return true;
   }
-  const discountPercent =
-    ((variant.compareAtPrice - variant.price) / variant.compareAtPrice) * 100;
-  return Math.round(discountPercent * 100) / 100;
-};
 
-productSchema.methods.isInStock = function (variantSku: string): boolean {
-  const variant = this.variants.find(
-    (v: IProductVariant) => v.sku === variantSku
-  );
-  return variant ? variant.stock > 0 : false;
-};
-
-productSchema.virtual('discountPercent').get(function (this: IProductDocument) {
-  if (!this.variants || !this.variants.length) return 0;
-  const minPrice = Math.min(...this.variants.map((v: IProductVariant) => v.price));
-  const maxCompare = Math.max(
-    ...this.variants.map((v: IProductVariant) => v.compareAtPrice || 0)
-  );
-  if (maxCompare > minPrice) {
-    return Math.round(((maxCompare - minPrice) / maxCompare) * 100);
+  public static async findById(id: string): Promise<IProduct | null> {
+    if (!id) return null;
+    const db = getDb();
+    const doc = await db.collection(this.collectionName).doc(id).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    return { _id: doc.id, id: doc.id, ...data } as IProduct;
   }
-  return 0;
-});
 
-productSchema.virtual('minPrice').get(function (this: IProductDocument) {
-  if (!this.variants || !this.variants.length) return 0;
-  const activeVariants = this.variants.filter((v: IProductVariant) => v.isActive);
-  return Math.min(...activeVariants.map((v: IProductVariant) => v.price));
-});
-
-productSchema.virtual('imageUrl').get(function (this: IProductDocument) {
-  if (this.images && this.images.length > 0 && this.images[0].url) {
-    return this.images[0].url;
+  public static async findOne(query: Record<string, any>): Promise<IProduct | null> {
+    const items = await this.find(query, {}, { limit: 1 });
+    return items.length > 0 ? items[0] : null;
   }
-  return '';
-});
 
-productSchema.virtual('imagePublicId').get(function (this: IProductDocument) {
-  if (this.images && this.images.length > 0 && this.images[0].publicId) {
-    return this.images[0].publicId;
+  public static async find(query: Record<string, any> = {}, options: { sort?: any; skip?: number; limit?: number } = {}, legacyOptions?: { sort?: any; skip?: number; limit?: number }): Promise<IProduct[]> {
+    const db = getDb();
+    const snapshot = await db.collection(this.collectionName).get();
+    let products = snapshot.docs.map(doc => ({ _id: doc.id, id: doc.id, ...doc.data() } as IProduct));
+
+    // Handle legacy signature where options is passed as third parameter
+    const opts = legacyOptions || options || {};
+
+    if (Object.keys(query).length > 0) {
+      products = products.filter(product => this.matchQuery(product, query));
+    }
+
+    if (opts.sort) {
+      const sortEntries = Object.entries(opts.sort);
+      products.sort((a, b) => {
+        for (const [field, direction] of sortEntries) {
+          const valA = this.getFieldValue(a, field);
+          const valB = this.getFieldValue(b, field);
+          const dir = direction === -1 || direction === 'desc' ? -1 : 1;
+          if (valA === undefined && valB !== undefined) return 1;
+          if (valA !== undefined && valB === undefined) return -1;
+          if (valA < valB) return -1 * dir;
+          if (valA > valB) return 1 * dir;
+        }
+        return 0;
+      });
+    }
+
+    if (opts.skip) {
+      products = products.slice(opts.skip);
+    }
+    if (opts.limit) {
+      products = products.slice(0, opts.limit);
+    }
+
+    return products;
   }
-  return '';
-});
 
-productSchema.virtual('isPublished').get(function (this: IProductDocument) {
-  return this.status === 'PUBLISHED' && this.isActive === true;
-});
+  public static async countDocuments(query: Record<string, any> = {}): Promise<number> {
+    const items = await this.find(query);
+    return items.length;
+  }
 
-const Product = mongoose.model<IProductDocument>('Product', productSchema);
+  public static async create(data: Partial<IProduct>): Promise<IProduct> {
+    const db = getDb();
+    const docRef = db.collection(this.collectionName).doc();
 
+    const name = data.name || '';
+    const slug = data.slug || slugify(name);
+
+    const newProduct: IProduct = {
+      name,
+      slug,
+      description: data.description || '',
+      shortDescription: data.shortDescription || '',
+      category: data.category || '',
+      parentCategory: data.parentCategory || null,
+      subcategory: data.subcategory || 'General',
+      productType: data.productType || null,
+      brand: data.brand || 'YEZ BEE',
+      price: data.price || 0,
+      compareAtPrice: data.compareAtPrice || 0,
+      discount: data.discount || 0,
+      status: data.status || 'PUBLISHED',
+      featured: data.featured || false,
+      bestSeller: data.bestSeller || false,
+      newArrival: data.newArrival || false,
+      tags: data.tags || [],
+      images: data.images || [],
+      videos: data.videos || [],
+      variants: data.variants || [],
+      fabric: data.fabric || '',
+      fit: data.fit || '',
+      neckStyle: data.neckStyle || '',
+      sleeveLength: data.sleeveLength || '',
+      pattern: data.pattern || '',
+      length: data.length || '',
+      occasion: data.occasion || '',
+      modelInfo: data.modelInfo,
+      careInstructions: data.careInstructions || [],
+      washCare: data.washCare || '',
+      features: data.features || [],
+      specifications: data.specifications || {},
+      seo: data.seo,
+      ratings: data.ratings || { average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
+      reviewCount: data.reviewCount || 0,
+      soldCount: data.soldCount || 0,
+      isNewProduct: data.isNewProduct || false,
+      isTrending: data.isTrending || false,
+      isBestSeller: data.isBestSeller || false,
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      featuredOrder: data.featuredOrder || 0,
+      returnPolicy: data.returnPolicy || '',
+      shippingInfo: data.shippingInfo,
+      taxRate: data.taxRate || 0.18,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await docRef.set(newProduct);
+    return { _id: docRef.id, id: docRef.id, ...newProduct };
+  }
+
+  public static async findByIdAndUpdate(id: string, updateData: Partial<IProduct>): Promise<IProduct | null> {
+    if (!id) return null;
+    const db = getDb();
+    const docRef = db.collection(this.collectionName).doc(id);
+
+    const payload = {
+      ...updateData,
+      updatedAt: new Date(),
+    };
+
+    await docRef.set(payload, { merge: true });
+    return this.findById(id);
+  }
+
+  public static async findByIdAndDelete(id: string): Promise<boolean> {
+    if (!id) return false;
+    const db = getDb();
+    await db.collection(this.collectionName).doc(id).delete();
+    return true;
+  }
+}
+
+// Compatibility export
+const Product = ProductModel;
 export default Product;

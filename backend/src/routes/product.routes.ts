@@ -104,7 +104,7 @@ router.delete(
 router.get(
   '/:id/reviews',
   validate([
-    param('id').isMongoId().withMessage('Valid product ID is required'),
+    param('id').notEmpty().withMessage('Valid product ID is required'),
   ]),
   productController.getProductReviews
 );
@@ -114,7 +114,7 @@ router.post(
   authenticate,
   uploadFields,
   validate([
-    param('id').isMongoId().withMessage('Valid product ID is required'),
+    param('id').notEmpty().withMessage('Valid product ID is required'),
     body('rating')
       .isInt({ min: 1, max: 5 })
       .withMessage('Rating must be between 1 and 5'),

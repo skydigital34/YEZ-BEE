@@ -15,7 +15,7 @@ router.post(
   authenticate,
   validate([
     body('productId')
-      .isMongoId()
+      .notEmpty()
       .withMessage('Valid product ID is required'),
     body('variantSku')
       .isString()
@@ -35,7 +35,7 @@ router.put(
   authenticate,
   validate([
     body('itemId')
-      .isMongoId()
+      .notEmpty()
       .withMessage('Valid cart item ID is required'),
     body('quantity')
       .isInt({ min: 1 })

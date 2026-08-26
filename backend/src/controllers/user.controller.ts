@@ -17,7 +17,7 @@ export const getProfile = async (
 
     res.status(200).json({
       success: true,
-      data: user.toJSON(),
+      data: user,
     });
   } catch (error) {
     next(error);
@@ -44,10 +44,7 @@ export const updateProfile = async (
       throw new AppError('No valid fields to update', 400);
     }
 
-    const user = await User.findByIdAndUpdate(userId, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    const user = await User.findByIdAndUpdate(userId, updateData);
 
     if (!user) {
       throw new AppError('User not found', 404);
@@ -58,7 +55,7 @@ export const updateProfile = async (
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      data: user.toJSON(),
+      data: user,
     });
   } catch (error) {
     next(error);
@@ -82,18 +79,18 @@ export const changePassword = async (
       throw new AppError('New password must be at least 8 characters', 400);
     }
 
-    const user = await User.findById(userId).select('+password');
+    const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    const isMatch = await user.comparePassword(currentPassword);
+    const isMatch = await User.comparePassword(currentPassword, user.password);
     if (!isMatch) {
       throw new AppError('Current password is incorrect', 401);
     }
 
     user.password = newPassword;
-    await user.save();
+    await User.findByIdAndUpdate(userId, { password: newPassword });
 
     res.status(200).json({
       success: true,
@@ -110,7 +107,7 @@ export const getAddresses = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = await User.findById(req.user!.id).select('addresses');
+    const user = await User.findById(req.user!.id);
     if (!user) {
       throw new AppError('User not found', 404);
     }
@@ -162,7 +159,7 @@ export const addAddress = async (
       addressType: addressType || 'home',
     });
 
-    await user.save();
+    await User.findByIdAndUpdate(userId, { addresses: user.addresses });
 
     res.status(201).json({
       success: true,
@@ -189,8 +186,8 @@ export const updateAddress = async (
       throw new AppError('User not found', 404);
     }
 
-    const address = (user.addresses as any).id(id);
-    if (!address) {
+    const addressIndex = user.addresses.findIndex((addr: any) => (addr.id === id || addr._id === id));
+    if (addressIndex === -1) {
       throw new AppError('Address not found', 404);
     }
 
@@ -200,8 +197,8 @@ export const updateAddress = async (
       });
     }
 
-    Object.assign(address, updateData);
-    await user.save();
+    user.addresses[addressIndex] = { ...user.addresses[addressIndex], ...updateData };
+    await User.findByIdAndUpdate(userId, { addresses: user.addresses });
 
     res.status(200).json({
       success: true,
@@ -227,19 +224,19 @@ export const deleteAddress = async (
       throw new AppError('User not found', 404);
     }
 
-    const address = (user.addresses as any).id(id);
-    if (!address) {
+    const addressIndex = user.addresses.findIndex((addr: any) => (addr.id === id || addr._id === id));
+    if (addressIndex === -1) {
       throw new AppError('Address not found', 404);
     }
 
-    const wasDefault = address.isDefault;
-    address.deleteOne();
+    const wasDefault = user.addresses[addressIndex].isDefault;
+    user.addresses.splice(addressIndex, 1);
 
     if (wasDefault && user.addresses.length > 0) {
       user.addresses[0].isDefault = true;
     }
 
-    await user.save();
+    await User.findByIdAndUpdate(userId, { addresses: user.addresses });
 
     res.status(200).json({
       success: true,
@@ -279,12 +276,12 @@ export const uploadAvatar = async (
       await deleteFromCloudinary(user.avatar.publicId).catch(() => {});
     }
 
-    user.avatar = {
+    const avatar = {
       url: result.url,
       publicId: result.publicId,
     };
 
-    await user.save();
+    await User.findByIdAndUpdate(userId, { avatar });
 
     res.status(200).json({
       success: true,

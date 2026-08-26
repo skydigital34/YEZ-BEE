@@ -62,7 +62,7 @@ router.put(
   authenticate,
   adminOnly,
   validate([
-    param('id').isMongoId().withMessage('Valid coupon ID is required'),
+    param('id').notEmpty().withMessage('Valid coupon ID is required'),
   ]),
   couponController.updateCoupon
 );
@@ -72,7 +72,7 @@ router.delete(
   authenticate,
   adminOnly,
   validate([
-    param('id').isMongoId().withMessage('Valid coupon ID is required'),
+    param('id').notEmpty().withMessage('Valid coupon ID is required'),
   ]),
   couponController.deleteCoupon
 );

@@ -182,7 +182,7 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
         const raw = extractProducts(response);
         const normalized = (raw.length > 0 ? raw : getAllProducts()).map((p: any) => normalizeProduct(p)).filter(Boolean);
         const filtered = normalized.filter((p: any) => matchesCategory(p, slug, selectedProductType));
-        
+
         // If this specific category has products, show them; if viewing all, show all normalized
         setDbProducts(slug === 'all' ? normalized : (filtered.length > 0 ? filtered : normalized.filter((p: any) => matchesCategory(p, slug))));
       } catch (error) {
@@ -286,11 +286,10 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
               <Link
                 key={cat.id}
                 href={cat.path}
-                className={`block py-2 px-3 rounded-xl transition-all ${
-                  slug === cat.slug
+                className={`block py-2 px-3 rounded-xl transition-all ${slug === cat.slug
                     ? 'bg-[var(--color-dark)] text-white font-bold shadow-sm'
                     : 'text-[var(--color-dark)]/80 hover:bg-[var(--color-champagne)]/40 hover:text-[var(--color-dark)] font-semibold'
-                }`}
+                  }`}
               >
                 {cat.name}
               </Link>
@@ -315,11 +314,10 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
                   setSelectedProductType('all');
                   if (subSlug) router.push(`/category/${slug}`);
                 }}
-                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  selectedProductType === 'all'
+                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${selectedProductType === 'all'
                     ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)]'
                     : 'bg-white text-gray-700 border-gray-200 hover:border-black'
-                }`}
+                  }`}
               >
                 All {categoryConfig ? categoryConfig.name : 'Products'}
               </button>
@@ -328,11 +326,10 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
                   setSelectedProductType('FEEDING');
                   router.push(`/category/${slug}/feeding`);
                 }}
-                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  selectedProductType === 'FEEDING'
+                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${selectedProductType === 'FEEDING'
                     ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] shadow-sm'
                     : 'bg-white text-gray-700 border-gray-200 hover:border-black'
-                }`}
+                  }`}
               >
                 FEEDING
               </button>
@@ -341,11 +338,10 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
                   setSelectedProductType('NON-FEEDING');
                   router.push(`/category/${slug}/non-feeding`);
                 }}
-                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  selectedProductType === 'NON-FEEDING'
+                className={`w-full text-left py-2 px-3 rounded-xl border text-xs font-bold transition-all ${selectedProductType === 'NON-FEEDING'
                     ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] shadow-sm'
                     : 'bg-white text-gray-700 border-gray-200 hover:border-black'
-                }`}
+                  }`}
               >
                 NON-FEEDING
               </button>
@@ -368,11 +364,10 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
               <button
                 key={sz}
                 onClick={() => toggleSize(sz)}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
-                  selectedSizes.includes(sz)
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${selectedSizes.includes(sz)
                     ? 'bg-[var(--color-dark)] text-white border-[var(--color-dark)] shadow-sm'
                     : 'bg-white text-gray-700 border-gray-200 hover:border-black'
-                }`}
+                  }`}
               >
                 {sz}
               </button>
@@ -395,11 +390,10 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
               <button
                 key={color.name}
                 onClick={() => toggleColor(color.name)}
-                className={`w-8 h-8 rounded-full border border-gray-300 transition-all ${
-                  selectedColors.includes(color.name)
+                className={`w-8 h-8 rounded-full border border-gray-300 transition-all ${selectedColors.includes(color.name)
                     ? 'ring-2 ring-[var(--color-primary-gold)] ring-offset-2 scale-110'
                     : 'hover:scale-105'
-                }`}
+                  }`}
                 style={{ backgroundColor: color.hex }}
                 title={color.name}
                 aria-label={`Filter by color ${color.name}`}

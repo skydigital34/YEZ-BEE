@@ -66,7 +66,7 @@ export const createOrder = async (
       subtotal += itemSubtotal;
 
       orderItems.push({
-        product: product._id.toString(),
+        product: product._id?.toString() ?? product.id,
         variant: {
           sku: variant.sku,
           color: variant.color,
@@ -86,7 +86,7 @@ export const createOrder = async (
     if (couponCode) {
       const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
 
-      if (!coupon || !coupon.isValid()) {
+      if (!coupon || !Coupon.isValid(coupon)) {
         throw new AppError('Invalid or expired coupon code', 400);
       }
 
@@ -104,7 +104,7 @@ export const createOrder = async (
         }
       }
 
-      const usedCount = coupon.usedBy.filter((u) => u.user.toString() === userId).length;
+      const usedCount = coupon.usedBy.filter((u) => u.user === userId).length;
       if (usedCount >= coupon.perUserLimit) {
         throw new AppError('Coupon usage limit reached', 400);
       }
@@ -124,9 +124,10 @@ export const createOrder = async (
         discountType: coupon.discountType,
       };
 
-      coupon.usedCount += 1;
-      coupon.usedBy.push({ user: userId as unknown as any, usedAt: new Date() });
-      await coupon.save();
+      await Coupon.findByIdAndUpdate(coupon._id?.toString() ?? coupon.id, {
+        usedCount: (coupon.usedCount || 0) + 1,
+        usedBy: [...(coupon.usedBy || []), { user: userId, usedAt: new Date() }],
+      });
     }
 
     const taxableAmount = subtotal - discount;
@@ -139,7 +140,7 @@ export const createOrder = async (
     const paymentStatus =
       paymentMethod === PAYMENT_METHODS.COD ? PAYMENT_STATUS.PENDING : PAYMENT_STATUS.PENDING;
 
-    let order = new Order({
+    let order = await Order.create({
       user: userId,
       items: orderItems,
       shippingAddress,
@@ -160,26 +161,40 @@ export const createOrder = async (
       notes,
     });
 
-    for (const item of items) {
-      const product = await Product.findById(item.productId);
-      if (product) {
-        const variant = product.variants.find((v) => v.sku === item.variantSku);
+    await getDb().runTransaction(async (t) => {
+      for (const item of items) {
+        const productRef = t.get(Product.collection().doc(item.productId));
+        const productDoc = await productRef;
+        if (!productDoc.exists) continue;
+        const productData = productDoc.data();
+        const variant = productData?.variants?.find((v: any) => v.sku === item.variantSku);
         if (variant) {
-          variant.stock -= item.quantity;
-          product.soldCount += item.quantity;
-          if (variant.stock <= variant.lowStockThreshold) {
-            logger.warn(`Low stock alert: ${product.name} - ${variant.sku}`);
+          if (variant.stock < item.quantity) {
+            throw new AppError('Stock mismatch during transaction', 400);
           }
-          await product.save();
+          variant.stock -= item.quantity;
+          productData.soldCount = (productData.soldCount || 0) + item.quantity;
+          if (variant.stock <= variant.lowStockThreshold) {
+            logger.warn(`Low stock alert: ${productData.name} - ${variant.sku}`);
+          }
+          t.update(Product.collection().doc(item.productId), productData);
         }
       }
+    });
+
+    const populatedOrder = await Order.findById(order._id);
+    if (populatedOrder) {
+      const itemsWithProducts = await Promise.all(
+        populatedOrder.items.map(async (it: any) => {
+          const prod = await Product.findById(it.product);
+          return {
+            ...it,
+            product: prod ? { name: prod.name, slug: prod.slug, images: prod.images } : null,
+          };
+        })
+      );
+      populatedOrder.items = itemsWithProducts;
     }
-
-    await order.save();
-
-    const populatedOrder = await Order.findById(order._id)
-      .populate('items.product', 'name slug images')
-      .lean();
 
     try {
       const user = await User.findById(userId);
@@ -204,11 +219,7 @@ export const createOrder = async (
     }
 
     await User.findByIdAndUpdate(userId, {
-      $pull: {
-        cart: {
-          product: { $in: items.map((i: { productId: string }) => i.productId) },
-        },
-      },
+      cart: []
     });
 
     res.status(201).json({
@@ -235,15 +246,8 @@ export const getUserOrders = async (
       filter.status = req.query.status;
     }
 
-    const [orders, total] = await Promise.all([
-      Order.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Order.countDocuments(filter),
-    ]);
-
+    const orders = await Order.find(filter, {}, { skip, limit, sort: { createdAt: -1 } });
+    const total = await Order.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
@@ -266,18 +270,24 @@ export const getOrderById = async (
     const userId = req.user!.id;
     const userRole = req.user!.role;
 
-    const order = await Order.findById(id)
-      .populate('items.product', 'name slug images')
-      .populate('user', 'name email phone')
-      .lean();
-
+    const order = await Order.findById(id);
     if (!order) {
       throw new AppError('Order not found', 404);
     }
-
-    if (order.user._id.toString() !== userId && userRole === 'customer') {
+    if (order.user !== userId && userRole === 'customer') {
       throw new AppError('Not authorized to view this order', 403);
     }
+    // Manually populate product details for each item
+    const itemsWithProducts = await Promise.all(
+      order.items.map(async (it: any) => {
+        const prod = await Product.findById(it.product);
+        return {
+          ...it,
+          product: prod ? { name: prod.name, slug: prod.slug, images: prod.images } : null,
+        };
+      })
+    );
+    order.items = itemsWithProducts as any;
 
     res.status(200).json({
       success: true,
@@ -302,8 +312,7 @@ export const cancelOrder = async (
     if (!order) {
       throw new AppError('Order not found', 404);
     }
-
-    if (order.user.toString() !== userId) {
+    if (order.user !== userId) {
       throw new AppError('Not authorized to cancel this order', 403);
     }
 
@@ -312,7 +321,6 @@ export const cancelOrder = async (
       ORDER_STATUS.CONFIRMED,
       ORDER_STATUS.PROCESSING,
     ];
-
     if (!cancellableStatuses.includes(order.status as any)) {
       throw new AppError('Order cannot be cancelled at this stage', 400);
     }
@@ -320,21 +328,23 @@ export const cancelOrder = async (
     order.status = ORDER_STATUS.CANCELLED as any;
     if (reason) order.cancellationReason = reason;
 
-    for (const item of order.items) {
-      const product = await Product.findById(item.product);
-      if (product) {
-        const variant = product.variants.find(
-          (v) => v.sku === item.variant.sku
-        );
+    // Restore stock via transaction
+    await getDb().runTransaction(async (t) => {
+      for (const item of order.items) {
+        const productRef = t.get(Product.collection().doc(item.product));
+        const productDoc = await productRef;
+        if (!productDoc.exists) continue;
+        const productData = productDoc.data();
+        const variant = productData?.variants?.find((v: any) => v.sku === item.variant.sku);
         if (variant) {
           variant.stock += item.quantity;
-          product.soldCount = Math.max(0, product.soldCount - item.quantity);
-          await product.save();
+          productData.soldCount = Math.max(0, (productData.soldCount || 0) - item.quantity);
+          t.update(Product.collection().doc(item.product), productData);
         }
       }
-    }
+    });
 
-    await order.save();
+    await Order.findByIdAndUpdate(id, { status: order.status, cancellationReason: order.cancellationReason });
 
     res.status(200).json({
       success: true,
@@ -360,18 +370,15 @@ export const requestReturn = async (
     if (!order) {
       throw new AppError('Order not found', 404);
     }
-
-    if (order.user.toString() !== userId) {
+    if (order.user !== userId) {
       throw new AppError('Not authorized to return this order', 403);
     }
-
     if (order.status !== ORDER_STATUS.DELIVERED) {
       throw new AppError('Only delivered orders can be returned', 400);
     }
-
     order.status = ORDER_STATUS.RETURNED as any;
     if (reason) order.returnReason = reason;
-    await order.save();
+    await Order.findByIdAndUpdate(id, { status: order.status, returnReason: order.returnReason });
 
     res.status(200).json({
       success: true,
@@ -390,13 +397,11 @@ export const getAllOrders = async (
 ): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-
     const filter: Record<string, unknown> = {};
     if (req.query.status) filter.status = req.query.status;
+    // Simple search on orderNumber only (Firestore lacks $or)
     if (req.query.search) {
-      filter.$or = [
-        { orderNumber: { $regex: req.query.search, $options: 'i' } },
-      ];
+      filter.orderNumber = req.query.search as string;
     }
     if (req.query.startDate && req.query.endDate) {
       filter.createdAt = {
@@ -404,22 +409,19 @@ export const getAllOrders = async (
         $lte: new Date(req.query.endDate as string),
       };
     }
-
-    const [orders, total] = await Promise.all([
-      Order.find(filter)
-        .populate('user', 'name email phone')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Order.countDocuments(filter),
-    ]);
-
+    const orders = await Order.find(filter, {}, { skip, limit, sort: { createdAt: -1 } });
+    const total = await Order.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
-
+    // Manually populate user details
+    const ordersWithUser = await Promise.all(
+      orders.map(async (ord: any) => {
+        const user = await User.findById(ord.user);
+        return { ...ord, user: user ? { name: user.name, email: user.email, phone: user.phone } : null };
+      })
+    );
     res.status(200).json({
       success: true,
-      data: orders,
+      data: ordersWithUser,
       pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
     });
   } catch (error) {
@@ -435,17 +437,14 @@ export const updateOrderStatus = async (
   try {
     const { id } = req.params;
     const { status, trackingNumber, trackingUrl, estimatedDelivery } = req.body;
-
     const validStatuses = Object.values(ORDER_STATUS);
     if (!validStatuses.includes(status)) {
       throw new AppError(`Invalid status. Valid values: ${validStatuses.join(', ')}`, 400);
     }
-
     const order = await Order.findById(id);
     if (!order) {
       throw new AppError('Order not found', 404);
     }
-
     const statusFlow = [
       ORDER_STATUS.PENDING,
       ORDER_STATUS.CONFIRMED,
@@ -454,36 +453,34 @@ export const updateOrderStatus = async (
       ORDER_STATUS.OUT_FOR_DELIVERY,
       ORDER_STATUS.DELIVERED,
     ];
-
     const currentIndex = statusFlow.indexOf(order.status as any);
     const newIndex = statusFlow.indexOf(status);
-
     if (newIndex < currentIndex && status !== ORDER_STATUS.CANCELLED && status !== ORDER_STATUS.REFUNDED) {
       throw new AppError('Cannot move order to a previous status', 400);
     }
-
-    order.status = status;
-    if (trackingNumber) order.trackingNumber = trackingNumber;
-    if (trackingUrl) order.trackingUrl = trackingUrl;
-    if (estimatedDelivery) order.estimatedDelivery = new Date(estimatedDelivery);
-
+    const updatePayload: any = {
+      status,
+    };
+    if (trackingNumber) updatePayload.trackingNumber = trackingNumber;
+    if (trackingUrl) updatePayload.trackingUrl = trackingUrl;
+    if (estimatedDelivery) updatePayload.estimatedDelivery = new Date(estimatedDelivery);
     if (status === ORDER_STATUS.DELIVERED) {
-      order.deliveredAt = new Date();
-      order.paymentInfo.status = PAYMENT_STATUS.PAID as any;
-
+      updatePayload.deliveredAt = new Date();
+      updatePayload['paymentInfo.status'] = PAYMENT_STATUS.PAID;
+      // Update user loyalty points
       const user = await User.findById(order.user);
       if (user) {
-        user.loyaltyPoints += Math.floor(order.total / 100);
-        await user.save();
+        await User.findByIdAndUpdate(user._id?.toString() ?? user.id, {
+          loyaltyPoints: (user.loyaltyPoints || 0) + Math.floor(order.total / 100),
+        });
       }
     }
-
-    await order.save();
-
+    await Order.findByIdAndUpdate(id, updatePayload);
+    const updatedOrder = await Order.findById(id);
     res.status(200).json({
       success: true,
       message: `Order status updated to ${status}`,
-      data: order,
+      data: updatedOrder,
     });
   } catch (error) {
     next(error);

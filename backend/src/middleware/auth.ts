@@ -61,7 +61,7 @@ export const authenticate = async (
       process.env.JWT_SECRET!
     ) as AuthPayload;
 
-    const user = await User.findById(decoded.id).select('_id role email isActive isVerified');
+    const user = await User.findById(decoded.id);
 
     if (!user) {
       throw new AppError('User no longer exists.', 401);
@@ -75,7 +75,7 @@ export const authenticate = async (
       id: decoded.id,
       role: decoded.role,
       email: decoded.email,
-      _userId: user._id.toString(),
+      _userId: user._id!.toString(),
     };
 
     next();
@@ -124,14 +124,14 @@ export const optionalAuth = async (
       process.env.JWT_SECRET!
     ) as AuthPayload;
 
-    const user = await User.findById(decoded.id).select('_id role email isActive');
+    const user = await User.findById(decoded.id);
 
     if (user && user.isActive) {
       req.user = {
         id: decoded.id,
         role: decoded.role,
         email: decoded.email,
-        _userId: user._id.toString(),
+        _userId: user._id!.toString(),
       };
     }
 

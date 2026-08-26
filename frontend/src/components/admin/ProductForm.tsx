@@ -713,7 +713,7 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
           thumbnail: formattedImages[0]?.url || '',
         } as any);
 
-        showToast('Product updated successfully in MongoDB Atlas!', 'success');
+        showToast('Product updated successfully in Firebase Firestore!', 'success');
       } else {
         const createRes = await api.createProduct(apiPayload);
         const createdId = createRes?.data?._id || createRes?.data?.id || `PRD-${Date.now()}`;
@@ -726,7 +726,7 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
           thumbnail: formattedImages[0]?.url || '',
         } as any);
 
-        showToast('Product published successfully to MongoDB Atlas!', 'success');
+        showToast('Product published successfully to Firebase Firestore & Cloudinary!', 'success');
       }
 
       setLoading(false);
@@ -735,22 +735,9 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
       }, 700);
     } catch (err: any) {
       console.error('Product save error:', err);
-      const errorMsg = extractErrorMessage(err, 'Backend sync offline');
-      showToast(`Error: ${errorMsg}. Local update saved.`, 'error');
-
-      saveOrUpdateProduct({
-        id: productId || `PRD-${Date.now()}`,
-        ...apiPayload,
-        categoryName: currentCategoryConfig?.name || selectedCategory.toUpperCase(),
-        status: targetStatus.toLowerCase(),
-        stock: totalStock,
-        thumbnail: formattedImages[0]?.url || '',
-      } as any);
-
+      const errorMsg = extractErrorMessage(err, 'Product could not be saved. Please try again.');
+      showToast(`Error: ${errorMsg}`, 'error');
       setLoading(false);
-      setTimeout(() => {
-        router.push('/admin/products');
-      }, 1000);
     }
   };
 
@@ -780,7 +767,7 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
       <div className="w-full min-h-[60vh] flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-gray-200 shadow-sm space-y-4">
         <Loader2 size={36} className="animate-spin text-[var(--color-primary-gold)]" />
         <h3 className="font-display font-bold text-lg text-gray-900">Loading product details...</h3>
-        <p className="text-xs text-gray-500 font-sans">Fetching canonical product data from MongoDB Atlas</p>
+        <p className="text-xs text-gray-500 font-sans">Fetching product data from Firebase Firestore</p>
       </div>
     );
   }
@@ -846,7 +833,7 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
               </span>
             </div>
             <p className="text-xs text-gray-500 font-sans">
-              Complete product configuration synchronized with MongoDB Atlas and Cloudinary media
+              Complete product configuration synchronized with Firebase Firestore and Cloudinary media
             </p>
           </div>
         </div>
@@ -1465,7 +1452,7 @@ export default function ProductForm({ mode, productId, initialData }: ProductFor
               type="button"
               disabled={loading || uploadProgress !== null}
               onClick={() => handleSubmit('DRAFT')}
-              className="w-full py-2.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-100 transition-all"
+              className="w-full py-2.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-100 transition-all disabled:opacity-50"
             >
               Save as Draft
             </button>

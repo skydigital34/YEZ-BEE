@@ -86,7 +86,7 @@ export async function seedCategoriesAndMigrateProducts(): Promise<void> {
     for (const catData of SEED_CATEGORIES) {
       let category = await Category.findOne({ slug: catData.slug });
       if (!category) {
-        category = new Category({
+        category = await Category.create({
           name: catData.name,
           slug: catData.slug,
           description: catData.description,
@@ -97,52 +97,61 @@ export async function seedCategoriesAndMigrateProducts(): Promise<void> {
           subcategories: catData.subcategories,
           isActive: true,
         });
-        await category.save();
         logger.info(`Created category: ${catData.name}`);
       } else {
-        category.name = catData.name;
-        category.displayOrder = catData.displayOrder;
-        category.hasFeedingSplit = catData.hasFeedingSplit;
-        category.subcategories = catData.subcategories;
-        await category.save();
+        await Category.findByIdAndUpdate(category._id || category.id || '', {
+          name: catData.name,
+          displayOrder: catData.displayOrder,
+          hasFeedingSplit: catData.hasFeedingSplit,
+          subcategories: catData.subcategories,
+        });
         logger.info(`Updated category: ${catData.name}`);
       }
       categoryMap.set(catData.slug, category);
     }
 
-    const products = await Product.find({}).populate('category');
+    const products = await Product.find({});
 
     for (const product of products) {
       let updated = false;
-      const catObj = product.category as any;
-      const currentCatSlug = catObj?.slug || '';
+      let categoryId = product.category;
+      let productType = product.productType;
+      let subcategory = product.subcategory;
+
+      let currentCatSlug = '';
+      if (categoryId) {
+        const cat = await Category.findById(categoryId);
+        if (cat) {
+          currentCatSlug = cat.slug || '';
+        }
+      }
 
       if (currentCatSlug === 'maternity-kurtis') {
-        product.category = categoryMap.get('casuals')._id;
-        product.productType = 'FEEDING';
-        product.subcategory = 'Feeding';
+        categoryId = categoryMap.get('casuals')._id || categoryMap.get('casuals').id;
+        productType = 'FEEDING';
+        subcategory = 'Feeding';
         updated = true;
       } else if (currentCatSlug === 'maternity-feeding-loungewears' || currentCatSlug === 'maternity-intimatewears' || currentCatSlug === 'loungewear') {
-        product.category = categoryMap.get('lounge-wear')._id;
-        product.productType = null;
-        product.subcategory = null as any;
+        categoryId = categoryMap.get('lounge-wear')._id || categoryMap.get('lounge-wear').id;
+        productType = null;
+        subcategory = null as any;
         updated = true;
       } else if (currentCatSlug === 'non-maternity-kurtis-dresses') {
-        product.category = categoryMap.get('casuals')._id;
-        product.productType = 'NON-FEEDING';
-        product.subcategory = 'Non-Feeding';
+        categoryId = categoryMap.get('casuals')._id || categoryMap.get('casuals').id;
+        productType = 'NON-FEEDING';
+        subcategory = 'Non-Feeding';
         updated = true;
       } else if (currentCatSlug === 'kids-clothing') {
-        product.category = categoryMap.get('kids-wear')._id;
-        product.productType = null;
-        product.subcategory = null as any;
+        categoryId = categoryMap.get('kids-wear')._id || categoryMap.get('kids-wear').id;
+        productType = null;
+        subcategory = null as any;
         updated = true;
       }
 
       if (currentCatSlug === 'lounge-wear' || currentCatSlug === 'kids-wear') {
         if (product.productType !== null || product.subcategory) {
-          product.productType = null;
-          product.subcategory = null as any;
+          productType = null;
+          subcategory = null as any;
           updated = true;
         }
       }
@@ -150,14 +159,18 @@ export async function seedCategoriesAndMigrateProducts(): Promise<void> {
       if (currentCatSlug === 'ethnic-wear') {
         if (!product.productType || (product.productType !== 'FEEDING' && product.productType !== 'NON-FEEDING')) {
           const isFeeding = /feeding|nursing/i.test(`${product.name} ${product.description} ${(product.tags || []).join(' ')}`);
-          product.productType = isFeeding ? 'FEEDING' : 'NON-FEEDING';
-          product.subcategory = isFeeding ? 'Feeding' : 'Non-Feeding';
+          productType = isFeeding ? 'FEEDING' : 'NON-FEEDING';
+          subcategory = isFeeding ? 'Feeding' : 'Non-Feeding';
           updated = true;
         }
       }
 
       if (updated) {
-        await product.save();
+        await Product.findByIdAndUpdate(product._id || product.id || '', {
+          category: categoryId,
+          productType,
+          subcategory,
+        });
         logger.info(`Migrated/Normalized product "${product.name}" to new taxonomy.`);
       }
     }

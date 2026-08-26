@@ -1,112 +1,28 @@
-import mongoose from 'mongoose';
-import dns from 'dns';
+import { initializeFirebase, getDb } from './firebase';
 import { logger } from '../utils/helpers';
 
-// Configure DNS for MongoDB SRV record resolution on Windows / local networks
-if (!process.env.VERCEL) {
-  try {
-    dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
-  } catch {
-    // Ignore DNS set failures
-  }
-}
-
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 3000;
-
-const connectionOptions: mongoose.ConnectOptions = {
-  maxPoolSize: 10,
-  minPoolSize: 1,
-  serverSelectionTimeoutMS: 15000,
-  socketTimeoutMS: 45000,
-  dbName: 'yezbee',
-};
-
-let retryCount = 0;
 let isConnected = false;
 
 export const connectDatabase = async (): Promise<void> => {
-  if (isConnected || mongoose.connection.readyState === 1) {
-    return;
+  try {
+    initializeFirebase();
+    const db = getDb();
+    
+    // Quick ping to check Firestore connectivity
+    await db.collection('_health').doc('ping').set({
+      timestamp: new Date().toISOString(),
+      status: 'online'
+    }, { merge: true });
+
+    isConnected = true;
+    logger.info('Firebase Firestore connected successfully!');
+  } catch (error: any) {
+    logger.error('Firebase Firestore connection error:', error?.message || error);
+    // Don't crash server start if network is temporarily down
+    isConnected = false;
   }
-
-  const uri = process.env.MONGODB_URI || 'mongodb+srv://sbfashionamazon:dharu1234@yez-bee.pnmkrhi.mongodb.net/yezbee?retryWrites=true&w=majority';
-
-  if (process.env.VERCEL) {
-    try {
-      await mongoose.connect(uri, connectionOptions);
-      isConnected = true;
-      logger.info('MongoDB Atlas connected on Vercel Serverless');
-    } catch (error) {
-      logger.error('Vercel MongoDB connection failed:', error instanceof Error ? error.message : error);
-      throw error;
-    }
-    return;
-  }
-
-  const DIRECT_MONGODB_URI =
-    'mongodb://sbfashionamazon:dharu1234@ac-gvh0e4p-shard-00-01.pnmkrhi.mongodb.net:27017,ac-gvh0e4p-shard-00-00.pnmkrhi.mongodb.net:27017,ac-gvh0e4p-shard-00-02.pnmkrhi.mongodb.net:27017/yezbee?ssl=true&replicaSet=atlas-pu06nj-shard-0&authSource=admin&retryWrites=true&w=majority';
-
-  const connectWithRetry = async (): Promise<void> => {
-    try {
-      await mongoose.connect(uri, connectionOptions);
-      isConnected = true;
-      retryCount = 0;
-      logger.info('MongoDB Atlas connected successfully to "yezbee" database');
-    } catch (error: any) {
-      if (error?.message?.includes('querySrv ECONNREFUSED') || error?.code === 'ECONNREFUSED') {
-        logger.warn('Primary SRV connection failed due to local DNS, trying Direct Mongo URI...');
-        try {
-          await mongoose.connect(DIRECT_MONGODB_URI, connectionOptions);
-          isConnected = true;
-          retryCount = 0;
-          logger.info('MongoDB Atlas connected via Direct Mongo URI to "yezbee" database');
-          return;
-        } catch (directErr: any) {
-          logger.error('Direct Mongo URI connection attempt failed:', directErr?.message || directErr);
-        }
-      }
-
-      retryCount++;
-      const safeErrorMessage = error instanceof Error ? error.message.replace(/mongodb\+srv:\/\/[^@]+@/, 'mongodb+srv://***:***@') : String(error);
-      logger.error(`MongoDB connection attempt ${retryCount} failed: ${safeErrorMessage}`);
-
-      if (retryCount < MAX_RETRIES) {
-        logger.info(`Retrying MongoDB connection in ${RETRY_DELAY / 1000}s...`);
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-        return connectWithRetry();
-      }
-
-      logger.error('Max retries reached. Could not connect to MongoDB Atlas.');
-    }
-  };
-
-  await connectWithRetry();
 };
 
-mongoose.connection.on('connected', () => {
-  logger.info('Mongoose connection established');
-});
+export const getDatabaseStatus = (): boolean => isConnected;
 
-mongoose.connection.on('error', (err) => {
-  const safeErr = err?.message?.replace(/mongodb\+srv:\/\/[^@]+@/, 'mongodb+srv://***:***@') || 'Database error';
-  logger.error('Mongoose connection error:', safeErr);
-});
-
-mongoose.connection.on('disconnected', () => {
-  logger.warn('Mongoose connection disconnected');
-  isConnected = false;
-});
-
-mongoose.connection.on('reconnected', () => {
-  logger.info('Mongoose reconnected');
-  isConnected = true;
-});
-
-process.on('SIGINT', async () => {
-  await mongoose.connection.close();
-  logger.info('Mongoose connection closed due to app termination');
-  process.exit(0);
-});
-
-export default mongoose;
+export default connectDatabase;

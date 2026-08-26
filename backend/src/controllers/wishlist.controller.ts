@@ -11,13 +11,32 @@ export const getWishlist = async (
   try {
     const userId = req.user!.id;
 
-    const user = await User.findById(userId)
-      .populate({
-        path: 'wishlist',
-        select: 'name slug images variants.price variants.compareAtPrice brand ratings.average isNew isActive',
-        match: { isActive: true },
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+    // Manually populate wishlist with product details
+    const wishlistProductIds = user.wishlist || [];
+    const wishlistProducts = await Promise.all(
+      wishlistProductIds.map(async (pid) => {
+        const prod = await Product.findById(pid as any);
+        if (!prod || !prod.isActive) return null;
+        // Return only needed fields
+        return {
+          _id: prod.id,
+          name: prod.name,
+          slug: prod.slug,
+          images: prod.images,
+          price: prod.variants?.[0]?.price,
+          compareAtPrice: prod.variants?.[0]?.compareAtPrice,
+          brand: prod.brand,
+          ratings: prod.ratings,
+          isNew: prod.isNewProduct,
+          isActive: prod.isActive,
+        };
       })
-      .select('wishlist');
+    ).filter(Boolean);
+    const populatedUser = { ...user, wishlist: wishlistProducts };
 
     if (!user) {
       throw new AppError('User not found', 404);
@@ -25,8 +44,8 @@ export const getWishlist = async (
 
     res.status(200).json({
       success: true,
-      data: user.wishlist,
-      count: user.wishlist.length,
+      data: populatedUser.wishlist,
+      count: populatedUser.wishlist.length,
     });
   } catch (error) {
     next(error);
@@ -69,8 +88,8 @@ export const addToWishlist = async (
       return;
     }
 
-    user.wishlist.push(productId as any);
-    await user.save();
+    const updatedWishlist = [...(user.wishlist || []), productId];
+    await User.findByIdAndUpdate(userId, { wishlist: updatedWishlist });
 
     res.status(200).json({
       success: true,
@@ -104,13 +123,14 @@ export const removeFromWishlist = async (
       throw new AppError('Product not in wishlist', 404);
     }
 
-    user.wishlist.splice(index, 1);
-    await user.save();
+    const newWishlist = [...user.wishlist];
+    newWishlist.splice(index, 1);
+    await User.findByIdAndUpdate(userId, { wishlist: newWishlist });
 
     res.status(200).json({
       success: true,
       message: 'Removed from wishlist',
-      data: { wishlistCount: user.wishlist.length },
+      data: { wishlistCount: newWishlist.length },
     });
   } catch (error) {
     next(error);
@@ -136,7 +156,7 @@ export const moveToCart = async (
       throw new AppError('User not found', 404);
     }
 
-    const wishlistIndex = user.wishlist.findIndex(
+    const wishlistIndex = (user.wishlist || []).findIndex(
       (id) => id.toString() === productId
     );
     if (wishlistIndex === -1) {
@@ -150,26 +170,27 @@ export const moveToCart = async (
 
     const variant = product.variants.find((v) => v.sku === variantSku);
     if (!variant) {
-      throw new AppError('Variant not found', 404);
+      throw new AppError('Variant SKU not found', 404);
     }
 
     if (variant.stock < 1) {
       throw new AppError('Product is out of stock', 400);
     }
 
-    const existingCartItem = user.cart.findIndex(
+    const existingCartItem = (user.cart || []).findIndex(
       (item) =>
         item.product.toString() === productId &&
         item.variantSku === variantSku
     );
 
+    const updatedCart = [...(user.cart || [])];
     if (existingCartItem > -1) {
-      if (variant.stock < user.cart[existingCartItem].quantity + 1) {
+      if (variant.stock < updatedCart[existingCartItem].quantity + 1) {
         throw new AppError('Insufficient stock', 400);
       }
-      user.cart[existingCartItem].quantity += 1;
+      updatedCart[existingCartItem].quantity += 1;
     } else {
-      user.cart.push({
+      updatedCart.push({
         product: productId as any,
         variantSku,
         quantity: 1,
@@ -177,15 +198,18 @@ export const moveToCart = async (
       });
     }
 
-    user.wishlist.splice(wishlistIndex, 1);
-    await user.save();
+    const updatedWishlist = [...user.wishlist];
+    updatedWishlist.splice(wishlistIndex, 1);
+
+    // Update user document with new wishlist and cart
+    await User.findByIdAndUpdate(userId, { wishlist: updatedWishlist, cart: updatedCart });
 
     res.status(200).json({
       success: true,
       message: 'Product moved to cart',
       data: {
-        wishlistCount: user.wishlist.length,
-        cartCount: user.cart.length,
+        wishlistCount: updatedWishlist.length,
+        cartCount: updatedCart.length,
       },
     });
   } catch (error) {
@@ -202,12 +226,12 @@ export const isInWishlist = async (
     const userId = req.user!.id;
     const { productId } = req.params;
 
-    const user = await User.findById(userId).select('wishlist');
+    const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    const inWishlist = user.wishlist.some(
+    const inWishlist = (user.wishlist || []).some(
       (id) => id.toString() === productId
     );
 

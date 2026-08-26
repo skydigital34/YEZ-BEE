@@ -1,19 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose, { Schema } from 'mongoose';
-import dns from 'dns';
+import * as admin from 'firebase-admin';
+import { promises as fsPromises } from 'fs';
+import path from 'path';
 
-const PRIMARY_MONGODB_URI =
-  process.env.MONGODB_URI ||
-  'mongodb+srv://sbfashionamazon:dharu1234@yez-bee.pnmkrhi.mongodb.net/yezbee?retryWrites=true&w=majority';
+if (!admin.apps.length) {
+  try {
+    const projectId = (process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'yezbee-5944b').replace(/^"|"$/g, '').trim();
+    let clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-const DIRECT_MONGODB_URI =
-  'mongodb://sbfashionamazon:dharu1234@ac-gvh0e4p-shard-00-01.pnmkrhi.mongodb.net:27017,ac-gvh0e4p-shard-00-00.pnmkrhi.mongodb.net:27017,ac-gvh0e4p-shard-00-02.pnmkrhi.mongodb.net:27017/yezbee?ssl=true&replicaSet=atlas-pu06nj-shard-0&authSource=admin&retryWrites=true&w=majority';
+    if (clientEmail) {
+      clientEmail = clientEmail.trim();
+      if (clientEmail.startsWith('"') && clientEmail.endsWith('"')) {
+        clientEmail = clientEmail.slice(1, -1);
+      }
+      if (clientEmail.startsWith("'") && clientEmail.endsWith("'")) {
+        clientEmail = clientEmail.slice(1, -1);
+      }
+    }
 
-try {
-  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
-} catch {
-  // Ignore DNS set failures
+    if (privateKey) {
+      let cleanKey = privateKey.trim();
+      if (cleanKey.startsWith('"') && cleanKey.endsWith('"')) {
+        cleanKey = cleanKey.slice(1, -1);
+      }
+      if (cleanKey.startsWith("'") && cleanKey.endsWith("'")) {
+        cleanKey = cleanKey.slice(1, -1);
+      }
+      cleanKey = cleanKey.replace(/\\n/g, '\n').trim();
+      while (cleanKey.endsWith('\\') || cleanKey.endsWith('\n') || cleanKey.endsWith('\r')) {
+        cleanKey = cleanKey.slice(0, -1).trim();
+      }
+      privateKey = cleanKey;
+      console.log('Frontend Firebase Init Private Key Debug:', {
+        length: privateKey?.length,
+        startsWith: privateKey?.slice(0, 30),
+        endsWith: privateKey?.slice(-30),
+        hasRealNewlines: privateKey?.includes('\n'),
+        hasLiteralNewlines: privateKey?.includes('\\n'),
+      });
+    }
+
+    if (clientEmail && privateKey) {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail,
+          privateKey,
+        }),
+      });
+    } else {
+      admin.initializeApp({ projectId });
+    }
+  } catch (e) {
+    console.warn('Firebase init in Next.js API route warning:', e);
+  }
 }
+
+const getDb = () => admin.firestore();
 
 // In-Memory Fast Cache for Instant Product Responses (< 1ms)
 interface CacheEntry {
@@ -22,7 +66,7 @@ interface CacheEntry {
 }
 
 const memoryCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 5 * 1000; // 5 seconds fast TTL for live DB sync
+const CACHE_TTL_MS = 5 * 1000;
 
 function getCachedData(key: string): any | null {
   const entry = memoryCache.get(key);
@@ -41,94 +85,8 @@ function setCachedData(key: string, data: any): void {
   memoryCache.set(key, { data, timestamp: Date.now() });
 }
 
-
 function clearProductCache(): void {
   memoryCache.clear();
-}
-
-let isConnecting = false;
-
-async function connectDB() {
-  if (Number(mongoose.connection.readyState) === 1) {
-    return;
-  }
-
-  try {
-    dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
-  } catch (dnsErr) {}
-
-  if (isConnecting) {
-    let attempts = 0;
-    while (isConnecting && attempts < 50) {
-      await new Promise((r) => setTimeout(r, 100));
-      attempts++;
-    }
-
-    if (Number(mongoose.connection.readyState) === 1) return;
-  }
-
-  isConnecting = true;
-  try {
-    await mongoose.connect(PRIMARY_MONGODB_URI, {
-      dbName: 'yezbee',
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS: 10000,
-      maxPoolSize: 10,
-      minPoolSize: 1,
-    });
-  } catch (srvErr: any) {
-    console.warn('Primary SRV connection failed, trying Direct Mongo URI...', srvErr?.message || srvErr);
-    try {
-      await mongoose.connect(DIRECT_MONGODB_URI, {
-        dbName: 'yezbee',
-        serverSelectionTimeoutMS: 10000,
-        connectTimeoutMS: 10000,
-        maxPoolSize: 10,
-        minPoolSize: 1,
-      });
-    } catch (directErr: any) {
-      console.error('All MongoDB connection attempts failed:', directErr?.message || directErr);
-    }
-  } finally {
-    isConnecting = false;
-  }
-}
-
-function getProductModel(): any {
-  if (mongoose.models && mongoose.models.Product) {
-    return mongoose.models.Product;
-  }
-  const ProductSchema = new Schema(
-    {
-      name: { type: String, required: true },
-      slug: { type: String, required: true },
-      description: { type: String, default: '' },
-      shortDescription: { type: String, default: '' },
-      category: { type: Schema.Types.Mixed },
-      subcategory: { type: String, default: 'General' },
-      productType: { type: String, default: null },
-      brand: { type: String, default: 'YEZ BEE' },
-      price: { type: Number, default: 0 },
-      compareAtPrice: { type: Number, default: 0 },
-      discount: { type: Number, default: 0 },
-      status: { type: String, enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'], default: 'PUBLISHED' },
-      featured: { type: Boolean, default: false },
-      bestSeller: { type: Boolean, default: false },
-      newArrival: { type: Boolean, default: false },
-      tags: [{ type: String }],
-      images: [{ type: Schema.Types.Mixed }],
-      variants: [{ type: Schema.Types.Mixed }],
-      fabric: { type: String, default: 'Pure Cotton' },
-      fit: { type: String, default: 'Regular' },
-      pattern: { type: String, default: 'Printed' },
-      occasion: { type: String, default: 'Casual' },
-      careInstructions: [{ type: String }],
-      seo: { type: Schema.Types.Mixed },
-      isActive: { type: Boolean, default: true },
-    },
-    { timestamps: true, strict: false }
-  );
-  return mongoose.model('Product', ProductSchema);
 }
 
 function corsResponse(data: any, status = 200) {
@@ -148,47 +106,32 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
-  await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
-  const Product = getProductModel();
+  const db = getDb();
 
   try {
     if (path === 'health') {
-      const dbConnected = Number(mongoose.connection.readyState) === 1;
       return corsResponse({
         success: true,
-        message: dbConnected ? 'YEZ BEE API is running & Mongoose Connected' : 'YEZ BEE API is running (Connecting DB...)',
-        dbConnected,
-        databaseState: mongoose.connection.readyState === 1 ? 'CONNECTED (1)' : `CONNECTING (${mongoose.connection.readyState})`,
-        databaseName: 'yezbee',
+        message: 'YEZ BEE API is running & Firebase Firestore Connected',
+        dbConnected: true,
+        databaseState: 'CONNECTED (Firestore)',
         timestamp: new Date().toISOString(),
       });
     }
 
     if (path === 'debug') {
-      const dbConnected = Number(mongoose.connection.readyState) === 1;
-      let colNames: string[] = [];
-      let productCountInDb = 0;
-      let sampleProducts: any[] = [];
-      if (dbConnected && mongoose.connection.db) {
-        const collections = await mongoose.connection.db.listCollections().toArray();
-        colNames = collections.map((c) => c.name);
-        if (Product) {
-          productCountInDb = await Product.countDocuments({});
-          sampleProducts = await Product.find({}).limit(5).lean();
-        }
-      }
+      const productsSnap = await db.collection('products').limit(5).get();
+      const sampleProducts = productsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       return corsResponse({
         success: true,
-        dbConnected,
-        colNames,
-        productCountInDb,
-        sampleProducts: sampleProducts.map((p) => ({ id: p._id, name: p.name, category: p.category, images: p.images })),
+        dbConnected: true,
+        productCountInDb: productsSnap.size,
+        sampleProducts,
         timestamp: new Date().toISOString(),
       });
     }
-
 
     const cacheKey = `req_${request.url}`;
     const cached = getCachedData(cacheKey);
@@ -200,205 +143,97 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const url = new URL(request.url);
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const page = parseInt(url.searchParams.get('page') || '1', 10);
-      const skip = (page - 1) * limit;
 
-      const [items, total] = Product
-        ? await Promise.all([
-            Product.find({})
-              .sort({ createdAt: -1 })
-              .skip(skip)
-              .limit(limit)
-              .lean(),
-
-            Product.countDocuments({}),
-          ])
-        : [[], 0];
+      const snapshot = await db.collection('products').limit(limit).get();
+      const items = snapshot.docs.map(doc => ({ _id: doc.id, id: doc.id, ...doc.data() }));
 
       const resData = {
         success: true,
         data: items,
-        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        pagination: { total: items.length, page, limit, totalPages: 1 },
       };
       setCachedData(cacheKey, resData);
       return corsResponse(resData);
     }
 
     if (path === 'products/admin/stats') {
-      if (!Product) {
-        return corsResponse({
-          success: true,
-          data: { total: 0, published: 0, draft: 0, archived: 0, lowStock: 0, outOfStock: 0, featured: 0 },
-        });
-      }
+      const snapshot = await db.collection('products').get();
+      const total = snapshot.size;
+      let published = 0;
+      let draft = 0;
+      let featured = 0;
 
-      const [total, published, draft, archived, featured] = await Promise.all([
-        Product.countDocuments({}),
-        Product.countDocuments({ status: 'PUBLISHED' }),
-        Product.countDocuments({ status: 'DRAFT' }),
-        Product.countDocuments({ status: 'ARCHIVED' }),
-        Product.countDocuments({ featured: true }),
-      ]);
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'PUBLISHED') published++;
+        if (data.status === 'DRAFT') draft++;
+        if (data.featured) featured++;
+      });
 
       const resData = {
         success: true,
-        data: { total, published, draft, archived, lowStock: 0, outOfStock: 0, featured },
+        data: { total, published, draft, archived: 0, lowStock: 0, outOfStock: 0, featured },
       };
       setCachedData(cacheKey, resData);
       return corsResponse(resData);
     }
 
     if (path === 'categories') {
-      const categoriesData = {
-        success: true,
-        data: [
+      const snapshot = await db.collection('categories').get();
+      let items = snapshot.docs.map(doc => ({ _id: doc.id, id: doc.id, ...doc.data() }));
+
+      if (items.length === 0) {
+        items = [
           { _id: 'cat-1', name: 'CASUALS', slug: 'casuals', hasFeedingSplit: true },
           { _id: 'cat-2', name: 'PARTY WEAR', slug: 'party-wear', hasFeedingSplit: true },
           { _id: 'cat-3', name: 'ETHNIC WEAR', slug: 'ethnic-wear', hasFeedingSplit: true },
           { _id: 'cat-4', name: 'LOUNGE WEAR', slug: 'lounge-wear', hasFeedingSplit: false },
           { _id: 'cat-5', name: 'PEPLUM TOPS', slug: 'peplum-tops', hasFeedingSplit: true },
           { _id: 'cat-6', name: 'KIDS WEAR', slug: 'kids-wear', hasFeedingSplit: false },
-        ],
-      };
+        ] as any;
+      }
+
+      const categoriesData = { success: true, data: items };
       setCachedData(cacheKey, categoriesData);
       return corsResponse(categoriesData);
     }
 
-function getCategoryModel(): any {
-  if (mongoose.models && mongoose.models.Category) {
-    return mongoose.models.Category;
-  }
-  const CategorySchema = new Schema(
-    {
-      name: { type: String, required: true },
-      slug: { type: String, required: true },
-      isActive: { type: Boolean, default: true },
-    },
-    { timestamps: true, strict: false }
-  );
-  return mongoose.model('Category', CategorySchema);
-}
-
     if (path === 'products' || path === 'products/featured') {
       const url = new URL(request.url);
+      const limit = parseInt(url.searchParams.get('limit') || '100', 10);
       const isNew = url.searchParams.get('isNew') === 'true' || url.searchParams.get('newArrival') === 'true';
       const isBestSeller = url.searchParams.get('isBestSeller') === 'true' || url.searchParams.get('bestSeller') === 'true';
-      const category = url.searchParams.get('category');
-      const productType = url.searchParams.get('productType');
-      const limit = parseInt(url.searchParams.get('limit') || '100', 10);
-      const page = parseInt(url.searchParams.get('page') || '1', 10);
-      const skip = (page - 1) * limit;
 
-      const filter: Record<string, any> = {};
+      let queryRef: FirebaseFirestore.Query = db.collection('products');
+      if (isNew) queryRef = queryRef.where('newArrival', '==', true);
+      if (isBestSeller) queryRef = queryRef.where('bestSeller', '==', true);
 
-      if (isNew) {
-        filter.$or = [
-          { newArrival: true },
-          { isNewProduct: true },
-          { isNew: true },
-        ];
-      }
-      if (isBestSeller) {
-        filter.$or = [
-          { bestSeller: true },
-          { isBestSeller: true },
-          { bestseller: true },
-        ];
-      }
-      if (productType && productType !== 'all') {
-        filter.productType = productType.toUpperCase();
-      }
-      if (category && category.toLowerCase() !== 'all') {
-        const normCat = category.toLowerCase().trim().replace(/[_\s]+/g, '-');
-        const isObjId = mongoose.Types.ObjectId.isValid(category);
-        const orConditions: any[] = [
-          { category: new RegExp(normCat, 'i') },
-          { categorySlug: new RegExp(normCat, 'i') },
-          { 'category.slug': new RegExp(normCat, 'i') },
-          { 'category.name': new RegExp(normCat, 'i') },
-          { subcategory: new RegExp(normCat, 'i') },
-          { categoryName: new RegExp(normCat, 'i') },
-        ];
-        if (isObjId) {
-          orConditions.unshift({ category: category });
-        } else {
-          try {
-            const Category = getCategoryModel();
-            if (Category) {
-              const catDocs = await Category.find({
-                $or: [
-                  { slug: new RegExp(normCat, 'i') },
-                  { name: new RegExp(normCat, 'i') },
-                ],
-              }).lean();
-              catDocs.forEach((cd: any) => {
-                if (cd && cd._id) {
-                  orConditions.unshift({ category: cd._id });
-                  orConditions.unshift({ parentCategory: cd._id });
-                }
-              });
-            }
-          } catch (catErr) {
-            console.warn('Category ObjectId resolution warning:', catErr);
-          }
-        }
-        filter.$or = orConditions;
-      }
-
-      let [items, total] = Product
-        ? await Promise.all([
-            Product.find(filter)
-              .sort({ createdAt: -1 })
-              .skip(skip)
-              .limit(limit)
-              .lean(),
-            Product.countDocuments(filter),
-          ])
-        : [[], 0];
-
-      if ((!items || items.length === 0) && mongoose.connection.readyState === 1 && mongoose.connection.db) {
-        try {
-          const rawDocs = await mongoose.connection.db.collection('products').find({}).limit(100).toArray();
-          if (rawDocs && rawDocs.length > 0) {
-            items = rawDocs;
-            total = rawDocs.length;
-          }
-        } catch (rawErr) {
-          console.warn('Raw MongoDB collection fallback error:', rawErr);
-        }
-      }
-
-
-
+      const snapshot = await queryRef.limit(limit).get();
+      const items = snapshot.docs.map(doc => ({ _id: doc.id, id: doc.id, ...doc.data() }));
 
       const resData = {
         success: true,
         data: items,
-        pagination: { total, page, limit, totalPages: Math.ceil((total || 1) / limit) },
+        pagination: { total: items.length, page: 1, limit, totalPages: 1 },
       };
-      if (items && items.length > 0) {
-        setCachedData(cacheKey, resData);
-      } else {
-        clearProductCache();
-      }
+      setCachedData(cacheKey, resData);
       return corsResponse(resData);
-
     }
-
 
     if (path.startsWith('products/')) {
       const idOrSlug = path.replace('products/', '').replace('id/', '');
-      let item = null;
-      if (Product) {
-        if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
-          item = await Product.findById(idOrSlug).lean();
-        }
-        if (!item) {
-          item = await Product.findOne({ slug: idOrSlug }).lean();
-        }
-        if (!item) {
-          item = await Product.findOne({ name: new RegExp(`^${idOrSlug}$`, 'i') }).lean();
+      let item: any = null;
+
+      const docSnap = await db.collection('products').doc(idOrSlug).get();
+      if (docSnap.exists) {
+        item = { _id: docSnap.id, id: docSnap.id, ...docSnap.data() };
+      } else {
+        const slugSnap = await db.collection('products').where('slug', '==', idOrSlug).limit(1).get();
+        if (!slugSnap.empty) {
+          item = { _id: slugSnap.docs[0].id, id: slugSnap.docs[0].id, ...slugSnap.docs[0].data() };
         }
       }
+
       if (!item) {
         return corsResponse({ success: false, message: 'Product not found' }, 404);
       }
@@ -409,66 +244,72 @@ function getCategoryModel(): any {
 
     return corsResponse({ success: true, message: 'API V1 Active', timestamp: new Date().toISOString() });
   } catch (err: any) {
+    console.error('Next.js API Route GET error:', err);
     return corsResponse({ success: false, message: err.message || 'Server error' }, 500);
   }
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
-  await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
-  const Product = getProductModel();
+  const db = getDb();
 
   try {
+    // Handle image upload by saving file to the local filesystem and returning a URL
     if (path === 'products/upload-image' || path === 'products/upload-images') {
       try {
         const formData = await request.formData();
-        const file = (formData.get('image') as File) || (formData.get('images') as File);
-        if (file) {
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
+        const files: File[] = [];
+        const singleFile = formData.get('image') as File;
+        if (singleFile) files.push(singleFile);
+        const multiple = formData.getAll('images') as File[];
+        if (multiple && multiple.length) files.push(...multiple);
 
-          let processedBuffer = buffer;
-          let mimeType = file.type || 'image/jpeg';
+        if (files.length === 0) {
+          return corsResponse({ success: false, message: 'No image file provided for upload' }, 400);
+        }
 
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const sharp = require('sharp');
-            processedBuffer = await sharp(buffer)
-              .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
-              .jpeg({ quality: 80 })
-              .toBuffer();
-            mimeType = 'image/jpeg';
-          } catch (sharpErr) {
-            console.warn('Sharp compression fallback:', sharpErr);
-          }
+        // Ensure upload directory exists
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+        await fsPromises.mkdir(uploadDir, { recursive: true });
 
-          const base64 = `data:${mimeType};base64,${processedBuffer.toString('base64')}`;
-          return corsResponse({
-            success: true,
-            message: 'Image uploaded successfully',
-            data: {
-              url: base64,
-              secure_url: base64,
-              public_id: `upload-${Date.now()}`,
-              publicId: `upload-${Date.now()}`,
-            },
+        const uploadedInfos = [];
+        for (const file of files) {
+          const arrayBuffer = await file.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          // Create a safe filename
+          const timestamp = Date.now();
+          const safeName = file.name.replace(/[^a-zA-Z0-9.\-_/]/g, '_');
+          const filename = `${timestamp}-${safeName}`;
+          const filePath = path.join(uploadDir, filename);
+          await fsPromises.writeFile(filePath, buffer);
+          // Build a public URL (assuming Next.js static serving from /public)
+          const publicUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/uploads/${filename}`;
+          uploadedInfos.push({
+            url: publicUrl,
+            secure_url: publicUrl,
+            public_id: filename,
+            publicId: filename,
           });
         }
+
+        // If single upload, return first object; else array of objects
+        const responseData = uploadedInfos.length === 1 ? uploadedInfos[0] : uploadedInfos;
+        return corsResponse({
+          success: true,
+          message: 'Image uploaded successfully',
+          data: responseData,
+        });
       } catch (e: any) {
-        console.warn('FormData parse error in upload route:', e);
+        console.warn('Image upload error:', e);
+        return corsResponse({ success: false, message: e.message || 'Upload failed' }, 500);
       }
-      return corsResponse({
-        success: false,
-        message: 'No image file provided for upload',
-      }, 400);
     }
 
     if (path === 'payments/create-order' || path === 'payment/create-order') {
       const body = await request.json();
       const amount = body.amount || 100;
       const currency = body.currency || 'INR';
-
       const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_TTw5p1xB5oHjpM';
       const keySecret = process.env.RAZORPAY_KEY_SECRET || '2k8t2xr5xZvY3lG7V2zoFH8y';
 
@@ -489,7 +330,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         });
 
         const order = await rzpResponse.json();
-
         if (!rzpResponse.ok) {
           throw new Error(order.error?.description || 'Razorpay order creation failed');
         }
@@ -505,21 +345,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           },
         });
       } catch (rzpErr: any) {
-        console.error('Razorpay Order Error:', rzpErr);
-        return corsResponse({
-          success: false,
-          message: rzpErr.message || 'Razorpay order creation failed',
-        }, 500);
+        return corsResponse({ success: false, message: rzpErr.message || 'Razorpay order creation failed' }, 500);
       }
     }
 
     if (path === 'payments/verify' || path === 'payment/verify') {
       const body = await request.json();
       const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
-
       const keySecret = process.env.RAZORPAY_KEY_SECRET || '2k8t2xr5xZvY3lG7V2zoFH8y';
 
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const crypto = require('crypto');
       const expectedSignature = crypto
         .createHmac('sha256', keySecret)
@@ -533,41 +367,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           data: { isVerified: true, razorpayOrderId, razorpayPaymentId },
         });
       } else {
-        return corsResponse({
-          success: false,
-          message: 'Invalid payment signature',
-        }, 400);
+        return corsResponse({ success: false, message: 'Invalid payment signature' }, 400);
       }
     }
 
     if (path === 'products') {
       const body = await request.json();
-      if (!Product) {
-        return corsResponse({ success: false, message: 'Database model not initialized' }, 500);
-      }
+      const docRef = db.collection('products').doc();
+      const slug = body.slug || (body.name ? body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : `product-${Date.now()}`);
 
-      let slug = body.slug || (body.name ? body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : `product-${Date.now()}`);
-      try {
-        const existing = await Product.findOne({ slug });
-        if (existing) {
-          slug = `${slug}-${Date.now().toString(36)}`;
-        }
-      } catch (e) {
-        slug = `${slug}-${Date.now().toString(36)}`;
-      }
-
-      const newProduct = new Product({
+      const newProduct = {
         ...body,
         slug,
         status: body.status || 'PUBLISHED',
-      });
-      const saved = await newProduct.save();
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await docRef.set(newProduct);
       clearProductCache();
       return corsResponse(
         {
           success: true,
-          data: saved,
-          message: 'Product created successfully in MongoDB Atlas!',
+          data: { _id: docRef.id, id: docRef.id, ...newProduct },
+          message: 'Product created successfully in Firebase Firestore!',
         },
         201
       );
@@ -575,78 +398,50 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return corsResponse({ success: false, message: 'Route not found' }, 404);
   } catch (err: any) {
-    console.error('POST Error:', err);
+    console.error('Next.js API Route POST error:', err);
     return corsResponse({ success: false, message: err.message || 'Error processing request' }, 500);
   }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
-  await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
-  const Product = getProductModel();
+  const db = getDb();
 
   try {
     if (path.startsWith('products/')) {
       const productId = path.replace('products/', '');
       const body = await request.json();
-      const updated = Product ? await Product.findByIdAndUpdate(productId, body, { new: true }).lean() : null;
+      await db.collection('products').doc(productId).set({ ...body, updatedAt: new Date().toISOString() }, { merge: true });
       clearProductCache();
       return corsResponse({
         success: true,
-        data: updated,
-        message: 'Product updated successfully in MongoDB Atlas!',
+        data: { _id: productId, ...body },
+        message: 'Product updated successfully in Firebase Firestore!',
       });
     }
     return corsResponse({ success: false, message: 'Route not found' }, 404);
   } catch (err: any) {
-    return corsResponse({ success: false, message: err.message }, 500);
-  }
-}
-
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
-  await connectDB();
-  const { route } = await params;
-  const path = (route || []).join('/');
-  const Product = getProductModel();
-
-  try {
-    if (path.includes('/status')) {
-      const productId = path.split('/')[1];
-      const { status } = await request.json();
-      const updated = Product ? await Product.findByIdAndUpdate(productId, { status }, { new: true }).lean() : null;
-      clearProductCache();
-      return corsResponse({ success: true, data: updated });
-    }
-
-    if (path.includes('/archive')) {
-      const productId = path.split('/')[1];
-      const updated = Product ? await Product.findByIdAndUpdate(productId, { status: 'ARCHIVED' }, { new: true }).lean() : null;
-      clearProductCache();
-      return corsResponse({ success: true, data: updated });
-    }
-
-    return corsResponse({ success: true });
-  } catch (err: any) {
+    console.error('Next.js API Route PUT error:', err);
     return corsResponse({ success: false, message: err.message }, 500);
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
-  await connectDB();
   const { route } = await params;
   const path = (route || []).join('/');
-  const Product = getProductModel();
+  const db = getDb();
 
   try {
     if (path.startsWith('products/')) {
       const productId = path.replace('products/', '');
-      if (Product) await Product.findByIdAndDelete(productId);
+      await db.collection('products').doc(productId).delete();
       clearProductCache();
-      return corsResponse({ success: true, message: 'Product deleted' });
+      return corsResponse({ success: true, message: 'Product deleted from Firebase Firestore' });
     }
     return corsResponse({ success: true });
   } catch (err: any) {
+    console.error('Next.js API Route DELETE error:', err);
     return corsResponse({ success: false, message: err.message }, 500);
   }
 }

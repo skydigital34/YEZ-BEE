@@ -28,18 +28,18 @@ export const register = async (
       }
     }
 
-    const user = new User({ name, email, password, phone });
+    // Create new user document in Firestore
+    const newUserData: any = { name, email, password, phone };
     if (referredByUser) {
-      user.referredBy = referredByUser._id;
+      newUserData.referredBy = referredByUser._id;
     }
+    const user = await User.create(newUserData);
+    // User.create already hashes password and sets defaults
 
-    await user.save();
+    const token = User.generateAuthToken(user);
+    const refreshToken = User.generateRefreshToken(user);
 
-    const token = user.generateAuthToken();
-    const refreshToken = user.generateRefreshToken();
-
-    user.refreshToken = refreshToken;
-    await user.save();
+    await User.findByIdAndUpdate(user.id, { refreshToken });
 
     try {
       await sendEmail({
@@ -73,7 +73,7 @@ export const login = async (
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       throw new AppError('Invalid email or password', 401);
     }
@@ -90,9 +90,7 @@ export const login = async (
     const token = user.generateAuthToken();
     const refreshToken = user.generateRefreshToken();
 
-    user.refreshToken = refreshToken;
-    user.lastLoginAt = new Date();
-    await user.save();
+    await User.findByIdAndUpdate(user.id, { refreshToken, lastLoginAt: new Date() });
 
     res.status(200).json({
       success: true,
@@ -146,8 +144,11 @@ export const forgotPassword = async (
       return;
     }
 
-    const resetToken = user.generatePasswordResetToken();
-    await user.save({ validateBeforeSave: false });
+    const { resetToken, hashedToken, expires } = User.generatePasswordResetToken();
+    await User.findByIdAndUpdate(user.id, {
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: expires,
+    });
 
     const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password/${resetToken}`;
 
@@ -158,10 +159,11 @@ export const forgotPassword = async (
         html: getPasswordResetEmailHtml(resetUrl),
       });
     } catch (emailError) {
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpires = undefined;
-      await user.save({ validateBeforeSave: false });
-      throw new AppError('Failed to send password reset email. Please try again.', 500);
+      await User.findByIdAndUpdate(user.id, {
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+    });
+    throw new AppError('Failed to send password reset email. Please try again.', 500);
     }
 
     res.status(200).json({
@@ -193,11 +195,12 @@ export const resetPassword = async (
       throw new AppError('Invalid or expired reset token', 400);
     }
 
-    user.password = password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    user.refreshToken = undefined;
-    await user.save();
+    await User.findByIdAndUpdate(user.id, {
+      password,
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+      refreshToken: null,
+    });
 
     res.status(200).json({
       success: true,
@@ -227,10 +230,11 @@ export const verifyEmail = async (
       throw new AppError('Invalid or expired verification token', 400);
     }
 
-    user.isVerified = true;
-    (user as any).emailVerificationToken = undefined;
-    (user as any).emailVerificationExpires = undefined;
-    await user.save();
+    await User.findByIdAndUpdate(user.id, {
+      isVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpires: null,
+    });
 
     res.status(200).json({
       success: true,
@@ -258,16 +262,15 @@ export const refreshToken = async (
       process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET!
     ) as { id: string };
 
-    const user = await User.findById(decoded.id).select('+refreshToken');
+    const user = await User.findById(decoded.id);
     if (!user || user.refreshToken !== token) {
       throw new AppError('Invalid refresh token', 401);
     }
 
-    const newToken = user.generateAuthToken();
-    const newRefreshToken = user.generateRefreshToken();
+    const newToken = User.generateAuthToken(user);
+    const newRefreshToken = User.generateRefreshToken(user);
 
-    user.refreshToken = newRefreshToken;
-    await user.save();
+    await User.findByIdAndUpdate(user.id, { refreshToken: newRefreshToken });
 
     res.status(200).json({
       success: true,
@@ -297,9 +300,12 @@ export const getMe = async (
       throw new AppError('User not found', 404);
     }
 
+    // Manually construct response without Mongoose toJSON
+    const userData = { ...user };
+    delete userData.password; // ensure password not sent
     res.status(200).json({
       success: true,
-      data: user.toJSON(),
+      data: userData,
     });
   } catch (error) {
     next(error);

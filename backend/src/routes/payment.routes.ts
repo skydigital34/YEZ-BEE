@@ -44,7 +44,7 @@ router.post(
   adminOnly,
   validate([
     body('orderId')
-      .isMongoId()
+      .notEmpty()
       .withMessage('Valid order ID is required'),
     body('amount')
       .optional()

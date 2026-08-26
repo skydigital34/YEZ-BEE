@@ -1,14 +1,16 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import { getDb } from '../config/firebase';
 import { DISCOUNT_TYPES } from '../utils/constants';
 
 export interface ICouponUsedBy {
-  user: mongoose.Types.ObjectId;
+  user: string;
   usedAt: Date;
 }
 
-export interface ICouponDocument extends Document {
+export interface ICoupon {
+  _id?: string;
+  id?: string;
   code: string;
-  description: string;
+  description?: string;
   discountType: 'percentage' | 'fixed';
   discountValue: number;
   minOrderValue: number;
@@ -20,72 +22,115 @@ export interface ICouponDocument extends Document {
   isActive: boolean;
   startsAt: Date;
   expiresAt: Date;
-  applicableCategories: mongoose.Types.ObjectId[];
-  applicableProducts: mongoose.Types.ObjectId[];
+  applicableCategories: string[];
+  applicableProducts: string[];
   minItems: number;
   isFirstOrderOnly: boolean;
-  isValid(): boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const couponUsedBySchema = new Schema<ICouponUsedBy>(
-  {
-    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    usedAt: { type: Date, default: Date.now },
-  },
-  { _id: false }
-);
+export class CouponModel {
+  private static collectionName = 'coupons';
 
-const couponSchema = new Schema<ICouponDocument>(
-  {
-    code: {
-      type: String,
-      required: [true, 'Coupon code is required'],
-      unique: true,
-      uppercase: true,
-      trim: true,
-      index: true,
-    },
-    description: { type: String, maxlength: 500 },
-    discountType: {
-      type: String,
-      enum: Object.values(DISCOUNT_TYPES),
-      required: [true, 'Discount type is required'],
-    },
-    discountValue: {
-      type: Number,
-      required: [true, 'Discount value is required'],
-      min: 1,
-    },
-    minOrderValue: { type: Number, default: 0, min: 0 },
-    maxDiscount: { type: Number, default: 0, min: 0 },
-    usageLimit: { type: Number, default: 0, min: 0 },
-    usedCount: { type: Number, default: 0, min: 0 },
-    perUserLimit: { type: Number, default: 1, min: 1 },
-    usedBy: [couponUsedBySchema],
-    isActive: { type: Boolean, default: true, index: true },
-    startsAt: { type: Date, required: true },
-    expiresAt: { type: Date, required: true },
-    applicableCategories: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
-    applicableProducts: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
-    minItems: { type: Number, default: 0, min: 0 },
-    isFirstOrderOnly: { type: Boolean, default: false },
-  },
-  {
-    timestamps: true,
+  public static isValid(coupon: ICoupon): boolean {
+    const now = new Date();
+    if (!coupon.isActive) return false;
+    if (new Date(coupon.startsAt) > now || new Date(coupon.expiresAt) < now) return false;
+    if (coupon.usageLimit > 0 && coupon.usedCount >= coupon.usageLimit) return false;
+    return true;
   }
-);
 
-couponSchema.index({ code: 1, isActive: 1 });
-couponSchema.index({ expiresAt: 1 });
+  public static async findById(id: string): Promise<ICoupon | null> {
+    if (!id) return null;
+    const db = getDb();
+    const doc = await db.collection(this.collectionName).doc(id).get();
+    if (!doc.exists) return null;
+    return { _id: doc.id, id: doc.id, ...doc.data() } as ICoupon;
+  }
 
-couponSchema.methods.isValid = function (): boolean {
-  const now = new Date();
-  if (!this.isActive) return false;
-  if (now < this.startsAt || now > this.expiresAt) return false;
-  if (this.usageLimit > 0 && this.usedCount >= this.usageLimit) return false;
-  return true;
-};
+  public static async findOne(query: Record<string, any>): Promise<ICoupon | null> {
+    const db = getDb();
+    let ref: FirebaseFirestore.Query = db.collection(this.collectionName);
 
-const Coupon = mongoose.model<ICouponDocument>('Coupon', couponSchema);
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null) {
+        ref = ref.where(key, '==', value);
+      }
+    }
 
+    const snapshot = await ref.limit(1).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { _id: doc.id, id: doc.id, ...doc.data() } as ICoupon;
+  }
+
+  public static async find(query: Record<string, any> = {}): Promise<ICoupon[]> {
+    const db = getDb();
+    let ref: FirebaseFirestore.Query = db.collection(this.collectionName);
+
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null) {
+        ref = ref.where(key, '==', value);
+      }
+    }
+
+    const snapshot = await ref.get();
+    return snapshot.docs.map(doc => ({ _id: doc.id, id: doc.id, ...doc.data() } as ICoupon));
+  }
+
+  public static async create(data: Partial<ICoupon>): Promise<ICoupon> {
+    const db = getDb();
+    const docRef = db.collection(this.collectionName).doc();
+
+    const newCoupon: ICoupon = {
+      code: (data.code || '').toUpperCase().trim(),
+      description: data.description || '',
+      discountType: data.discountType || 'percentage',
+      discountValue: data.discountValue || 0,
+      minOrderValue: data.minOrderValue || 0,
+      maxDiscount: data.maxDiscount || 0,
+      usageLimit: data.usageLimit || 0,
+      usedCount: data.usedCount || 0,
+      perUserLimit: data.perUserLimit || 1,
+      usedBy: data.usedBy || [],
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      startsAt: data.startsAt ? new Date(data.startsAt) : new Date(),
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : new Date(Date.now() + 30 * 24 * 3600 * 1000),
+      applicableCategories: data.applicableCategories || [],
+      applicableProducts: data.applicableProducts || [],
+      minItems: data.minItems || 0,
+      isFirstOrderOnly: data.isFirstOrderOnly || false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await docRef.set(newCoupon);
+    return { _id: docRef.id, id: docRef.id, ...newCoupon };
+  }
+
+  public static async findByIdAndUpdate(id: string, updateData: Partial<ICoupon>): Promise<ICoupon | null> {
+    if (!id) return null;
+    const db = getDb();
+    const docRef = db.collection(this.collectionName).doc(id);
+
+    const payload = {
+      ...updateData,
+      updatedAt: new Date(),
+    };
+
+    await docRef.set(payload, { merge: true });
+    return this.findById(id);
+  }
+
+  public static async findByIdAndDelete(id: string): Promise<boolean> {
+    if (!id) return false;
+    const db = getDb();
+    await db.collection(this.collectionName).doc(id).delete();
+    return true;
+  }
+}
+
+// Compatibility export
+const Coupon = CouponModel;
 export default Coupon;

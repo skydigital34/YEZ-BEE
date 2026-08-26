@@ -25,62 +25,7 @@ interface CompareProduct {
   category: string;
 }
 
-const INITIAL_PRODUCTS: CompareProduct[] = [
-  {
-    id: 1,
-    name: 'Cotton Casual Feeding Kurti',
-    image: '/images/categories/maternity-kurtis.jpg',
-    price: 1899,
-    comparePrice: 2499,
-    rating: 4.9,
-    reviews: 128,
-    fabric: '100% Pure Mulberry Cotton',
-    fit: 'Relaxed A-Line Silhouette',
-    neck: 'Mandarin Collar',
-    sleeve: '3/4th Sleeves',
-    length: 'Calf Length (46")',
-    pattern: 'Floral Print',
-    colorOptions: 3,
-    inStock: true,
-    category: 'Casuals',
-  },
-  {
-    id: 2,
-    name: 'Festive Flared Party Gown',
-    image: '/images/maternity/slide3.jpg',
-    price: 2499,
-    comparePrice: 3299,
-    rating: 4.8,
-    reviews: 89,
-    fabric: 'Soft Modal Rayon Blend',
-    fit: 'Flared Flattering Fit',
-    neck: 'Round Neck with V-Cut',
-    sleeve: '3/4th Sleeves',
-    length: 'Floor Length Maxi',
-    pattern: 'Gold Ethnic Block Print',
-    colorOptions: 2,
-    inStock: true,
-    category: 'Party Wear',
-  },
-  {
-    id: 3,
-    name: 'Handcrafted Banarasi Ethnic Set',
-    image: '/images/ethnic_luxe.jpg',
-    price: 3899,
-    comparePrice: 4999,
-    rating: 5.0,
-    reviews: 156,
-    fabric: 'Art Silk Blend with Zari',
-    fit: 'Traditional Flared Anarkali',
-    neck: 'Embroidered Yoke Neck',
-    sleeve: 'Full Sleeve',
-    length: 'Ankle Length with Dupatta',
-    pattern: 'Royal Zari Weave',
-    colorOptions: 3,
-    inStock: true,
-    category: 'Ethnic Wear',
-  },
-];
+const INITIAL_PRODUCTS: CompareProduct[] = [];
 
 const ATTRIBUTES = [
   { key: 'price', label: 'Price' },

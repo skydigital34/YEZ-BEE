@@ -135,11 +135,15 @@ export const processRefund = async (
 
     const refund = await refundPayment(razorpayPaymentId, refundAmount);
 
-    order.paymentInfo.status = PAYMENT_STATUS.REFUNDED as any;
-    order.status = 'refunded' as any;
-    order.refundAmount = refundAmount;
-    order.refundedAt = new Date();
-    await order.save();
+    await Order.findByIdAndUpdate(orderId, {
+      paymentInfo: {
+        ...order.paymentInfo,
+        status: PAYMENT_STATUS.REFUNDED
+      },
+      status: 'refunded' as any,
+      refundAmount,
+      refundedAt: new Date()
+    });
 
     res.status(200).json({
       success: true,

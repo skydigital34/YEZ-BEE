@@ -30,7 +30,7 @@ router.post(
   adminOnly,
   validate([
     body('name').trim().notEmpty().withMessage('Category name is required'),
-    body('parent').optional().isMongoId().withMessage('Invalid parent category ID'),
+    body('parent').optional().notEmpty().withMessage('Invalid parent category ID'),
   ]),
   categoryController.createCategory
 );
@@ -40,7 +40,7 @@ router.put(
   authenticate,
   adminOnly,
   validate([
-    param('id').isMongoId().withMessage('Valid category ID is required'),
+    param('id').notEmpty().withMessage('Valid category ID is required'),
   ]),
   categoryController.updateCategory
 );
@@ -50,7 +50,7 @@ router.delete(
   authenticate,
   adminOnly,
   validate([
-    param('id').isMongoId().withMessage('Valid category ID is required'),
+    param('id').notEmpty().withMessage('Valid category ID is required'),
   ]),
   categoryController.deleteCategory
 );

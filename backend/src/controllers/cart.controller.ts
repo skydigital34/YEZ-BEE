@@ -11,12 +11,10 @@ export const getCart = async (
   try {
     const userId = req.user!.id;
 
-    const user = await User.findById(userId)
-      .populate({
-        path: 'cart.product',
-        select: 'name slug images variants price isActive',
-      })
-      .select('cart');
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
 
     if (!user) {
       throw new AppError('User not found', 404);
@@ -138,7 +136,7 @@ export const addToCart = async (
       });
     }
 
-    await user.save();
+    await User.findByIdAndUpdate(userId, { cart: user.cart });
 
     res.status(200).json({
       success: true,
@@ -168,11 +166,12 @@ export const updateCartItem = async (
       throw new AppError('User not found', 404);
     }
 
-    const cartItem = (user.cart as any).id(itemId);
-    if (!cartItem) {
+    const cartItemIndex = user.cart.findIndex((item: any) => (item.id === itemId || item._id === itemId));
+    if (cartItemIndex === -1) {
       throw new AppError('Cart item not found', 404);
     }
 
+    const cartItem = user.cart[cartItemIndex];
     const product = await Product.findById(cartItem.product);
     if (!product) {
       throw new AppError('Product no longer exists', 404);
@@ -183,8 +182,8 @@ export const updateCartItem = async (
       throw new AppError(`Only ${variant.stock} items available`, 400);
     }
 
-    cartItem.quantity = quantity;
-    await user.save();
+    user.cart[cartItemIndex].quantity = quantity;
+    await User.findByIdAndUpdate(userId, { cart: user.cart });
 
     res.status(200).json({
       success: true,
@@ -210,13 +209,13 @@ export const removeFromCart = async (
       throw new AppError('User not found', 404);
     }
 
-    const item = (user.cart as any).id(itemId);
-    if (!item) {
+    const cartItemIndex = user.cart.findIndex((item: any) => (item.id === itemId || item._id === itemId));
+    if (cartItemIndex === -1) {
       throw new AppError('Cart item not found', 404);
     }
 
-    item.deleteOne();
-    await user.save();
+    user.cart.splice(cartItemIndex, 1);
+    await User.findByIdAndUpdate(userId, { cart: user.cart });
 
     res.status(200).json({
       success: true,
@@ -241,8 +240,7 @@ export const clearCart = async (
       throw new AppError('User not found', 404);
     }
 
-    user.cart = [];
-    await user.save();
+    await User.findByIdAndUpdate(userId, { cart: [] });
 
     res.status(200).json({
       success: true,
@@ -261,7 +259,7 @@ export const getCartCount = async (
   try {
     const userId = req.user!.id;
 
-    const user = await User.findById(userId).select('cart');
+    const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }

@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import mongoose from 'mongoose';
 import Product from '../models/Product';
 import Review from '../models/Review';
 import Category from '../models/Category';
+import User from '../models/User';
 import { AppError } from '../middleware/errorHandler';
 import { logger, slugify, parsePagination, parseSort } from '../utils/helpers';
 import { getFromCache, setToCache, delFromCache } from '../config/redis';
@@ -24,7 +24,7 @@ export const getProducts = async (
 
     if (req.query.category && req.query.category !== 'all') {
       const categoryQuery = (req.query.category as string).trim();
-      const isObjId = mongoose.Types.ObjectId.isValid(categoryQuery);
+      const isObjId = Boolean(categoryQuery && categoryQuery.length >= 10);
 
       if (isObjId) {
         filter.$or = [
@@ -115,17 +115,21 @@ export const getProducts = async (
       ];
     }
 
-    const [products, total] = await Promise.all([
-      Product.find(filter)
-        .select('name slug price compareAtPrice discount status category parentCategory subcategory productType brand featured bestSeller newArrival images variants.price variants.stock variants.color variants.size ratings createdAt')
-        .populate('category', 'name slug')
-        .sort(sort)
-        .allowDiskUse(true)
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Product.countDocuments(filter),
-    ]);
+    // Build Firestore query using Product model with sorting, pagination
+    let products = await Product.find(filter, {}, { sort, skip, limit });
+    // Manually populate category for each product
+    products = await Promise.all(
+      products.map(async (p) => {
+        if (p.category) {
+          const cat = await Category.findById(p.category);
+          if (cat) {
+            p.category = { _id: cat._id, name: cat.name, slug: cat.slug } as any;
+          }
+        }
+        return p;
+      })
+    );
+    const total = await Product.countDocuments(filter);
 
     const totalPages = Math.ceil(total / limit);
 
@@ -153,15 +157,19 @@ export const getProductById = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    let product = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      product = await Product.findById(id).populate('category', 'name slug').lean();
-    }
+    let product = await Product.findById(id);
     if (!product) {
-      product = await Product.findOne({ slug: id }).populate('category', 'name slug').lean();
+      product = await Product.findOne({ slug: id });
     }
     if (!product) {
       throw new AppError('Product not found', 404);
+    }
+    // Populate category manually
+    if (product.category) {
+      const cat = await Category.findById(product.category);
+      if (cat) {
+        product.category = { _id: cat._id, name: cat.name, slug: cat.slug } as any;
+      }
     }
     res.status(200).json({ success: true, data: product });
   } catch (error) {
@@ -201,9 +209,13 @@ export const getProductBySlug = async (
       queryFilter = { $and: [identifierFilter, statusFilter] };
     }
 
-    const product = await Product.findOne(queryFilter)
-      .populate('category', 'name slug')
-      .lean();
+    const productDoc = await Product.findOne(queryFilter);
+    if (!productDoc) {
+      throw new AppError('Product not found', 404);
+    }
+    // Manually populate category
+    const categoryDoc = await Category.findById(productDoc.category as any);
+    const product = { ...productDoc, category: categoryDoc } as any;
 
     if (!product) {
       throw new AppError('Product not found', 404);
@@ -331,7 +343,7 @@ export const createProduct = async (
     }
 
     let categoryDocForValidation = null;
-    if (mongoose.Types.ObjectId.isValid(categoryId)) {
+    if (categoryId) {
       categoryDocForValidation = await Category.findById(categoryId);
     }
     if (!categoryDocForValidation && typeof categoryId === 'string') {
@@ -372,7 +384,7 @@ export const createProduct = async (
 
     const initialStatus = (productData.status || 'PUBLISHED').toUpperCase();
 
-    const product = new Product({
+    const product = await Product.create({
       name,
       slug,
       variants,
@@ -384,8 +396,6 @@ export const createProduct = async (
       status: initialStatus,
       isActive: initialStatus === 'PUBLISHED',
     });
-
-    await product.save();
 
     await delFromCache(CACHE_KEYS.PRODUCTS_ALL);
 
@@ -440,7 +450,7 @@ export const updateProduct = async (
       const imageFiles = [...(filesObj.image || []), ...(filesObj.images || [])];
 
       if (imageFiles.length > 0) {
-        const categoryDoc = await Category.findById(product.category).select('name slug').lean();
+        const categoryDoc = await Category.findById(product.category);
         const folderPath = getCategoryFolderPath(categoryDoc?.slug || categoryDoc?.name || 'general');
         const uploadedImages: { url: string; publicId: string; alt: string; isPrimary: boolean }[] = [];
 
@@ -477,7 +487,7 @@ export const updateProduct = async (
     if (updateData.category !== undefined || updateData.productType !== undefined || updateData.subcategory !== undefined) {
       const targetCatId = updateData.category || product.category;
       let categoryDoc = null;
-      if (mongoose.Types.ObjectId.isValid(targetCatId)) {
+      if (targetCatId) {
         categoryDoc = await Category.findById(targetCatId);
       }
       if (!categoryDoc && typeof targetCatId === 'string') {
@@ -513,14 +523,19 @@ export const updateProduct = async (
       }
     }
 
-    const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    }).populate('category', 'name slug');
+    const updatedProductDoc = await Product.findByIdAndUpdate(id, updateData);
 
-    if (!updatedProduct) {
+    if (!updatedProductDoc) {
       throw new AppError('Product not found for update', 404);
     }
+
+    if (updatedProductDoc.category) {
+      const cat = await Category.findById(updatedProductDoc.category);
+      if (cat) {
+        updatedProductDoc.category = { _id: cat._id, name: cat.name, slug: cat.slug } as any;
+      }
+    }
+    const updatedProduct = updatedProductDoc;
 
     await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
     if (updatedProduct.slug !== product.slug) {
@@ -635,17 +650,20 @@ export const searchProducts = async (
       $or: orConditions,
     };
 
-    const [products, total] = await Promise.all([
-      Product.find(filter)
-        .populate('category', 'name slug')
-        .select('name slug images variants.price brand category ratings.average')
-        .sort({ soldCount: -1 })
-        .allowDiskUse(true)
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Product.countDocuments(filter),
-    ]);
+    const productsList = await Product.find(filter, { sort: { soldCount: -1 }, skip, limit });
+    const total = await Product.countDocuments(filter);
+
+    const products = await Promise.all(
+      productsList.map(async (p) => {
+        if (p.category) {
+          const cat = await Category.findById(p.category);
+          if (cat) {
+            p.category = { _id: cat._id, name: cat.name, slug: cat.slug } as any;
+          }
+        }
+        return p;
+      })
+    );
 
     const totalPages = Math.ceil(total / limit);
 
@@ -676,7 +694,7 @@ export const getProductReviews = async (
     const { page, limit, skip } = parsePagination(req.query);
 
     let product = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
+    if (id) {
       product = await Product.findById(id);
     }
     if (!product) {
@@ -696,15 +714,28 @@ export const getProductReviews = async (
       filter['images.0'] = { $exists: true };
     }
 
-    const [reviews, total] = await Promise.all([
-      Review.find(filter)
-        .populate('user', 'name avatar')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Review.countDocuments(filter),
-    ]);
+    const rawReviews = await Review.find(filter);
+    // manual sort, skip, limit if not handled fully by simple find, but since we have them in array let's slice
+    // Simple mock or manual slice:
+    const sortedReviews = rawReviews.sort((a: any, b: any) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+    const slicedReviews = sortedReviews.slice(skip, skip + limit);
+
+    const reviews = await Promise.all(
+      slicedReviews.map(async (r: any) => {
+        if (r.user) {
+          const userDoc = await User.findById(r.user);
+          if (userDoc) {
+            r.user = { _id: userDoc._id, name: userDoc.name, avatar: userDoc.avatar } as any;
+          }
+        }
+        return r;
+      })
+    );
+    const total = rawReviews.length;
 
     const totalPages = Math.ceil(total / limit);
 
@@ -736,7 +767,7 @@ export const addReview = async (
     const userId = req.user!.id;
 
     let product = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
+    if (id) {
       product = await Product.findById(id);
     }
     if (!product) {
@@ -773,25 +804,24 @@ export const addReview = async (
       reviewData.images = uploadedImages;
     }
 
-    const review = new Review(reviewData);
-    await review.save();
+    const review = await Review.create(reviewData);
 
     const allReviews = await Review.find({ product: id, isApproved: true });
     const totalRating = allReviews.reduce((sum, r) => sum + r.rating, 0);
-    const avgRating = totalRating / allReviews.length;
+    const avgRating = allReviews.length > 0 ? totalRating / allReviews.length : 0;
 
     const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     allReviews.forEach((r) => {
       distribution[r.rating as keyof typeof distribution]++;
     });
 
-    product.ratings = {
+    const ratings = {
       average: Math.round(avgRating * 10) / 10,
       count: allReviews.length,
       distribution,
     };
-    product.reviewCount = allReviews.length;
-    await product.save();
+    const reviewCount = allReviews.length;
+    await Product.findByIdAndUpdate(product._id || product.id, { ratings, reviewCount });
 
     await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
 
@@ -814,7 +844,7 @@ export const getRelatedProducts = async (
     const { id } = req.params;
 
     let product = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
+    if (id) {
       product = await Product.findById(id);
     }
     if (!product) {
@@ -825,17 +855,13 @@ export const getRelatedProducts = async (
     }
 
     const related = await Product.find({
-      _id: { $ne: id },
       category: product.category,
       isActive: true,
-    })
-      .select('name slug images variants.price brand ratings.average')
-      .limit(6)
-      .lean();
+    }, { limit: 6 });
 
     res.status(200).json({
       success: true,
-      data: related,
+      data: related.filter((p) => p._id !== id && p.id !== id),
     });
   } catch (error) {
     next(error);
@@ -848,11 +874,19 @@ export const getFeaturedProducts = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const products = await Product.find({ isActive: true })
-      .sort({ featuredOrder: 1, createdAt: -1 })
-      .limit(8)
-      .populate('category', 'name slug')
-      .lean();
+    const productsList = await Product.find({ isActive: true }, { sort: { featuredOrder: 1, createdAt: -1 }, limit: 8 });
+
+    const products = await Promise.all(
+      productsList.map(async (p) => {
+        if (p.category) {
+          const cat = await Category.findById(p.category);
+          if (cat) {
+            p.category = { _id: cat._id, name: cat.name, slug: cat.slug } as any;
+          }
+        }
+        return p;
+      })
+    );
 
     res.status(200).json({
       success: true,
@@ -906,16 +940,20 @@ export const getAdminProducts = async (
       ];
     }
 
-    const [products, total] = await Promise.all([
-      Product.find(filter)
-        .select('name slug price compareAtPrice discount status category parentCategory subcategory productType brand featured bestSeller newArrival images variants.price variants.stock variants.color variants.size ratings createdAt')
-        .populate('category', 'name slug')
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Product.countDocuments(filter),
-    ]);
+    const productsList = await Product.find(filter, { sort, skip, limit });
+    const total = await Product.countDocuments(filter);
+
+    const products = await Promise.all(
+      productsList.map(async (p) => {
+        if (p.category) {
+          const cat = await Category.findById(p.category);
+          if (cat) {
+            p.category = { _id: cat._id, name: cat.name, slug: cat.slug } as any;
+          }
+        }
+        return p;
+      })
+    );
 
     const totalPages = Math.ceil(total / limit);
 
@@ -950,7 +988,7 @@ export const updateProductStock = async (
     }
 
     let product = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
+    if (id) {
       product = await Product.findById(id);
     }
     if (!product) {
@@ -973,7 +1011,7 @@ export const updateProductStock = async (
       });
     }
 
-    await product.save();
+    await Product.findByIdAndUpdate(product._id || product.id, { variants: product.variants });
     await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
     await delFromCache(CACHE_KEYS.PRODUCTS_ALL);
 
@@ -1005,8 +1043,7 @@ export const updateProductStatus = async (
 
     const product = await Product.findByIdAndUpdate(
       id,
-      { status: uppercaseStatus, isActive: uppercaseStatus === 'PUBLISHED' },
-      { new: true, runValidators: true }
+      { status: uppercaseStatus, isActive: uppercaseStatus === 'PUBLISHED' }
     );
 
     if (!product) {
@@ -1036,8 +1073,7 @@ export const archiveProduct = async (
 
     const product = await Product.findByIdAndUpdate(
       id,
-      { status: 'ARCHIVED', isActive: false },
-      { new: true }
+      { status: 'ARCHIVED', isActive: false }
     );
 
     if (!product) {

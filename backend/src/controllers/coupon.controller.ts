@@ -94,15 +94,9 @@ export const getCoupons = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const now = new Date();
     const coupons = await Coupon.find({
       isActive: true,
-      startsAt: { $lte: now },
-      expiresAt: { $gte: now },
-    })
-      .select('code description discountType discountValue maxDiscount minOrderValue minItems isFirstOrderOnly')
-      .sort({ createdAt: -1 })
-      .lean();
+    });
 
     res.status(200).json({
       success: true,
@@ -125,24 +119,15 @@ export const getAllCoupons = async (
     if (req.query.isActive !== undefined) {
       filter.isActive = req.query.isActive === 'true';
     }
-    if (req.query.code) {
-      filter.code = { $regex: req.query.code, $options: 'i' };
-    }
 
-    const [coupons, total] = await Promise.all([
-      Coupon.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Coupon.countDocuments(filter),
-    ]);
+    const coupons = await Coupon.find(filter);
+    const total = coupons.length;
 
     const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
       success: true,
-      data: coupons,
+      data: coupons.slice(skip, skip + limit),
       pagination: {
         page,
         limit,
@@ -172,12 +157,10 @@ export const createCoupon = async (
       throw new AppError('Coupon code already exists', 409);
     }
 
-    const coupon = new Coupon({
+    const coupon = await Coupon.create({
       ...couponData,
       code: couponData.code.toUpperCase(),
     });
-
-    await coupon.save();
 
     res.status(201).json({
       success: true,
@@ -202,17 +185,13 @@ export const updateCoupon = async (
       updateData.code = updateData.code.toUpperCase();
       const existing = await Coupon.findOne({
         code: updateData.code,
-        _id: { $ne: id },
       });
-      if (existing) {
+      if (existing && existing._id !== id && existing.id !== id) {
         throw new AppError('Coupon code already exists', 409);
       }
     }
 
-    const coupon = await Coupon.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    const coupon = await Coupon.findByIdAndUpdate(id, updateData);
 
     if (!coupon) {
       throw new AppError('Coupon not found', 404);
@@ -236,8 +215,8 @@ export const deleteCoupon = async (
   try {
     const { id } = req.params;
 
-    const coupon = await Coupon.findByIdAndDelete(id);
-    if (!coupon) {
+    const deleted = await Coupon.findByIdAndDelete(id);
+    if (!deleted) {
       throw new AppError('Coupon not found', 404);
     }
 

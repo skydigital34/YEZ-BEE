@@ -13,8 +13,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
-import mongoSanitize from 'express-mongo-sanitize';
-import { connectDatabase } from './config/database';
+import { connectDatabase, getDatabaseStatus } from './config/database';
 import { connectRedis } from './config/redis';
 import { verifyTransporter } from './config/email';
 import { logger } from './utils/helpers';
@@ -33,9 +32,6 @@ import userRoutes from './routes/user.routes';
 const app = express();
 
 const validateEnvVars = (): void => {
-  if (!process.env.MONGODB_URI) {
-    process.env.MONGODB_URI = 'mongodb+srv://sbfashionamazon:dharu1234@yez-bee.pnmkrhi.mongodb.net/yezbee?retryWrites=true&w=majority';
-  }
   if (!process.env.JWT_SECRET) {
     process.env.JWT_SECRET = 'yezbee_super_secret_jwt_key_2026_production_secure';
   }
@@ -97,8 +93,6 @@ const configureMiddleware = (): void => {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   app.use(cookieParser());
 
-  app.use(mongoSanitize());
-
   if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('combined', {
       stream: { write: (message: string) => logger.info(message.trim()) },
@@ -148,14 +142,13 @@ const configureRoutes = (): void => {
   app.get('/api/v1/health', healthHandler);
 
   app.get('/health/detailed', async (_req: Request, res: Response) => {
-    const mongoose = require('mongoose');
     const { getRedisStatus } = require('./config/redis');
 
     res.status(200).json({
       success: true,
       data: {
         server: 'running',
-        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        database: getDatabaseStatus() ? 'connected (Firestore)' : 'connecting/disconnected',
         redis: getRedisStatus ? getRedisStatus() : 'unknown',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
@@ -219,11 +212,7 @@ const startServer = async (): Promise<void> => {
       logger.info(`${signal} received. Shutting down gracefully...`);
       server.close(() => {
         logger.info('HTTP server closed');
-        const mongoose = require('mongoose');
-        mongoose.connection.close(false).then(() => {
-          logger.info('MongoDB connection closed');
-          process.exit(0);
-        });
+        process.exit(0);
       });
 
       setTimeout(() => {

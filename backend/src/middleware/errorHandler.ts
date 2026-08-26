@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/helpers';
 
@@ -27,29 +26,6 @@ export const notFoundHandler = (
   next: NextFunction
 ): void => {
   next(new AppError(`Resource not found: ${req.originalUrl}`, 404));
-};
-
-const handleMongooseValidationError = (
-  err: mongoose.Error.ValidationError
-): AppError => {
-  const errors = Object.values(err.errors).map((e: any) => ({
-    field: e.path,
-    message: e.message,
-  }));
-
-  const message = 'Validation failed';
-  return new AppError(message, 400, errors);
-};
-
-const handleDuplicateKeyError = (err: { keyValue: Record<string, unknown> }): AppError => {
-  const fields = Object.keys(err.keyValue).join(', ');
-  const message = `Duplicate value for: ${fields}`;
-  return new AppError(message, 409);
-};
-
-const handleCastError = (err: mongoose.Error.CastError): AppError => {
-  const message = err.path === '_id' ? 'Resource not found' : `Invalid ${err.path}: ${err.value}`;
-  return new AppError(message, 404);
 };
 
 const handleJwtError = (): AppError => {
@@ -99,12 +75,6 @@ export const errorHandler = (
 
   if (err instanceof AppError) {
     error = err;
-  } else if (err instanceof mongoose.Error.ValidationError) {
-    error = handleMongooseValidationError(err);
-  } else if ((err as { code?: number }).code === 11000) {
-    error = handleDuplicateKeyError(err as unknown as { keyValue: Record<string, unknown> });
-  } else if (err instanceof mongoose.Error.CastError) {
-    error = handleCastError(err);
   } else if (err instanceof jwt.JsonWebTokenError) {
     error = handleJwtError();
   } else if (err instanceof jwt.TokenExpiredError) {

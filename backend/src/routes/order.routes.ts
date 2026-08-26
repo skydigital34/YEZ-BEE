@@ -14,7 +14,7 @@ router.post(
       .isArray({ min: 1 })
       .withMessage('At least one item is required'),
     body('items.*.productId')
-      .isMongoId()
+      .notEmpty()
       .withMessage('Valid product ID is required'),
     body('items.*.variantSku')
       .isString()
@@ -71,7 +71,7 @@ router.put(
   authenticate,
   adminOnly,
   validate([
-    param('id').isMongoId().withMessage('Valid order ID is required'),
+    param('id').notEmpty().withMessage('Valid order ID is required'),
     body('status')
       .isIn([
         'pending', 'confirmed', 'processing', 'shipped',
@@ -86,7 +86,7 @@ router.get(
   '/:id',
   authenticate,
   validate([
-    param('id').isMongoId().withMessage('Valid order ID is required'),
+    param('id').notEmpty().withMessage('Valid order ID is required'),
   ]),
   orderController.getOrderById
 );
@@ -95,7 +95,7 @@ router.put(
   '/:id/cancel',
   authenticate,
   validate([
-    param('id').isMongoId().withMessage('Valid order ID is required'),
+    param('id').notEmpty().withMessage('Valid order ID is required'),
     body('reason').optional().trim().isLength({ max: 500 }),
   ]),
   orderController.cancelOrder
@@ -105,7 +105,7 @@ router.put(
   '/:id/return',
   authenticate,
   validate([
-    param('id').isMongoId().withMessage('Valid order ID is required'),
+    param('id').notEmpty().withMessage('Valid order ID is required'),
     body('reason').optional().trim().isLength({ max: 500 }),
   ]),
   orderController.requestReturn

@@ -41,8 +41,6 @@ export const validateBody = (validations: ValidationChain[]) => {
 export const mongoIdRule = (field: string = 'id') => ({
   in: ['params'] as const,
   errorMessage: `Invalid ${field}`,
-  matches: {
-    options: /^[0-9a-fA-F]{24}$/,
-    errorMessage: `${field} must be a valid ObjectId`,
-  },
+  isString: true,
+  notEmpty: true,
 });
