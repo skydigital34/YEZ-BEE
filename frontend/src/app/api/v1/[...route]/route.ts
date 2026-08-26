@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 import { promises as fsPromises } from 'fs';
-import path from 'path';
+import nodePath from 'path';
 
 if (!admin.apps.length) {
   try {
@@ -107,11 +107,11 @@ export async function OPTIONS() {
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
   const { route } = await params;
-  const path = (route || []).join('/');
+  const routePath = (route || []).join('/');
   const db = getDb();
 
   try {
-    if (path === 'health') {
+    if (routePath === 'health') {
       return corsResponse({
         success: true,
         message: 'YEZ BEE API is running & Firebase Firestore Connected',
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    if (path === 'debug') {
+    if (routePath === 'debug') {
       const productsSnap = await db.collection('products').limit(5).get();
       const sampleProducts = productsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       return corsResponse({
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return corsResponse(cached);
     }
 
-    if (path === 'products/admin/all') {
+    if (routePath === 'products/admin/all') {
       const url = new URL(request.url);
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const page = parseInt(url.searchParams.get('page') || '1', 10);
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return corsResponse(resData);
     }
 
-    if (path === 'products/admin/stats') {
+    if (routePath === 'products/admin/stats') {
       const snapshot = await db.collection('products').get();
       const total = snapshot.size;
       let published = 0;
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return corsResponse(resData);
     }
 
-    if (path === 'categories') {
+    if (routePath === 'categories') {
       const snapshot = await db.collection('categories').get();
       let items = snapshot.docs.map(doc => ({ _id: doc.id, id: doc.id, ...doc.data() }));
 
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return corsResponse(categoriesData);
     }
 
-    if (path === 'products' || path === 'products/featured') {
+    if (routePath === 'products' || routePath === 'products/featured') {
       const url = new URL(request.url);
       const limit = parseInt(url.searchParams.get('limit') || '100', 10);
       const isNew = url.searchParams.get('isNew') === 'true' || url.searchParams.get('newArrival') === 'true';
@@ -220,8 +220,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return corsResponse(resData);
     }
 
-    if (path.startsWith('products/')) {
-      const idOrSlug = path.replace('products/', '').replace('id/', '');
+    if (routePath.startsWith('products/')) {
+      const idOrSlug = routePath.replace('products/', '').replace('id/', '');
       let item: any = null;
 
       const docSnap = await db.collection('products').doc(idOrSlug).get();
@@ -251,12 +251,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
   const { route } = await params;
-  const path = (route || []).join('/');
+  const routePath = (route || []).join('/');
   const db = getDb();
 
   try {
     // Handle image upload by saving file to the local filesystem and returning a URL
-    if (path === 'products/upload-image' || path === 'products/upload-images') {
+    if (routePath === 'products/upload-image' || routePath === 'products/upload-images') {
       try {
         const formData = await request.formData();
         const files: File[] = [];
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
 
         // Ensure upload directory exists
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+        const uploadDir = nodePath.join(process.cwd(), 'public', 'uploads');
         await fsPromises.mkdir(uploadDir, { recursive: true });
 
         const uploadedInfos = [];
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           const timestamp = Date.now();
           const safeName = file.name.replace(/[^a-zA-Z0-9.\-_/]/g, '_');
           const filename = `${timestamp}-${safeName}`;
-          const filePath = path.join(uploadDir, filename);
+          const filePath = nodePath.join(uploadDir, filename);
           await fsPromises.writeFile(filePath, buffer);
           // Build a public URL (assuming Next.js static serving from /public)
           const publicUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/uploads/${filename}`;
@@ -306,7 +306,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    if (path === 'payments/create-order' || path === 'payment/create-order') {
+    if (routePath === 'payments/create-order' || routePath === 'payment/create-order') {
       const body = await request.json();
       const amount = body.amount || 100;
       const currency = body.currency || 'INR';
@@ -349,7 +349,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    if (path === 'payments/verify' || path === 'payment/verify') {
+    if (routePath === 'payments/verify' || routePath === 'payment/verify') {
       const body = await request.json();
       const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
       const keySecret = process.env.RAZORPAY_KEY_SECRET || '2k8t2xr5xZvY3lG7V2zoFH8y';
@@ -371,7 +371,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    if (path === 'products') {
+    if (routePath === 'products') {
       const body = await request.json();
       const docRef = db.collection('products').doc();
       const slug = body.slug || (body.name ? body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : `product-${Date.now()}`);
@@ -405,12 +405,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
   const { route } = await params;
-  const path = (route || []).join('/');
+  const routePath = (route || []).join('/');
   const db = getDb();
 
   try {
-    if (path.startsWith('products/')) {
-      const productId = path.replace('products/', '');
+    if (routePath.startsWith('products/')) {
+      const productId = routePath.replace('products/', '');
       const body = await request.json();
       await db.collection('products').doc(productId).set({ ...body, updatedAt: new Date().toISOString() }, { merge: true });
       clearProductCache();
@@ -429,12 +429,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
   const { route } = await params;
-  const path = (route || []).join('/');
+  const routePath = (route || []).join('/');
   const db = getDb();
 
   try {
-    if (path.startsWith('products/')) {
-      const productId = path.replace('products/', '');
+    if (routePath.startsWith('products/')) {
+      const productId = routePath.replace('products/', '');
       await db.collection('products').doc(productId).delete();
       clearProductCache();
       return corsResponse({ success: true, message: 'Product deleted from Firebase Firestore' });
