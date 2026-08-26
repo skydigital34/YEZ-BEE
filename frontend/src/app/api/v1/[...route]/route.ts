@@ -107,7 +107,7 @@ export async function OPTIONS() {
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
   const { route } = await params;
-  const routePath = (route || []).join('/');
+  const routePath = Array.isArray(route) ? route.join('/') : route;
   const db = getDb();
 
   try {

@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+import { comparePassword, generateAuthToken, generateRefreshToken } from '../utils/auth';
+
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
@@ -36,8 +38,8 @@ export const register = async (
     const user = await User.create(newUserData);
     // User.create already hashes password and sets defaults
 
-    const token = User.generateAuthToken(user);
-    const refreshToken = User.generateRefreshToken(user);
+    const token = generateAuthToken(user);
+    const refreshToken = generateRefreshToken(user);
 
     await User.findByIdAndUpdate(user.id, { refreshToken });
 
@@ -55,7 +57,7 @@ export const register = async (
       success: true,
       message: 'Registration successful',
       data: {
-        user: user.toJSON(),
+        user: { ...user, password: undefined },
         token,
         refreshToken,
       },
@@ -82,13 +84,13 @@ export const login = async (
       throw new AppError('This account has been deactivated. Please contact support.', 403);
     }
 
-    const isPasswordValid = await user.comparePassword(password);
+    const isPasswordValid = await comparePassword(user.password, password);
     if (!isPasswordValid) {
       throw new AppError('Invalid email or password', 401);
     }
 
-    const token = user.generateAuthToken();
-    const refreshToken = user.generateRefreshToken();
+    const token = generateAuthToken(user);
+    const refreshToken = generateRefreshToken(user);
 
     await User.findByIdAndUpdate(user.id, { refreshToken, lastLoginAt: new Date() });
 
@@ -96,7 +98,7 @@ export const login = async (
       success: true,
       message: 'Login successful',
       data: {
-        user: user.toJSON(),
+        user: { ...user, password: undefined },
         token,
         refreshToken,
       },
