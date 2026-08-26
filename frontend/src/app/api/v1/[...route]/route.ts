@@ -53,6 +53,10 @@ async function connectDB() {
     return;
   }
 
+  try {
+    dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+  } catch (dnsErr) {}
+
   if (isConnecting) {
     let attempts = 0;
     while (isConnecting && attempts < 50) {
@@ -67,24 +71,23 @@ async function connectDB() {
   try {
     await mongoose.connect(PRIMARY_MONGODB_URI, {
       dbName: 'yezbee',
-      serverSelectionTimeoutMS: 15000,
-      connectTimeoutMS: 15000,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
       maxPoolSize: 10,
-      minPoolSize: 2,
+      minPoolSize: 1,
     });
-  } catch (err: any) {
-    console.warn('Primary SRV connection failed, trying Direct Mongo URI...', err?.message || err);
+  } catch (srvErr: any) {
+    console.warn('Primary SRV connection failed, trying Direct Mongo URI...', srvErr?.message || srvErr);
     try {
       await mongoose.connect(DIRECT_MONGODB_URI, {
         dbName: 'yezbee',
-        serverSelectionTimeoutMS: 15000,
-        connectTimeoutMS: 15000,
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
         maxPoolSize: 10,
-        minPoolSize: 2,
+        minPoolSize: 1,
       });
-
     } catch (directErr: any) {
-      console.error('Direct Mongo URI connection error:', directErr?.message || directErr);
+      console.error('All MongoDB connection attempts failed:', directErr?.message || directErr);
     }
   } finally {
     isConnecting = false;
@@ -308,8 +311,10 @@ function getCategoryModel(): any {
         const normCat = category.toLowerCase().trim().replace(/[_\s]+/g, '-');
         const isObjId = mongoose.Types.ObjectId.isValid(category);
         const orConditions: any[] = [
+          { category: new RegExp(normCat, 'i') },
           { categorySlug: new RegExp(normCat, 'i') },
           { 'category.slug': new RegExp(normCat, 'i') },
+          { 'category.name': new RegExp(normCat, 'i') },
           { subcategory: new RegExp(normCat, 'i') },
           { categoryName: new RegExp(normCat, 'i') },
         ];

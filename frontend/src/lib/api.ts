@@ -42,7 +42,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 8000,
+  timeout: 25000,
   headers: {
     'Content-Type': 'application/json',
   },

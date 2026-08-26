@@ -110,18 +110,15 @@ export default function NewArrivals() {
             ))}
           </div>
         ) : visibleProducts.length === 0 ? (
-          /* TEMPORARILY HIDDEN:
           <div className="text-center py-16 bg-white rounded-3xl border border-gray-200/60 p-8 shadow-soft-sm">
             <p className="text-sm font-semibold text-gray-500">No products found in "{selectedCategory}".</p>
             <button
               onClick={() => setSelectedCategory('All')}
-              className="mt-4 px-6 py-2.5 bg-[var(--color-dark)] text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[var(--color-primary-gold)] hover:text-[var(--color-dark)] transition-all"
+              className="mt-4 px-6 py-2.5 bg-[var(--color-dark)] text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[var(--color-primary-gold)] hover:text-[var(--color-dark)] transition-all cursor-pointer"
             >
               Show All Products
             </button>
           </div>
-          */
-          null
         ) : (
           <div
             ref={ref}
@@ -156,11 +153,10 @@ export default function NewArrivals() {
           </div>
         )}
 
-        {/* TEMPORARILY HIDDEN:
         <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
           {filteredProducts.length > displayCount && (
             <button
-              onClick={() => setDisplayCount((prev) => prev + 12)}
+              onClick={() => setDisplayCount((prev) => prev + 16)}
               className="inline-flex items-center gap-2 px-8 py-3.5 bg-white border-2 border-[var(--color-dark)] text-[var(--color-dark)] text-xs font-bold uppercase tracking-[0.2em] rounded-full hover:bg-[var(--color-dark)] hover:text-white transition-all shadow-sm cursor-pointer"
             >
               Load More Products ({filteredProducts.length - displayCount} Left) <ChevronDown size={16} />
@@ -174,7 +170,6 @@ export default function NewArrivals() {
             Explore Full Catalog ({items.length} Items) <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
-        */}
       </div>
     </section>
   );

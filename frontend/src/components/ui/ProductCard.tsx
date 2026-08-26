@@ -163,11 +163,6 @@ export default function ProductCard({
         </Link>
 
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 pointer-events-none">
-          {isNew && (
-            <span className="inline-block rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-dark)] text-white shadow-sm">
-              New Arrival
-            </span>
-          )}
           {isBestSeller && (
             <span className="inline-block rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-primary-gold)] text-[var(--color-dark)] shadow-sm">
               Bestseller

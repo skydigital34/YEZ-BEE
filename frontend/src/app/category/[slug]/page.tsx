@@ -20,7 +20,7 @@ import {
   YEZBEE_CATEGORIES,
   getCategoryBySlug,
 } from '@/data/categories';
-import { getProductsByCategory } from '@/data/products';
+import { getAllProducts, getProductsByCategory } from '@/data/products';
 import { extractProducts, normalizeProduct, matchesCategory } from '@/lib/utils';
 import axios from 'axios';
 import { api } from '@/lib/api';
@@ -178,16 +178,13 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
           sortBy,
         });
 
-
         if (!isMountedFlag) return;
         const raw = extractProducts(response);
-        const normalized = raw.map(normalizeProduct).filter(Boolean);
-        const filtered = normalized.filter((p) => matchesCategory(p, slug, selectedProductType));
-        const otherProducts = normalized.filter((p) => !matchesCategory(p, slug, selectedProductType));
-        const fullCatalog = [...filtered, ...otherProducts];
-        setDbProducts(fullCatalog.length > 0 ? fullCatalog : normalized);
-
-
+        const normalized = (raw.length > 0 ? raw : getAllProducts()).map((p: any) => normalizeProduct(p)).filter(Boolean);
+        const filtered = normalized.filter((p: any) => matchesCategory(p, slug, selectedProductType));
+        
+        // If this specific category has products, show them; if viewing all, show all normalized
+        setDbProducts(slug === 'all' ? normalized : (filtered.length > 0 ? filtered : normalized.filter((p: any) => matchesCategory(p, slug))));
       } catch (error) {
         if (axios.isAxiosError(error)) {
           console.error('[CategoryPage] API Error:', {
@@ -199,7 +196,11 @@ export function CategoryPageContent({ subSlug }: { subSlug?: string }) {
         } else {
           console.error('[CategoryPage] Unexpected error:', error);
         }
-
+        if (isMountedFlag) {
+          const fallback = getAllProducts().map((p: any) => normalizeProduct(p)).filter(Boolean);
+          const filtered = fallback.filter((p: any) => matchesCategory(p, slug, selectedProductType));
+          setDbProducts(slug === 'all' ? fallback : (filtered.length > 0 ? filtered : fallback));
+        }
       } finally {
         if (isMountedFlag) setLoading(false);
       }
