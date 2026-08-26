@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import Order from '../models/Order';
-import Product from '../models/Product';
-import Coupon from '../models/Coupon';
-import User from '../models/User';
 import { AppError } from '../middleware/errorHandler';
-import { logger, parsePagination, calculateDiscount, calculateTax, roundOff } from '../utils/helpers';
+import { logger, parsePagination, calculateDiscount, calculateTax, roundOff, generateOrderNumber } from '../utils/helpers';
 import { sendEmail, getOrderConfirmationEmailHtml } from '../config/email';
+import { getDb } from '../config/firebase';
 import { ORDER_STATUS, PAYMENT_METHODS, PAYMENT_STATUS } from '../utils/constants';
+import { IOrder, IOrderItem } from '../models/Order';
+import { IProduct, IProductVariant, IProductImage } from '../models/Product';
+import { ICoupon } from '../models/Coupon';
+import { IUser } from '../models/User';
 
 export const createOrder = async (
   req: Request,
@@ -28,26 +29,18 @@ export const createOrder = async (
       throw new AppError('Order must contain at least one item', 400);
     }
 
-    const orderItems: {
-      product: string;
-      variant: { sku: string; color: string; size: string };
-      name: string;
-      image: string;
-      price: number;
-      quantity: number;
-      subtotal: number;
-    }[] = [];
-
+    const orderItems: IOrderItem[] = [];
     let subtotal = 0;
 
     for (const item of items) {
-      const product = await Product.findById(item.productId);
+      const productSnap = await getDb().collection('products').doc(item.productId).get();
+      const product = productSnap.exists ? ({ id: productSnap.id, ...productSnap.data() } as IProduct) : null;
       if (!product) {
         throw new AppError(`Product ${item.productId} not found`, 404);
       }
 
-      const variant = product.variants.find(
-        (v) => v.sku === item.variantSku
+      const variant = product.variants?.find(
+        (v: IProductVariant) => v.sku === item.variantSku
       );
       if (!variant) {
         throw new AppError(`Variant ${item.variantSku} not found for ${product.name}`, 404);
@@ -60,13 +53,13 @@ export const createOrder = async (
         );
       }
 
-      const primaryImage = product.images.find((img) => img.isPrimary) || product.images[0];
+      const primaryImage = product.images?.find((img: IProductImage) => img.isPrimary) || product.images?.[0];
 
       const itemSubtotal = variant.price * item.quantity;
       subtotal += itemSubtotal;
 
       orderItems.push({
-        product: product._id?.toString() ?? product.id,
+        product: product.id || productSnap.id,
         variant: {
           sku: variant.sku,
           color: variant.color,
@@ -81,12 +74,13 @@ export const createOrder = async (
     }
 
     let discount = 0;
-    let couponData: { code: string; discountAmount: number; discountType: string } | undefined;
+    let couponData: { code: string; discountAmount: number; discountType: 'percentage' | 'fixed' } | undefined;
 
     if (couponCode) {
-      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+      const couponSnap = await getDb().collection('coupons').where('code', '==', couponCode.toUpperCase()).limit(1).get();
+      const coupon = couponSnap.empty ? null : ({ id: couponSnap.docs[0].id, ...couponSnap.docs[0].data() } as ICoupon);
 
-      if (!coupon || !Coupon.isValid(coupon)) {
+      if (!coupon) {
         throw new AppError('Invalid or expired coupon code', 400);
       }
 
@@ -98,13 +92,14 @@ export const createOrder = async (
       }
 
       if (coupon.isFirstOrderOnly) {
-        const existingOrders = await Order.countDocuments({ user: userId });
+        const existingOrdersSnap = await getDb().collection('orders').where('user', '==', userId).get();
+        const existingOrders = existingOrdersSnap.size;
         if (existingOrders > 0) {
           throw new AppError('This coupon is valid for first order only', 400);
         }
       }
 
-      const usedCount = coupon.usedBy.filter((u) => u.user === userId).length;
+      const usedCount = (coupon.usedBy || []).filter((u: any) => u.user === userId).length;
       if (usedCount >= coupon.perUserLimit) {
         throw new AppError('Coupon usage limit reached', 400);
       }
@@ -124,7 +119,7 @@ export const createOrder = async (
         discountType: coupon.discountType,
       };
 
-      await Coupon.findByIdAndUpdate(coupon._id?.toString() ?? coupon.id, {
+      await getDb().collection('coupons').doc(coupon.id || couponSnap.docs[0].id).update({
         usedCount: (coupon.usedCount || 0) + 1,
         usedBy: [...(coupon.usedBy || []), { user: userId, usedAt: new Date() }],
       });
@@ -140,14 +135,15 @@ export const createOrder = async (
     const paymentStatus =
       paymentMethod === PAYMENT_METHODS.COD ? PAYMENT_STATUS.PENDING : PAYMENT_STATUS.PENDING;
 
-    let order = await Order.create({
+    const orderPayload: Partial<IOrder> = {
+      orderNumber: generateOrderNumber(),
       user: userId,
       items: orderItems,
       shippingAddress,
       billingAddress: billingAddress || shippingAddress,
       paymentInfo: {
         method: paymentMethod || PAYMENT_METHODS.COD,
-        status: paymentStatus,
+        status: paymentStatus as any,
       },
       shippingMethod: { name: 'Standard', price: shipping, estimatedDays: '5-7' },
       subtotal: roundOff(subtotal),
@@ -159,34 +155,43 @@ export const createOrder = async (
       ...(couponData && { coupon: couponData }),
       status: ORDER_STATUS.PENDING,
       notes,
-    });
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const orderRef = await getDb().collection('orders').add(orderPayload);
+    const orderSnap = await orderRef.get();
+    const order = { id: orderSnap.id, ...orderSnap.data() } as IOrder;
 
     await getDb().runTransaction(async (t) => {
       for (const item of items) {
-        const productRef = t.get(Product.collection().doc(item.productId));
-        const productDoc = await productRef;
+        const docRef = getDb().collection('products').doc(item.productId);
+        const productDoc = await t.get(docRef);
         if (!productDoc.exists) continue;
-        const productData = productDoc.data();
-        const variant = productData?.variants?.find((v: any) => v.sku === item.variantSku);
+        const productData = productDoc.data() as any;
+        if (!productData) continue;
+        const variant = productData.variants?.find((v: any) => v.sku === item.variantSku);
         if (variant) {
           if (variant.stock < item.quantity) {
             throw new AppError('Stock mismatch during transaction', 400);
           }
           variant.stock -= item.quantity;
           productData.soldCount = (productData.soldCount || 0) + item.quantity;
-          if (variant.stock <= variant.lowStockThreshold) {
+          if (variant.stock <= (variant.lowStockThreshold || 5)) {
             logger.warn(`Low stock alert: ${productData.name} - ${variant.sku}`);
           }
-          t.update(Product.collection().doc(item.productId), productData);
+          t.update(docRef, productData);
         }
       }
     });
 
-    const populatedOrder = await Order.findById(order._id);
-    if (populatedOrder) {
+    const orderDoc = await getDb().collection('orders').doc(order.id || orderRef.id).get();
+    const populatedOrder = orderDoc.exists ? ({ id: orderDoc.id, ...orderDoc.data() } as any) : null;
+    if (populatedOrder && Array.isArray(populatedOrder.items)) {
       const itemsWithProducts = await Promise.all(
         populatedOrder.items.map(async (it: any) => {
-          const prod = await Product.findById(it.product);
+          const prodSnap = await getDb().collection('products').doc(it.product).get();
+          const prod = prodSnap.exists ? (prodSnap.data() as any) : null;
           return {
             ...it,
             product: prod ? { name: prod.name, slug: prod.slug, images: prod.images } : null,
@@ -197,7 +202,8 @@ export const createOrder = async (
     }
 
     try {
-      const user = await User.findById(userId);
+      const userSnap = await getDb().collection('users').doc(userId).get();
+      const user = userSnap.exists ? ({ id: userSnap.id, ...userSnap.data() } as IUser) : null;
       if (user) {
         await sendEmail({
           to: user.email,
@@ -218,9 +224,7 @@ export const createOrder = async (
       logger.warn('Order confirmation email failed:', emailError);
     }
 
-    await User.findByIdAndUpdate(userId, {
-      cart: []
-    });
+    await getDb().collection('users').doc(userId).update({ cart: [] });
 
     res.status(201).json({
       success: true,
@@ -241,13 +245,17 @@ export const getUserOrders = async (
     const userId = req.user!.id;
     const { page, limit, skip } = parsePagination(req.query);
 
-    const filter: Record<string, unknown> = { user: userId };
+    let query: FirebaseFirestore.Query = getDb().collection('orders');
+    query = query.where('user', '==', userId);
+
     if (req.query.status) {
-      filter.status = req.query.status;
+      query = query.where('status', '==', req.query.status);
     }
 
-    const orders = await Order.find(filter, {}, { skip, limit, sort: { createdAt: -1 } });
-    const total = await Order.countDocuments(filter);
+    const ordersSnap = await query.orderBy('createdAt', 'desc').offset(skip).limit(limit).get();
+    const orders = ordersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const totalSnap = await query.get();
+    const total = totalSnap.size;
     const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
@@ -270,7 +278,8 @@ export const getOrderById = async (
     const userId = req.user!.id;
     const userRole = req.user!.role;
 
-    const order = await Order.findById(id);
+    const orderSnap = await getDb().collection('orders').doc(id).get();
+    const order = orderSnap.exists ? ({ id: orderSnap.id, ...orderSnap.data() } as any) : null;
     if (!order) {
       throw new AppError('Order not found', 404);
     }
@@ -278,16 +287,19 @@ export const getOrderById = async (
       throw new AppError('Not authorized to view this order', 403);
     }
     // Manually populate product details for each item
-    const itemsWithProducts = await Promise.all(
-      order.items.map(async (it: any) => {
-        const prod = await Product.findById(it.product);
-        return {
-          ...it,
-          product: prod ? { name: prod.name, slug: prod.slug, images: prod.images } : null,
-        };
-      })
-    );
-    order.items = itemsWithProducts as any;
+    if (Array.isArray(order.items)) {
+      const itemsWithProducts = await Promise.all(
+        order.items.map(async (it: any) => {
+          const prodSnap = await getDb().collection('products').doc(it.product).get();
+          const prod = prodSnap.exists ? (prodSnap.data() as any) : null;
+          return {
+            ...it,
+            product: prod ? { name: prod.name, slug: prod.slug, images: prod.images } : null,
+          };
+        })
+      );
+      order.items = itemsWithProducts;
+    }
 
     res.status(200).json({
       success: true,
@@ -308,7 +320,8 @@ export const cancelOrder = async (
     const { reason } = req.body;
     const userId = req.user!.id;
 
-    const order = await Order.findById(id);
+    const orderSnap = await getDb().collection('orders').doc(id).get();
+    const order = orderSnap.exists ? ({ id: orderSnap.id, ...orderSnap.data() } as any) : null;
     if (!order) {
       throw new AppError('Order not found', 404);
     }
@@ -321,30 +334,37 @@ export const cancelOrder = async (
       ORDER_STATUS.CONFIRMED,
       ORDER_STATUS.PROCESSING,
     ];
-    if (!cancellableStatuses.includes(order.status as any)) {
+    if (!cancellableStatuses.includes(order.status)) {
       throw new AppError('Order cannot be cancelled at this stage', 400);
     }
 
-    order.status = ORDER_STATUS.CANCELLED as any;
+    order.status = ORDER_STATUS.CANCELLED;
     if (reason) order.cancellationReason = reason;
 
     // Restore stock via transaction
-    await getDb().runTransaction(async (t) => {
-      for (const item of order.items) {
-        const productRef = t.get(Product.collection().doc(item.product));
-        const productDoc = await productRef;
-        if (!productDoc.exists) continue;
-        const productData = productDoc.data();
-        const variant = productData?.variants?.find((v: any) => v.sku === item.variant.sku);
-        if (variant) {
-          variant.stock += item.quantity;
-          productData.soldCount = Math.max(0, (productData.soldCount || 0) - item.quantity);
-          t.update(Product.collection().doc(item.product), productData);
+    if (Array.isArray(order.items)) {
+      await getDb().runTransaction(async (t) => {
+        for (const item of order.items) {
+          const docRef = getDb().collection('products').doc(item.product);
+          const productDoc = await t.get(docRef);
+          if (!productDoc.exists) continue;
+          const productData = productDoc.data() as any;
+          if (!productData) continue;
+          const variant = productData.variants?.find((v: any) => v.sku === item.variant?.sku);
+          if (variant) {
+            variant.stock += item.quantity;
+            productData.soldCount = Math.max(0, (productData.soldCount || 0) - item.quantity);
+            t.update(docRef, productData);
+          }
         }
-      }
-    });
+      });
+    }
 
-    await Order.findByIdAndUpdate(id, { status: order.status, cancellationReason: order.cancellationReason });
+    await getDb().collection('orders').doc(id).update({
+      status: order.status,
+      cancellationReason: order.cancellationReason || '',
+      updatedAt: new Date(),
+    });
 
     res.status(200).json({
       success: true,
@@ -366,7 +386,8 @@ export const requestReturn = async (
     const { reason } = req.body;
     const userId = req.user!.id;
 
-    const order = await Order.findById(id);
+    const orderSnap = await getDb().collection('orders').doc(id).get();
+    const order = orderSnap.exists ? ({ id: orderSnap.id, ...orderSnap.data() } as any) : null;
     if (!order) {
       throw new AppError('Order not found', 404);
     }
@@ -376,9 +397,13 @@ export const requestReturn = async (
     if (order.status !== ORDER_STATUS.DELIVERED) {
       throw new AppError('Only delivered orders can be returned', 400);
     }
-    order.status = ORDER_STATUS.RETURNED as any;
+    order.status = ORDER_STATUS.RETURNED;
     if (reason) order.returnReason = reason;
-    await Order.findByIdAndUpdate(id, { status: order.status, returnReason: order.returnReason });
+    await getDb().collection('orders').doc(id).update({
+      status: order.status,
+      returnReason: order.returnReason || '',
+      updatedAt: new Date(),
+    });
 
     res.status(200).json({
       success: true,
@@ -397,28 +422,39 @@ export const getAllOrders = async (
 ): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const filter: Record<string, unknown> = {};
-    if (req.query.status) filter.status = req.query.status;
-    // Simple search on orderNumber only (Firestore lacks $or)
+    let query: FirebaseFirestore.Query = getDb().collection('orders');
+
+    if (req.query.status) {
+      query = query.where('status', '==', req.query.status);
+    }
     if (req.query.search) {
-      filter.orderNumber = req.query.search as string;
+      query = query.where('orderNumber', '==', req.query.search as string);
     }
     if (req.query.startDate && req.query.endDate) {
-      filter.createdAt = {
-        $gte: new Date(req.query.startDate as string),
-        $lte: new Date(req.query.endDate as string),
-      };
+      const gteDate = new Date(req.query.startDate as string);
+      const lteDate = new Date(req.query.endDate as string);
+      query = query.where('createdAt', '>=', gteDate).where('createdAt', '<=', lteDate);
     }
-    const orders = await Order.find(filter, {}, { skip, limit, sort: { createdAt: -1 } });
-    const total = await Order.countDocuments(filter);
+
+    const ordersSnap = await query.orderBy('createdAt', 'desc').offset(skip).limit(limit).get();
+    const orders = ordersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const totalSnap = await query.get();
+    const total = totalSnap.size;
     const totalPages = Math.ceil(total / limit);
+
     // Manually populate user details
     const ordersWithUser = await Promise.all(
       orders.map(async (ord: any) => {
-        const user = await User.findById(ord.user);
-        return { ...ord, user: user ? { name: user.name, email: user.email, phone: user.phone } : null };
+        if (!ord.user) return { ...ord, user: null };
+        const userSnap = await getDb().collection('users').doc(ord.user).get();
+        const user = userSnap.exists ? ({ id: userSnap.id, ...userSnap.data() } as any) : null;
+        return {
+          ...ord,
+          user: user ? { name: user.name, email: user.email, phone: user.phone } : null,
+        };
       })
     );
+
     res.status(200).json({
       success: true,
       data: ordersWithUser,
@@ -441,7 +477,8 @@ export const updateOrderStatus = async (
     if (!validStatuses.includes(status)) {
       throw new AppError(`Invalid status. Valid values: ${validStatuses.join(', ')}`, 400);
     }
-    const order = await Order.findById(id);
+    const orderSnap = await getDb().collection('orders').doc(id).get();
+    const order = orderSnap.exists ? ({ id: orderSnap.id, ...orderSnap.data() } as any) : null;
     if (!order) {
       throw new AppError('Order not found', 404);
     }
@@ -453,13 +490,14 @@ export const updateOrderStatus = async (
       ORDER_STATUS.OUT_FOR_DELIVERY,
       ORDER_STATUS.DELIVERED,
     ];
-    const currentIndex = statusFlow.indexOf(order.status as any);
+    const currentIndex = statusFlow.indexOf(order.status);
     const newIndex = statusFlow.indexOf(status);
     if (newIndex < currentIndex && status !== ORDER_STATUS.CANCELLED && status !== ORDER_STATUS.REFUNDED) {
       throw new AppError('Cannot move order to a previous status', 400);
     }
     const updatePayload: any = {
       status,
+      updatedAt: new Date(),
     };
     if (trackingNumber) updatePayload.trackingNumber = trackingNumber;
     if (trackingUrl) updatePayload.trackingUrl = trackingUrl;
@@ -468,15 +506,19 @@ export const updateOrderStatus = async (
       updatePayload.deliveredAt = new Date();
       updatePayload['paymentInfo.status'] = PAYMENT_STATUS.PAID;
       // Update user loyalty points
-      const user = await User.findById(order.user);
-      if (user) {
-        await User.findByIdAndUpdate(user._id?.toString() ?? user.id, {
-          loyaltyPoints: (user.loyaltyPoints || 0) + Math.floor(order.total / 100),
-        });
+      if (order.user) {
+        const userSnap = await getDb().collection('users').doc(order.user).get();
+        const user = userSnap.exists ? ({ id: userSnap.id, ...userSnap.data() } as any) : null;
+        if (user) {
+          await getDb().collection('users').doc(user.id).update({
+            loyaltyPoints: (user.loyaltyPoints || 0) + Math.floor((order.total || 0) / 100),
+          });
+        }
       }
     }
-    await Order.findByIdAndUpdate(id, updatePayload);
-    const updatedOrder = await Order.findById(id);
+    await getDb().collection('orders').doc(id).update(updatePayload);
+    const updatedSnap = await getDb().collection('orders').doc(id).get();
+    const updatedOrder = updatedSnap.exists ? ({ id: updatedSnap.id, ...updatedSnap.data() } as any) : null;
     res.status(200).json({
       success: true,
       message: `Order status updated to ${status}`,
