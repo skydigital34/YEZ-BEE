@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 import { promises as fsPromises } from 'fs';
-import nodePath from 'path';
+import { join } from 'path';
 
 if (!admin.apps.length) {
   try {
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
 
         // Ensure upload directory exists
-        const uploadDir = nodePath.join(process.cwd(), 'public', 'uploads');
+        const uploadDir = join(process.cwd(), 'public', 'uploads');
         await fsPromises.mkdir(uploadDir, { recursive: true });
 
         const uploadedInfos = [];
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           const timestamp = Date.now();
           const safeName = file.name.replace(/[^a-zA-Z0-9.\-_/]/g, '_');
           const filename = `${timestamp}-${safeName}`;
-          const filePath = nodePath.join(uploadDir, filename);
+          const filePath = join(uploadDir, filename);
           await fsPromises.writeFile(filePath, buffer);
           // Build a public URL (assuming Next.js static serving from /public)
           const publicUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/uploads/${filename}`;
