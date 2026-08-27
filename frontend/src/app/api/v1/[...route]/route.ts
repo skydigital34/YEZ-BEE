@@ -250,7 +250,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
   const { route } = await params;
-  const routePath = Array.isArray(route) ? route.join('/') : String(route);
+  const routePath = Array.isArray(route) ? (route as string[]).join('/') : String(route);
   const db = getDb();
 
   try {
