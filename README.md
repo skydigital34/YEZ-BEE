@@ -2,7 +2,7 @@
 
 > **Premium Luxury Women's Clothing Ecommerce Platform**
 
-A production-ready, full-stack luxury ecommerce application built with Next.js 14, TypeScript, Tailwind CSS, MongoDB, and Express. Designed to emotionally impress users within 5 seconds and maximize trust, engagement, and conversions.
+A production-ready, full-stack luxury ecommerce application built with Next.js, TypeScript, Tailwind CSS, Firebase Firestore, MongoDB, and Express. Designed to emotionally impress users within 5 seconds and maximize trust, engagement, and conversions.
 
 ---
 
