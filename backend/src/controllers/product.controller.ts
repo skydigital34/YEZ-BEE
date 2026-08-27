@@ -281,7 +281,7 @@ export const createProduct = async (
         categoryId = categoryDoc._id;
         resolvedCategoryName = categoryDoc.name || categoryDoc.slug;
       } else {
-        const anyCat = await Category.findOne();
+        const anyCat = await Category.findOne({});
         if (anyCat) {
           categoryId = anyCat._id;
           resolvedCategoryName = anyCat.name || anyCat.slug;
@@ -597,7 +597,7 @@ export const deleteProduct = async (
         });
       }
 
-      await Product.findByIdAndDelete(product._id);
+      await Product.findByIdAndDelete((product._id ?? product.id) as string);
 
       await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug)).catch(() => {});
       await delFromCache(CACHE_KEYS.PRODUCTS_ALL).catch(() => {});
@@ -821,7 +821,7 @@ export const addReview = async (
       distribution,
     };
     const reviewCount = allReviews.length;
-    await Product.findByIdAndUpdate(product._id || product.id, { ratings, reviewCount });
+    await Product.findByIdAndUpdate((product._id ?? product.id) as string, { ratings, reviewCount });
 
     await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
 
@@ -1011,7 +1011,7 @@ export const updateProductStock = async (
       });
     }
 
-    await Product.findByIdAndUpdate(product._id || product.id, { variants: product.variants });
+    await Product.findByIdAndUpdate((product._id ?? product.id) as string, { variants: product.variants });
     await delFromCache(CACHE_KEYS.PRODUCT_BY_SLUG(product.slug));
     await delFromCache(CACHE_KEYS.PRODUCTS_ALL);
 
@@ -1043,7 +1043,7 @@ export const updateProductStatus = async (
 
     const product = await Product.findByIdAndUpdate(
       id,
-      { status: uppercaseStatus, isActive: uppercaseStatus === 'PUBLISHED' }
+      { status: uppercaseStatus as any, isActive: uppercaseStatus === 'PUBLISHED' }
     );
 
     if (!product) {

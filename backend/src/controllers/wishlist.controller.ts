@@ -17,7 +17,7 @@ export const getWishlist = async (
     }
     // Manually populate wishlist with product details
     const wishlistProductIds = user.wishlist || [];
-    const wishlistProducts = await Promise.all(
+    const wishlistProducts = (await Promise.all(
       wishlistProductIds.map(async (pid) => {
         const prod = await Product.findById(pid as any);
         if (!prod || !prod.isActive) return null;
@@ -35,7 +35,7 @@ export const getWishlist = async (
           isActive: prod.isActive,
         };
       })
-    ).filter(Boolean);
+    )).filter(Boolean);
     const populatedUser = { ...user, wishlist: wishlistProducts };
 
     if (!user) {

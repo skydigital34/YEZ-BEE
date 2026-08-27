@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { comparePassword, generateAuthToken, generateRefreshToken } from '../utils/auth';
+import { generateAuthToken, generateRefreshToken } from '../utils/auth';
 
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -41,7 +41,7 @@ export const register = async (
     const token = generateAuthToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    await User.findByIdAndUpdate(user.id, { refreshToken });
+    await User.findByIdAndUpdate(user.id!, { refreshToken });
 
     try {
       await sendEmail({
@@ -84,7 +84,7 @@ export const login = async (
       throw new AppError('This account has been deactivated. Please contact support.', 403);
     }
 
-    const isPasswordValid = await comparePassword(user.password, password);
+    const isPasswordValid = await User.comparePassword(user.password ?? '', password);
     if (!isPasswordValid) {
       throw new AppError('Invalid email or password', 401);
     }
@@ -92,7 +92,7 @@ export const login = async (
     const token = generateAuthToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    await User.findByIdAndUpdate(user.id, { refreshToken, lastLoginAt: new Date() });
+    await User.findByIdAndUpdate(user.id!, { refreshToken, lastLoginAt: new Date() });
 
     res.status(200).json({
       success: true,
@@ -116,7 +116,7 @@ export const logout = async (
   try {
     const userId = req.user?.id;
     if (userId) {
-      await User.findByIdAndUpdate(userId, { refreshToken: null });
+      await User.findByIdAndUpdate(userId, { refreshToken: undefined });
       await delFromCache(`user:${userId}`);
     }
 
@@ -147,7 +147,7 @@ export const forgotPassword = async (
     }
 
     const { resetToken, hashedToken, expires } = User.generatePasswordResetToken();
-    await User.findByIdAndUpdate(user.id, {
+    await User.findByIdAndUpdate(user.id!, {
       resetPasswordToken: hashedToken,
       resetPasswordExpires: expires,
     });
@@ -161,9 +161,9 @@ export const forgotPassword = async (
         html: getPasswordResetEmailHtml(resetUrl),
       });
     } catch (emailError) {
-      await User.findByIdAndUpdate(user.id, {
-      resetPasswordToken: null,
-      resetPasswordExpires: null,
+      await User.findByIdAndUpdate(user.id!, {
+      resetPasswordToken: undefined,
+      resetPasswordExpires: undefined,
     });
     throw new AppError('Failed to send password reset email. Please try again.', 500);
     }
@@ -197,11 +197,11 @@ export const resetPassword = async (
       throw new AppError('Invalid or expired reset token', 400);
     }
 
-    await User.findByIdAndUpdate(user.id, {
+    await User.findByIdAndUpdate(user.id!, {
       password,
-      resetPasswordToken: null,
-      resetPasswordExpires: null,
-      refreshToken: null,
+      resetPasswordToken: undefined,
+      resetPasswordExpires: undefined,
+      refreshToken: undefined,
     });
 
     res.status(200).json({
@@ -232,11 +232,9 @@ export const verifyEmail = async (
       throw new AppError('Invalid or expired verification token', 400);
     }
 
-    await User.findByIdAndUpdate(user.id, {
-      isVerified: true,
-      emailVerificationToken: null,
-      emailVerificationExpires: null,
-    });
+    await User.findByIdAndUpdate(user.id!, {
+        isVerified: true
+      });
 
     res.status(200).json({
       success: true,
@@ -272,7 +270,7 @@ export const refreshToken = async (
     const newToken = User.generateAuthToken(user);
     const newRefreshToken = User.generateRefreshToken(user);
 
-    await User.findByIdAndUpdate(user.id, { refreshToken: newRefreshToken });
+    await User.findByIdAndUpdate(user.id!, { refreshToken: newRefreshToken });
 
     res.status(200).json({
       success: true,

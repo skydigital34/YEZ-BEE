@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 import { promises as fsPromises } from 'fs';
-import { join } from 'path';
-
+import { join as pathJoin } from 'path';
 if (!admin.apps.length) {
   try {
     const projectId = (process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'yezbee-5944b').replace(/^"|"$/g, '').trim();
@@ -251,7 +250,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ route: string[] }> }) {
   const { route } = await params;
-  const routePath = (route || []).join('/');
+  const routePath = Array.isArray(route) ? route.join('/') : String(route);
   const db = getDb();
 
   try {
@@ -270,7 +269,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
 
         // Ensure upload directory exists
-        const uploadDir = join(process.cwd(), 'public', 'uploads');
+        const uploadDir = pathJoin(process.cwd(), 'public', 'uploads');
         await fsPromises.mkdir(uploadDir, { recursive: true });
 
         const uploadedInfos = [];
@@ -281,7 +280,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           const timestamp = Date.now();
           const safeName = file.name.replace(/[^a-zA-Z0-9.\-_/]/g, '_');
           const filename = `${timestamp}-${safeName}`;
-          const filePath = join(uploadDir, filename);
+          const filePath = pathJoin(uploadDir, filename);
           await fsPromises.writeFile(filePath, buffer);
           // Build a public URL (assuming Next.js static serving from /public)
           const publicUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/uploads/${filename}`;

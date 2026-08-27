@@ -84,7 +84,7 @@ export const changePassword = async (
       throw new AppError('User not found', 404);
     }
 
-    const isMatch = await User.comparePassword(currentPassword, user.password);
+    const isMatch = await User.comparePassword(currentPassword, user.password as string);
     if (!isMatch) {
       throw new AppError('Current password is incorrect', 401);
     }

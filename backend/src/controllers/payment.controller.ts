@@ -9,7 +9,7 @@ import {
   refundPayment,
   fetchPaymentById,
 } from '../config/razorpay';
-import { PAYMENT_STATUS } from '../utils/constants';
+import { PAYMENT_STATUS, PAYMENT_METHODS } from '../utils/constants';
 
 export const createOrder = async (
   req: Request,
@@ -75,7 +75,7 @@ export const verifyPayment = async (
     if (!isValid) {
       if (orderId) {
         await Order.findByIdAndUpdate(orderId, {
-          'paymentInfo.status': PAYMENT_STATUS.FAILED,
+          paymentInfo: { method: PAYMENT_METHODS.COD, status: PAYMENT_STATUS.FAILED },
         });
       }
 
@@ -84,10 +84,13 @@ export const verifyPayment = async (
 
     if (orderId) {
       await Order.findByIdAndUpdate(orderId, {
-        'paymentInfo.status': PAYMENT_STATUS.PAID,
-        'paymentInfo.razorpayOrderId': razorpayOrderId,
-        'paymentInfo.razorpayPaymentId': razorpayPaymentId,
-        'paymentInfo.razorpaySignature': razorpaySignature,
+        paymentInfo: {
+          method: PAYMENT_METHODS.COD,
+          status: PAYMENT_STATUS.PAID,
+          razorpayOrderId,
+          razorpayPaymentId,
+          razorpaySignature,
+        },
       });
     }
 
